@@ -1171,7 +1171,7 @@ class TextCommandEditor(tk.Toplevel):
                     elif event_name == "up" and key_name in pressed_keys:
                         # 計算持續時間
                         press_time = pressed_keys[key_name]
-                        duration = int((time_offset - press_time) * 1000)  # 轉為毫秒
+                        duration = round((time_offset - press_time) * 1000)  # 🔥 使用 round 四捨五入
                         
                         # 格式化按下時間
                         press_time_str = self._format_time(press_time)
@@ -1200,7 +1200,7 @@ class TextCommandEditor(tk.Toplevel):
                             next_event.get("y") == y):
                             # 這是一個完整的點擊動作，轉為點擊指令
                             next_time = next_event.get("time", 0)
-                            duration_ms = int((next_time - event.get("time", 0)) * 1000)
+                            duration_ms = round((next_time - event.get("time", 0)) * 1000)  # 🔥 使用 round 四捨五入
                             button_name = "左鍵" if button == "left" else "右鍵" if button == "right" else "中鍵"
                             lines.append(f">{button_name}點擊({x},{y}), 延遲{duration_ms}ms, T={time_str}\n")
                             # 標記下一個事件已處理（跳過）
@@ -1219,6 +1219,15 @@ class TextCommandEditor(tk.Toplevel):
                             # 獨立的放開動作
                             button = event.get("button", "left")
                             lines.append(f">放開{button}鍵({x},{y}), 延遲0ms, T={time_str}\n")
+                    
+                    elif event_name == "wheel":
+                        # 滾輪事件
+                        delta = event.get("delta", 1)
+                        lines.append(f">滾輪({delta}), 延遲0ms, T={time_str}\n")
+                
+                # 範圍結束
+                elif event_type == "region_end":
+                    lines.append(f">範圍結束, T={time_str}\n")
                 
                 # 圖片辨識指令
                 elif event_type == "recognize_image":
@@ -1226,12 +1235,17 @@ class TextCommandEditor(tk.Toplevel):
                     show_border = event.get("show_border", False)
                     region = event.get("region", None)
                     
-                    # 建構指令
-                    cmd = f">辨識>{pic_name}"
+                    # 建立選項列表
+                    options = []
                     if show_border:
-                        cmd += ", 邊框"
+                        options.append("邊框")
                     if region:
-                        cmd += f", 範圍({region[0]},{region[1]},{region[2]},{region[3]})"
+                        options.append(f"範圍({region[0]},{region[1]},{region[2]},{region[3]})")
+                    
+                    # 組合指令
+                    cmd = f">辨識>{pic_name}"
+                    if options:
+                        cmd += ", " + ", ".join(options)
                     cmd += f", T={time_str}\n"
                     lines.append(cmd)
                 
@@ -1240,11 +1254,17 @@ class TextCommandEditor(tk.Toplevel):
                     show_border = event.get("show_border", False)
                     region = event.get("region", None)
                     
-                    cmd = f">移動至>{pic_name}"
+                    # 建立選項列表
+                    options = []
                     if show_border:
-                        cmd += ", 邊框"
+                        options.append("邊框")
                     if region:
-                        cmd += f", 範圍({region[0]},{region[1]},{region[2]},{region[3]})"
+                        options.append(f"範圍({region[0]},{region[1]},{region[2]},{region[3]})")
+                    
+                    # 組合指令
+                    cmd = f">移動至>{pic_name}"
+                    if options:
+                        cmd += ", " + ", ".join(options)
                     cmd += f", T={time_str}\n"
                     lines.append(cmd)
                 
@@ -1280,12 +1300,28 @@ class TextCommandEditor(tk.Toplevel):
                     button_name = "左鍵" if button == "left" else "右鍵"
                     show_border = event.get("show_border", False)
                     region = event.get("region", None)
+                    click_radius = event.get("click_radius", 0)
+                    click_offset_mode = event.get("click_offset_mode", "center")
                     
-                    cmd = f">{button_name}點擊>{pic_name}"
+                    # 建立選項列表
+                    options = []
+                    if event.get("return_to_origin", False):
+                        options.append("返回")
                     if show_border:
-                        cmd += ", 邊框"
+                        options.append("邊框")
                     if region:
-                        cmd += f", 範圍({region[0]},{region[1]},{region[2]},{region[3]})"
+                        options.append(f"範圍({region[0]},{region[1]},{region[2]},{region[3]})")
+                    if click_radius > 0:
+                        options.append(f"半徑({click_radius})")
+                        if click_offset_mode == 'random':
+                            options.append("隨機")
+                        elif click_offset_mode == 'tracking':
+                            options.append("追蹤")
+                    
+                    # 組合指令
+                    cmd = f">{button_name}點擊>{pic_name}"
+                    if options:
+                        cmd += ", " + ", ".join(options)
                     cmd += f", T={time_str}\n"
                     lines.append(cmd)
                 
@@ -1512,7 +1548,7 @@ class TextCommandEditor(tk.Toplevel):
     
     def _format_time(self, seconds: float) -> str:
         """格式化時間為易讀格式"""
-        total_ms = int(seconds * 1000)
+        total_ms = round(seconds * 1000)  # 🔥 使用 round 四捨五入避免浮點數精度問題
         s = total_ms // 1000
         ms = total_ms % 1000
         
@@ -1797,7 +1833,7 @@ class TextCommandEditor(tk.Toplevel):
                             })
                         
                         elif "按下" in action:
-                            # 單純按下按鍵
+                            # 按下按鍵（如果有延遲，自動加上放開）
                             key = action.replace("按下", "").strip()
                             events.append({
                                 "type": "keyboard",
@@ -1806,6 +1842,15 @@ class TextCommandEditor(tk.Toplevel):
                                 "time": abs_time,
                                 "_line_number": line_number
                             })
+                            # 🔥 如果有延遲，自動加上放開事件
+                            if delay_s > 0:
+                                events.append({
+                                    "type": "keyboard",
+                                    "event": "up",
+                                    "name": key,
+                                    "time": abs_time + delay_s,
+                                    "_line_number": line_number
+                                })
                         
                         elif "放開" in action:
                             # 單純放開按鍵
@@ -1887,8 +1932,8 @@ class TextCommandEditor(tk.Toplevel):
                 pic_name = pic_name.replace('邊框', '').strip()
             if region_match:
                 pic_name = pic_name.replace(region_match.group(0), '').strip()
-            # 移除多餘的逗號和空白
-            pic_name = pic_name.rstrip(',').strip()
+            # 🔥 強力清理：移除所有逗點和多餘空白
+            pic_name = re.sub(r'[,\s]+', '', pic_name).strip()
             
             # 查找對應的圖片檔案
             image_file = self._find_pic_image_file(pic_name)
@@ -1970,7 +2015,9 @@ class TextCommandEditor(tk.Toplevel):
                 result["show_border"] = True
             if region:
                 result["region"] = region
-            return result        # 點擊圖片指令（>左鍵點擊>pic01, 邊框, 範圍(x1,y1,x2,y2), T=1s200）
+            return result
+        
+        # 點擊圖片指令（>左鍵點擊>pic01, 邊框, 範圍(x1,y1,x2,y2), 半徑(60), 隨機, T=1s200）
         click_pattern = r'>(左鍵|右鍵)點擊>(.+?)(?:,\s*T=(\d+)s(\d+))'
         match = re.match(click_pattern, command_line)
         if match:
@@ -1992,13 +2039,36 @@ class TextCommandEditor(tk.Toplevel):
                     int(region_match.group(4))
                 )
             
+            # 🔥 新增：解析點擊半徑和模式
+            click_radius = 0
+            click_offset_mode = 'center'
+            radius_match = re.search(r'半徑\((\d+)\)', content)
+            if radius_match:
+                click_radius = int(radius_match.group(1))
+            if '隨機' in content:
+                click_offset_mode = 'random'
+            elif '追蹤' in content:
+                click_offset_mode = 'tracking'
+            
+            # 🔥 新增：解析返回原位選項
+            return_to_origin = '返回' in content
+            
             # 移除選項後取得圖片名稱
             pic_name = content
             if '邊框' in pic_name:
                 pic_name = pic_name.replace('邊框', '').strip()
             if region_match:
                 pic_name = pic_name.replace(region_match.group(0), '').strip()
-            pic_name = pic_name.rstrip(',').strip()
+            if radius_match:
+                pic_name = pic_name.replace(radius_match.group(0), '').strip()
+            if '隨機' in pic_name:
+                pic_name = pic_name.replace('隨機', '').strip()
+            if '追蹤' in pic_name:
+                pic_name = pic_name.replace('追蹤', '').strip()
+            if '返回' in pic_name:
+                pic_name = pic_name.replace('返回', '').strip()
+            # 🔥 強力清理：移除所有逗點和多餘空白
+            pic_name = re.sub(r'[,\s]+', '', pic_name).strip()
             
             # 查找對應的圖片檔案
             image_file = self._find_pic_image_file(pic_name)
@@ -2009,13 +2079,17 @@ class TextCommandEditor(tk.Toplevel):
                 "image": pic_name,
                 "image_file": image_file,
                 "confidence": 0.7,
-                "return_to_origin": True,
+                "return_to_origin": return_to_origin,  # 🔥 使用解析的值
                 "time": abs_time
             }
             if show_border:
                 result["show_border"] = True
             if region:
                 result["region"] = region
+            # 🔥 新增：點擊半徑和模式
+            if click_radius > 0:
+                result["click_radius"] = click_radius
+                result["click_offset_mode"] = click_offset_mode
             return result        # 新格式條件判斷：>if>pic01, 邊框, 範圍(x1,y1,x2,y2), T=0s100
         if_simple_pattern = r'>if>(.+?)(?:,\s*T=(\d+)s(\d+))'
         match = re.match(if_simple_pattern, command_line)

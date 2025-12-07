@@ -1670,17 +1670,11 @@ class RecorderApp(tb.Window):
         self.paused = False
         self.log(f"[{format_time(time.time())}] 開始錄製...")
         
-        # ✅ 2.5 風格：不需要重置 keyboard 狀態（因為 add_hotkey 不受 record 影響）
-        # 啟動 core_recorder (如果存在)
+        # ✅ 修正：直接調用 core_recorder.start_record() 以確保完整初始化
         if hasattr(self, 'core_recorder'):
-            # 跳過 _reset_keyboard_state，直接開始錄製
-            self.core_recorder.recording = True
-            self.core_recorder.paused = False
-            self.core_recorder.events = []
-            self._record_start_time = time.time()
-            self.core_recorder._record_start_time = self._record_start_time
-            self.core_recorder._record_thread = threading.Thread(target=self.core_recorder._record_loop, daemon=True)
-            self.core_recorder._record_thread.start()
+            self._record_start_time = self.core_recorder.start_record()
+            if self._record_start_time is None:
+                self._record_start_time = time.time()
             self._record_thread_handle = self.core_recorder._record_thread
         else:
             # 向後相容: 使用舊的 threading 方式
@@ -4479,5 +4473,36 @@ def format_time(ts):
     return datetime.datetime.fromtimestamp(ts).strftime("%H:%M:%S")
 
 if __name__ == "__main__":
+    # 方案3: 延遲更新機制 - 在程式啟動時檢查並應用待處理的更新
+    try:
+        from update_manager_v2_deferred import PendingUpdateManager
+        
+        # 檢查是否有待處理的更新
+        update_mgr = PendingUpdateManager()
+        if update_mgr.has_pending_update():
+            print("=" * 60)
+            print("偵測到待處理的更新,正在應用...")
+            print("=" * 60)
+            
+            # 應用更新 (此時程式剛啟動,沒有檔案鎖)
+            success = update_mgr.apply_pending_update()
+            
+            if success:
+                print("✓ 更新已成功完成!")
+                print("  程式將繼續啟動...")
+            else:
+                print("✗ 更新失敗,程式將以當前版本啟動")
+                print("  您可以稍後重試更新")
+            
+            print("=" * 60)
+            time.sleep(2)  # 讓用戶看到更新訊息
+    except ImportError:
+        # 如果沒有 update_manager_v2_deferred 模組,跳過更新檢查
+        pass
+    except Exception as e:
+        print(f"更新檢查發生錯誤: {e}")
+        print("程式將繼續啟動...")
+    
+    # 正常啟動主程式
     app = RecorderApp()
     app.mainloop()

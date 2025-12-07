@@ -13,6 +13,14 @@ import cv2
 import numpy as np
 from PIL import ImageGrab
 
+# 🔥 優化：引入更快的螢幕截圖庫
+try:
+    import mss
+    MSS_AVAILABLE = True
+except ImportError:
+    MSS_AVAILABLE = False
+    print("[警告] mss 庫未安裝，將使用較慢的 PIL.ImageGrab。建議執行: pip install mss")
+
 # ✅ 重構：匯入新模組
 try:
     from bezier_mouse import BezierMouseMover
@@ -60,6 +68,18 @@ class CoreRecorder:
         self._images_dir = None  # 圖片目錄路徑
         self._border_window = None  # 邊框視窗
         self._current_region = None  # 當前辨識範圍（全域狀態，由 >範圍結束 清除）
+        
+        # 🔥 新增：圖片追蹤系統（用於追移動目標）
+        self._last_found_positions = {}  # {image_name: (x, y, timestamp)}
+        self._motion_history = {}  # {image_name: [(x, y, t), ...]}
+        self._tracking_mode = {}  # {image_name: True/False} 是否啟用追蹤
+        self._max_motion_history = 5  # 最多保留多少幀位置記錄
+        
+        # 🔥 優化：檢查 mss 是否可用
+        if MSS_AVAILABLE:
+            self._log("[優化] 已啟用 mss 快速截圖引擎", "info")
+        else:
+            self._log("[優化] mss 不可用，將使用 PIL", "info")
         
         # ✅ 貝茲曲線滑鼠移動器
         self._bezier_mover = BezierMouseMover() if BEZIER_AVAILABLE else None
@@ -737,23 +757,34 @@ class CoreRecorder:
             # 考慮暫停時間的目標時間
             target_time = play_start + event_offset + total_pause_time
 
-            # 等待到目標時間（強化版 - 確保時間計算不受干擾）
-            while time.time() < target_time:
-                if not self.playing:
-                    break
-                if self.paused:
-                    # 進入暫停狀態
-                    if not last_pause_state:
-                        pause_start_time = time.time()
-                        last_pause_state = True
-                        self.logger("[暫停] 回放已暫停")
-                    break
-                # 使用極短的睡眠時間以保持時間計算精確
-                sleep_time = min(0.001, target_time - time.time())
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
-                else:
-                    break  # 避免 busy-wait
+            # 🔥 優化：檢查是否為圖片快速執行事件（跳過時間等待）
+            is_fast_image_event = event.get('type') in [
+                'recognize_image', 'move_to_image', 'click_image', 
+                'if_image_exists', 'if_image_exists_move', 'if_image_exists_click'
+            ] and event.get('time', 0) == 0  # T=0s000 的事件
+            
+            # 圖片快速事件只等待極短時間（0.001秒），否則按照時間戳等待
+            if is_fast_image_event:
+                # 極速模式：只等待1ms讓出CPU
+                time.sleep(0.001)
+            else:
+                # 等待到目標時間（強化版 - 確保時間計算不受干擾）
+                while time.time() < target_time:
+                    if not self.playing:
+                        break
+                    if self.paused:
+                        # 進入暫停狀態
+                        if not last_pause_state:
+                            pause_start_time = time.time()
+                            last_pause_state = True
+                            self.logger("[暫停] 回放已暫停")
+                        break
+                    # 使用極短的睡眠時間以保持時間計算精確
+                    sleep_time = min(0.001, target_time - time.time())
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
+                    else:
+                        break  # 避免 busy-wait
 
             # 如果進入暫停，跳過事件執行
             if self.paused:
@@ -1314,7 +1345,7 @@ class CoreRecorder:
                 elif event['event'] in ('down', 'up'):
                     # 點擊事件：先移動到正確位置
                     ctypes.windll.user32.SetCursorPos(x, y)
-                    time.sleep(0.001)  # 1ms 短暫延遲確保座標更新
+                    # 🔥 優化：移除延遲，SetCursorPos 是同步的無需等待
                     
                     button = event.get('button', 'left')
                     self._mouse_event_enhanced(event['event'], button=button)
@@ -1339,7 +1370,7 @@ class CoreRecorder:
             # 辨識圖片（只是辨識，不做動作）
             try:
                 image_name = event.get('image', '')
-                confidence = event.get('confidence', 0.7)  # 降低預設閖值加快速度
+                confidence = event.get('confidence', 0.65)  # 🔥 優化：降低預設閾值加快速度
                 show_border = event.get('show_border', False)  # 是否顯示邊框
                 region = event.get('region', None)  # 辨識範圍
                 
@@ -1372,7 +1403,7 @@ class CoreRecorder:
             # 移動到圖片位置
             try:
                 image_name = event.get('image', '')
-                confidence = event.get('confidence', 0.7)  # 降低預設閖值加快速度
+                confidence = event.get('confidence', 0.65)  # 🔥 優化：降低預設閾值加快速度
                 show_border = event.get('show_border', False)
                 region = event.get('region', None)
                 
@@ -1404,14 +1435,24 @@ class CoreRecorder:
                 self.logger(f"移動至圖片執行失敗: {e}")
         
         elif event['type'] == 'click_image':
-            # 點擊圖片位置（✅ 新增：點擊後返回原位）
+            # 點擊圖片位置（✅ 新增：可選擇返回原位 + 🔥 彈性點擊範圍）
             try:
                 image_name = event.get('image', '')
-                confidence = event.get('confidence', 0.7)  # 降低預設閖值加快速度
+                confidence = event.get('confidence', 0.65)  # 🔥 優化：降低預設閾值加快速度
                 button = event.get('button', 'left')
-                return_to_origin = event.get('return_to_origin', True)  # 預設返回原位
+                return_to_origin = event.get('return_to_origin', False)  # 預設不返回原位
                 show_border = event.get('show_border', False)
                 region = event.get('region', None)
+                
+                # 🔥 新增：彈性點擊範圍參數
+                click_offset_mode = event.get('click_offset_mode', 'center')  # 🔥 預設中心模式（極速點擊）
+                click_radius = event.get('click_radius', 0)  # 點擊半徑（0=使用預設45%範圍）
+                
+                # 🔥 如果未指定點擊半徑，計算圖片大小的45%作為預設範圍
+                auto_radius = 0
+                if click_radius == 0:
+                    # 稍後在找到圖片後計算（需要圖片尺寸）
+                    auto_radius = None  # 標記需要自動計算
                 
                 # 如果事件指定了範圍，更新全域範圍狀態
                 if region is not None:
@@ -1435,24 +1476,71 @@ class CoreRecorder:
                     region=region
                 )
                 
+                # ✅ 強化：必須找到圖片才執行點擊
+                if pos is None:
+                    self.logger(f"[點擊圖片] ❌ 未找到圖片 '{image_name}'，跳過點擊")
+                    return  # 直接返回，不執行任何點擊動作
+                
                 if pos:
                     x, y = pos
-                    # 先移動到位置
+                    
+                    # 🔥 自動計算點擊半徑（圖片尺寸的80%）
+                    if click_radius == 0 and auto_radius is None:
+                        # 重新載入圖片取得尺寸（已有快取，速度很快）
+                        template_gray, _ = self._load_image(image_name)
+                        if template_gray is not None:
+                            h, w = template_gray.shape
+                            # 🔥 計算圖片尺寸的45%作為半徑（例如128x128→半徑28.8px）
+                            import math
+                            # 使用較短邊的45%作為半徑，更精準的點擊範圍
+                            click_radius = int(min(w, h) * 0.45 / 2)  # 45%範圍 = 短邊的22.5%半徑
+                            self.logger(f"[彈性點擊] 自動計算半徑: {click_radius}px (圖片尺寸{w}x{h}，45%範圍)")
+                    
+                    # 🔥 彈性點擊：根據模式計算偏移
+                    if click_radius > 0:
+                        if click_offset_mode == 'random':
+                            # 隨機偏移：在半徑範圍內隨機點擊
+                            import random
+                            import math
+                            angle = random.uniform(0, 2 * math.pi)
+                            distance = random.uniform(0, click_radius)
+                            offset_x = int(distance * math.cos(angle))
+                            offset_y = int(distance * math.sin(angle))
+                            x += offset_x
+                            y += offset_y
+                            self.logger(f"[彈性點擊] 隨機偏移 ({offset_x}, {offset_y})")
+                        
+                        elif click_offset_mode == 'tracking':
+                            # 追蹤預測偏移：根據移動方向預測點擊位置
+                            if image_name in self._motion_history and len(self._motion_history[image_name]) >= 2:
+                                history = self._motion_history[image_name]
+                                x2, y2, t2 = history[-1]
+                                x1, y1, t1 = history[-2]
+                                # 計算移動向量
+                                vx = x2 - x1
+                                vy = y2 - y1
+                                # 預測下一個位置（限制在半徑範圍內）
+                                import math
+                                speed = math.sqrt(vx**2 + vy**2)
+                                if speed > 0:
+                                    scale = min(1.0, click_radius / speed)
+                                    offset_x = int(vx * scale)
+                                    offset_y = int(vy * scale)
+                                    x += offset_x
+                                    y += offset_y
+                                    self.logger(f"[彈性點擊] 追蹤預測偏移 ({offset_x}, {offset_y})")
+                        # center 模式不偏移，直接使用中心點
+                    
+                    # 🔥 極速優化：移除所有延遲，直接執行
                     ctypes.windll.user32.SetCursorPos(x, y)
-                    time.sleep(0.005)  # 減少延遲到 5ms
-                    # 執行點擊
                     self._mouse_event_enhanced('down', button=button)
-                    time.sleep(0.05)
                     self._mouse_event_enhanced('up', button=button)
                     self.logger(f"[點擊圖片] ✅ 已點擊 {button} 於 ({x}, {y})")
                     
                     # ✅ 返回原位
                     if return_to_origin:
-                        time.sleep(0.01)
                         ctypes.windll.user32.SetCursorPos(original_pos[0], original_pos[1])
                         self.logger(f"[點擊圖片] ✅ 已返回原位 ({original_pos[0]}, {original_pos[1]})")
-                else:
-                    self.logger(f"[點擊圖片] ❌ 未找到圖片，無法點擊")
             except Exception as e:
                 self.logger(f"點擊圖片執行失敗: {e}")
         
@@ -1460,7 +1548,7 @@ class CoreRecorder:
         elif event['type'] == 'if_image_exists':
             try:
                 image_name = event.get('image', '')
-                confidence = event.get('confidence', 0.75)
+                confidence = event.get('confidence', 0.65)  # 🔥 優化：降低預設閾值
                 on_success = event.get('on_success')  # {'action': 'continue'/'stop'/'jump', 'target': 'label_name', 'repeat_count': N}
                 on_failure = event.get('on_failure')
                 show_border = event.get('show_border', False)
@@ -2037,16 +2125,8 @@ class CoreRecorder:
         """重置動作計時"""
         if action_id in self._action_start_time:
             del self._action_start_time[action_id]
-                self.logger(f"[分支] 跳轉至標籤: {target}, 重複{repeat_count}次")
-                return ('jump', target, repeat_count)
-            
-            else:  # continue
-                self.logger("[分支] 繼續執行")
-                return None
-                
-        except Exception as e:
-            self.logger(f"分支動作處理失敗: {e}")
-            return None
+    
+    # ==================== 滑鼠事件處理 ====================
 
     def _mouse_event_enhanced(self, event, button='left', delta=0):
         """增強版滑鼠事件執行（更精確穩定）"""
@@ -2227,76 +2307,261 @@ class CoreRecorder:
         except Exception as e:
             self._log(f"[邊框] 顯示失敗: {e}", "warning")
     
-    def find_image_on_screen(self, image_name_or_path, threshold=0.92, region=None, multi_scale=True, fast_mode=False, use_features_fallback=True, show_border=False):
-        """在螢幕上尋找圖片（🔥 終極強化版：透明遮罩、多算法融合、SSIM驗證、特徵點匹配）
+    def _capture_screen_fast(self, region=None):
+        """🔥 優化：快速螢幕截圖（優先使用mss，回退到PIL）
+        
+        Args:
+            region: (x1, y1, x2, y2) 或 None（全螢幕）
+            
+        Returns:
+            numpy.ndarray: BGR格式的灰度圖
+        """
+        try:
+            if MSS_AVAILABLE:
+                # 🔥 每次創建新的 mss 實例（避免多執行緒問題）
+                with mss.mss() as sct:
+                    # 使用 mss 快速截圖（速度提升 3-5倍）
+                    if region:
+                        monitor = {"left": region[0], "top": region[1], 
+                                  "width": region[2] - region[0], 
+                                  "height": region[3] - region[1]}
+                    else:
+                        monitor = sct.monitors[1]  # 主螢幕
+                    
+                    screenshot = sct.grab(monitor)
+                    # 轉換為 numpy array 並轉灰度
+                    img = np.array(screenshot)
+                    # mss 輸出 BGRA，轉換為灰度
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGRA2GRAY)
+                    return gray
+            else:
+                # 回退到 PIL.ImageGrab
+                if region:
+                    screenshot = ImageGrab.grab(bbox=region)
+                else:
+                    screenshot = ImageGrab.grab()
+                
+                screen_array = np.array(screenshot)
+                gray = cv2.cvtColor(screen_array, cv2.COLOR_RGB2GRAY)
+                return gray
+                
+        except Exception as e:
+            self._log(f"[截圖] 快速截圖失敗: {e}", "warning")
+            # 最終回退到 PIL
+            if region:
+                screenshot = ImageGrab.grab(bbox=region)
+            else:
+                screenshot = ImageGrab.grab()
+            screen_array = np.array(screenshot)
+            return cv2.cvtColor(screen_array, cv2.COLOR_RGB2GRAY)
+    
+    def _predict_search_region(self, image_name, full_screen_size):
+        """🔥 預測式搜尋：根據歷史位置預測下一次搜尋範圍
+        
+        Args:
+            image_name: 圖片名稱
+            full_screen_size: 全螢幕尺寸 (width, height)
+            
+        Returns:
+            預測的搜尋範圍 (x1, y1, x2, y2) 或 None（使用全螢幕）
+        """
+        import time
+        
+        if image_name not in self._last_found_positions:
+            return None  # 第一次搜尋，使用全螢幕
+        
+        last_x, last_y, last_time = self._last_found_positions[image_name]
+        current_time = time.time()
+        time_diff = current_time - last_time
+        
+        # 如果距離上次發現超過3秒，視為目標可能已移動很遠，使用全螢幕
+        if time_diff > 3.0:
+            return None
+        
+        # 計算運動向量（如果有歷史記錄）
+        velocity_x, velocity_y = 0, 0
+        if image_name in self._motion_history and len(self._motion_history[image_name]) >= 2:
+            history = self._motion_history[image_name]
+            # 使用最近兩個位置計算速度
+            x2, y2, t2 = history[-1]
+            x1, y1, t1 = history[-2]
+            dt = t2 - t1
+            if dt > 0:
+                velocity_x = (x2 - x1) / dt
+                velocity_y = (y2 - y1) / dt
+        
+        # 預測當前位置
+        predicted_x = last_x + velocity_x * time_diff
+        predicted_y = last_y + velocity_y * time_diff
+        
+        # 設定搜尋範圍（預測位置±150像素）
+        # 移動越快，範圍越大
+        speed = (velocity_x**2 + velocity_y**2)**0.5
+        search_radius = min(300, 150 + int(speed * time_diff))
+        
+        x1 = max(0, int(predicted_x - search_radius))
+        y1 = max(0, int(predicted_y - search_radius))
+        x2 = min(full_screen_size[0], int(predicted_x + search_radius))
+        y2 = min(full_screen_size[1], int(predicted_y + search_radius))
+        
+        # 確保搜尋範圍至少300x300
+        if x2 - x1 < 300 or y2 - y1 < 300:
+            return None
+        
+        return (x1, y1, x2, y2)
+    
+    def _update_motion_history(self, image_name, x, y):
+        """更新運動歷史記錄
+        
+        Args:
+            image_name: 圖片名稱
+            x, y: 發現的位置
+        """
+        import time
+        current_time = time.time()
+        
+        # 更新最後發現位置
+        self._last_found_positions[image_name] = (x, y, current_time)
+        
+        # 更新運動歷史
+        if image_name not in self._motion_history:
+            self._motion_history[image_name] = []
+        
+        self._motion_history[image_name].append((x, y, current_time))
+        
+        # 限制歷史記錄數量
+        if len(self._motion_history[image_name]) > self._max_motion_history:
+            self._motion_history[image_name].pop(0)
+    
+    def enable_tracking(self, image_name):
+        """啟用圖片追蹤模式
+        
+        Args:
+            image_name: 要追蹤的圖片名稱
+        """
+        self._tracking_mode[image_name] = True
+        self.logger(f"[追蹤] 已啟用 {image_name} 的追蹤模式")
+    
+    def disable_tracking(self, image_name):
+        """停用圖片追蹤模式
+        
+        Args:
+            image_name: 要停止追蹤的圖片名稱
+        """
+        self._tracking_mode[image_name] = False
+        if image_name in self._last_found_positions:
+            del self._last_found_positions[image_name]
+        if image_name in self._motion_history:
+            del self._motion_history[image_name]
+        self.logger(f"[追蹤] 已停用 {image_name} 的追蹤模式")
+    
+    def find_image_on_screen(self, image_name_or_path, threshold=0.75, region=None, multi_scale=True, fast_mode=False, use_features_fallback=True, show_border=False, enable_tracking=False):
+        """在螢幕上尋找圖片（🔥 極速優化版 + 智能追蹤）
         
         Args:
             image_name_or_path: 圖片顯示名稱或完整路徑
-            threshold: 匹配閾值 (0-1)，預設0.92實現近乎完美匹配
+            threshold: 匹配閾值 (0-1)，預設0.75平衡速度與準確度
             region: 搜尋區域 (x1, y1, x2, y2)，None表示全螢幕
             multi_scale: 是否啟用多尺度搜尋（提高容錯性）
             fast_mode: 快速模式（跳過驗證步驟，大幅提升速度）
             use_features_fallback: 模板匹配失敗時，是否嘗試特徵點匹配
+            show_border: 是否顯示邊框
+            enable_tracking: 啟用追蹤模式（預測式搜尋，適合移動目標）
             
         Returns:
             (center_x, center_y) 如果找到，否則 None
         """
         try:
-            # 🔥 載入目標圖片（支援透明遮罩）
-            template, mask = self._load_image(image_name_or_path)
-            if template is None:
+            # 🔥 載入目標圖片（已優化：返回灰度圖）
+            template_gray, mask = self._load_image(image_name_or_path)
+            if template_gray is None:
                 self.logger(f"[圖片辨識] 無法載入圖片：{image_name_or_path}")
                 return None
             
-            # 截取螢幕
-            if region:
-                screenshot = ImageGrab.grab(bbox=region)
-            else:
-                screenshot = ImageGrab.grab()
+            # 🔥 智能追蹤：如果啟用追蹤模式且有歷史位置，使用預測式搜尋
+            search_region = region
+            if enable_tracking or self._tracking_mode.get(image_name_or_path, False):
+                # 獲取螢幕尺寸
+                import ctypes
+                user32 = ctypes.windll.user32
+                screen_size = (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
+                
+                predicted_region = self._predict_search_region(image_name_or_path, screen_size)
+                if predicted_region:
+                    search_region = predicted_region
+                    self.logger(f"[追蹤] 預測搜尋範圍: {predicted_region}")
             
-            # 🔥 極速優化：轉換為灰度圖加速匹配（速度提升 2-3倍）
-            screen_array = np.array(screenshot)
-            screen_cv = cv2.cvtColor(screen_array, cv2.COLOR_RGB2GRAY)
+            # 🔥 使用快速截圖（優化：mss引擎 + 預轉灰度）
+            screen_cv = self._capture_screen_fast(search_region)
             
-            # 🔥 將模板也轉為灰度圖
-            if len(template.shape) == 3:
-                template_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
-            else:
-                template_gray = template
+            # 🔥 調試信息：輸出截圖和模板尺寸
+            if search_region:
+                self.logger(f"[圖片辨識] 範圍截圖尺寸: {screen_cv.shape[1]}x{screen_cv.shape[0]} (範圍: {search_region})")
+            self.logger(f"[圖片辨識] 模板圖片尺寸: {template_gray.shape[1]}x{template_gray.shape[0]}")
+            
+            # 檢查模板是否大於截圖
+            if template_gray.shape[0] > screen_cv.shape[0] or template_gray.shape[1] > screen_cv.shape[1]:
+                self.logger(f"[圖片辨識] ❌ 錯誤：模板圖片大於搜尋範圍！")
+                return None
             
             best_match_val = 0
             best_match_loc = None
             best_template_size = None
             best_scale = 1.0
             
-            # 🔥 快速模式：使用新的 _match_template_on_screen 方法（跳過多尺度）
+            # 🔥 極速模式：單一演算法、原始尺寸、無驗證
             if fast_mode:
-                pos = self._match_template_on_screen(
-                    screen_cv, template_gray, None,  # 使用灰度圖，無遮罩
-                    threshold=threshold,
-                    fast_mode=True,
-                    multi_scale=False  # 快速模式不使用多尺度
-                )
+                # 使用最快的 TM_CCOEFF_NORMED 算法
+                result = cv2.matchTemplate(screen_cv, template_gray, cv2.TM_CCOEFF_NORMED)
+                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
                 
-                if pos:
+                if max_val >= threshold:
+                    h, w = template_gray.shape
+                    pos = (max_loc[0] + w // 2, max_loc[1] + h // 2)
+                    
                     # 如果有指定region，需要加上偏移
-                    if region:
-                        pos = (pos[0] + region[0], pos[1] + region[1])
-                    self.logger(f"[圖片辨識][快速] ✅ 找到圖片於 ({pos[0]}, {pos[1]})")
+                    if search_region:
+                        pos = (pos[0] + search_region[0], pos[1] + search_region[1])
+                    
+                    # 🔥 追蹤模式：更新位置歷史
+                    if enable_tracking or self._tracking_mode.get(image_name_or_path, False):
+                        self._update_motion_history(image_name_or_path, pos[0], pos[1])
+                    
+                    self.logger(f"[圖片辨識][極速] ✅ 找到圖片於 ({pos[0]}, {pos[1]}) 信心度:{max_val:.3f}")
                     
                     # 顯示邊框
                     if show_border:
-                        h, w = template_gray.shape
-                        self.show_match_border(pos[0] - w//2, pos[1] - h//2, w, h)
+                        x = max_loc[0] if not search_region else max_loc[0] + search_region[0]
+                        y = max_loc[1] if not search_region else max_loc[1] + search_region[1]
+                        self.show_match_border(x, y, w, h)
                     
                     return pos
                 else:
-                    self.logger(f"[圖片辨識][快速] ❌ 未找到圖片")
+                    # 🔥 追蹤模式失敗：如果使用了預測搜尋但失敗，嘗試全螢幕搜尋
+                    if enable_tracking and search_region != region and region is None:
+                        self.logger(f"[追蹤] 預測區域未找到，嘗試全螢幕搜尋")
+                        screen_cv_full = self._capture_screen_fast(None)
+                        result = cv2.matchTemplate(screen_cv_full, template_gray, cv2.TM_CCOEFF_NORMED)
+                        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+                        
+                        if max_val >= threshold:
+                            h, w = template_gray.shape
+                            pos = (max_loc[0] + w // 2, max_loc[1] + h // 2)
+                            self._update_motion_history(image_name_or_path, pos[0], pos[1])
+                            self.logger(f"[追蹤] ✅ 全螢幕找到於 ({pos[0]}, {pos[1]}) 信心度:{max_val:.3f}")
+                            return pos
+                    
+                    # 🔥 增強日誌：顯示搜尋範圍信息
+                    if search_region:
+                        region_info = f"，搜尋範圍: {search_region} (寬{search_region[2]-search_region[0]}x高{search_region[3]-search_region[1]})"
+                    else:
+                        region_info = "，搜尋範圍: 全螢幕"
+                    self.logger(f"[圖片辨識][極速] ❌ 未找到圖片（最高信心度:{max_val:.3f}，閾值:{threshold:.3f}{region_info}）")
                     return None
             
             # 🔥 標準模式：多尺度模板匹配（主要方法，支援遮罩）
             if multi_scale:
-                scales = [0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2]  # 更細緻的尺度範圍
+                scales = [0.9, 0.95, 1.0, 1.05, 1.1]  # 🔥 優化：減少尺度數量以5個，加快速度
                 for scale in scales:
                     if scale != 1.0:
                         width = int(template.shape[1] * scale)
@@ -2318,38 +2583,11 @@ class CoreRecorder:
                         score = max_val
                         loc = max_loc
                     else:
-                        # 無遮罩：使用多種匹配方法並加權平均
-                        methods = [
-                            (cv2.TM_CCOEFF_NORMED, 1.0),   # 相關係數法（權重最高）
-                            (cv2.TM_CCORR_NORMED, 0.8),    # 相關法
-                            (cv2.TM_SQDIFF_NORMED, 0.6),   # 平方差法（需要反轉）
-                        ]
-                        
-                        method_scores = []
-                        for method, weight in methods:
-                            try:
-                                result = cv2.matchTemplate(screen_cv, scaled_template, method)
-                                
-                                if method == cv2.TM_SQDIFF_NORMED:
-                                    # 平方差法：值越小越好，需要反轉
-                                    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-                                    score = 1.0 - min_val  # 反轉分數
-                                    loc = min_loc
-                                else:
-                                    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-                                    score = max_val
-                                    loc = max_loc
-                                
-                                method_scores.append((score * weight, loc))
-                            except Exception as e:
-                                continue
-                        
-                        if not method_scores:
-                            continue
-                            
-                        # 計算加權平均分數
-                        score = sum(s for s, _ in method_scores) / len(method_scores)
-                        loc = method_scores[0][1]  # 使用主要方法的位置
+                        # 無遮罩：🔥 優化：只使用最快的相關係數法
+                        result = cv2.matchTemplate(screen_cv, scaled_template, cv2.TM_CCOEFF_NORMED)
+                        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+                        score = max_val
+                        loc = max_loc
                     
                     # 記錄最佳匹配
                     if score > best_match_val:
@@ -2402,25 +2640,7 @@ class CoreRecorder:
                     verification_count = 0
                     
                     try:
-                        # 🔥 驗證1: 結構相似度 (SSIM) - 最準確的像素級比較
-                        from skimage.metrics import structural_similarity as ssim
-                        
-                        # 轉換為灰階
-                        gray_template = cv2.cvtColor(template_resized, cv2.COLOR_BGR2GRAY)
-                        gray_matched = cv2.cvtColor(matched_region, cv2.COLOR_BGR2GRAY)
-                        
-                        ssim_score = ssim(gray_template, gray_matched)
-                        verification_score += ssim_score * 1.5  # SSIM權重最高
-                        verification_count += 1.5
-                        self.logger(f"[圖片辨識] SSIM驗證: {ssim_score:.3f}")
-                    except ImportError:
-                        # 如果沒有 scikit-image，使用替代方法
-                        pass
-                    except Exception as e:
-                        self.logger(f"[圖片辨識] SSIM驗證失敗: {e}")
-                    
-                    try:
-                        # 🔥 驗證2: 直方圖相似度（顏色分布比較）
+                        # 🔥 優化：只使用快速的直方圖驗證（移除耗時的SSIM和邊緣檢測）
                         hist_template = cv2.calcHist([template_resized], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
                         hist_matched = cv2.calcHist([matched_region], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
                         
@@ -2428,27 +2648,11 @@ class CoreRecorder:
                         cv2.normalize(hist_matched, hist_matched)
                         
                         hist_score = cv2.compareHist(hist_template, hist_matched, cv2.HISTCMP_CORREL)
-                        verification_score += hist_score * 1.0
+                        verification_score += hist_score
                         verification_count += 1.0
                         self.logger(f"[圖片辨識] 直方圖驗證: {hist_score:.3f}")
                     except Exception as e:
                         self.logger(f"[圖片辨識] 直方圖驗證失敗: {e}")
-                    
-                    try:
-                        # 🔥 驗證3: 邊緣檢測相似度（形狀輪廓比較）
-                        edges_template = cv2.Canny(template_resized, 50, 150)
-                        edges_matched = cv2.Canny(matched_region, 50, 150)
-                        
-                        # 計算邊緣重疊率
-                        edge_overlap = np.sum(edges_template & edges_matched)
-                        edge_total = np.sum(edges_template)
-                        edge_score = edge_overlap / edge_total if edge_total > 0 else 0
-                        
-                        verification_score += edge_score * 0.8
-                        verification_count += 0.8
-                        self.logger(f"[圖片辨識] 邊緣驗證: {edge_score:.3f}")
-                    except Exception as e:
-                        self.logger(f"[圖片辨識] 邊緣驗證失敗: {e}")
                     
                     # 計算最終綜合分數
                     if verification_count > 0:
@@ -2489,22 +2693,22 @@ class CoreRecorder:
             return None
     
     def _load_image(self, image_name_or_path):
-        """載入圖片（支援快取和透明遮罩）
+        """載入圖片（🔥 優化：預先生成灰度圖快取）
         
         Args:
             image_name_or_path: 圖片顯示名稱或完整路徑
             
         Returns:
-            tuple: (image_bgr, mask) 或 (None, None)
-                - image_bgr: OpenCV BGR格式的圖片
+            tuple: (image_gray, mask) 或 (None, None)
+                - image_gray: OpenCV 灰度格式的圖片（已優化）
                 - mask: Alpha通道遮罩（如果有），否則為None
         """
-        # 檢查快取
+        # 🔥 檢查快取（優先返回預先轉換好的灰度圖）
         if image_name_or_path in self._image_cache:
             cached = self._image_cache[image_name_or_path]
-            # 返回灰度圖版本（如果有）
-            if len(cached) > 3 and cached[3] is not None:
-                return cached[3], None  # 灰度圖, 無遮罩
+            # cached格式: (bgr, image_path, mask, gray)
+            if len(cached) >= 4 and cached[3] is not None:
+                return cached[3], cached[2]  # 灰度圖, 遮罩
             return cached[0], cached[2] if len(cached) > 2 else None
         
         # 判斷是否為完整路徑
@@ -2531,8 +2735,12 @@ class CoreRecorder:
         
         # 載入圖片
         try:
-            # 🔥 使用 IMREAD_UNCHANGED 讀取完整圖片（包含Alpha通道）
-            image_rgba = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+            # 🔥 使用 cv2.imdecode 解決中文路徑問題
+            with open(image_path, 'rb') as f:
+                image_data = f.read()
+            image_array = np.frombuffer(image_data, dtype=np.uint8)
+            image_rgba = cv2.imdecode(image_array, cv2.IMREAD_UNCHANGED)
+            
             if image_rgba is None:
                 self.logger(f"[圖片辨識] 無法讀取圖片：{image_path}")
                 return None, None
@@ -2540,7 +2748,7 @@ class CoreRecorder:
             mask = None
             
             # 🔥 檢查是否有 Alpha 通道（透明遮罩）
-            if image_rgba.shape[2] == 4:  # RGBA格式
+            if len(image_rgba.shape) == 3 and image_rgba.shape[2] == 4:  # RGBA格式
                 # 分離 RGB 和 Alpha
                 bgr = cv2.cvtColor(image_rgba, cv2.COLOR_RGBA2BGR)
                 mask = image_rgba[:, :, 3]  # Alpha通道作為遮罩
@@ -2558,10 +2766,16 @@ class CoreRecorder:
                     bgr = image_rgba
                 self.logger(f"[圖片辨識] 已載入圖片（不透明）：{os.path.basename(image_path)}")
             
-            # 🔥 加入快取（包含遮罩資訊）
-            self._image_cache[image_name_or_path] = (bgr, image_path, mask)
+            # 🔥 預先生成灰度圖（優化：避免重複轉換）
+            if len(bgr.shape) == 3:
+                gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+            else:
+                gray = bgr
             
-            return bgr, mask
+            # 🔥 加入快取（包含遮罩和灰度圖）
+            self._image_cache[image_name_or_path] = (bgr, image_path, mask, gray)
+            
+            return gray, mask
         except Exception as e:
             self.logger(f"[圖片辨識] 載入圖片失敗：{e}")
             import traceback

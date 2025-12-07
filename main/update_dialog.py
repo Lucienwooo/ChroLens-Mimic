@@ -321,33 +321,35 @@ class UpdateDialog:
     def _show_complete_dialog(self):
         """顯示完成對話框"""
         result = messagebox.askyesno(
-            "更新完成",
-            "更新已準備完成！\n\n程式需要重新啟動以套用更新。\n是否立即重啟？",
+            "更新已準備完成",
+            "更新檔案已下載完成！\n\n"
+            "📌 使用延遲更新機制:\n"
+            "   • 現在關閉程式\n"
+            "   • 下次啟動時會自動完成更新\n"
+            "   • 整個過程僅需數秒\n\n"
+            "是否立即關閉程式並準備更新？",
             parent=self.dialog
         )
         
         if result:
-            # 使用者選擇立即重啟
-            # 啟動批次腳本
-            if self.update_manager.execute_update_script():
-                # 批次腳本啟動成功，重啟應用程式
-                self._restart_app()
-            else:
-                # 批次腳本啟動失敗
-                messagebox.showerror(
-                    "錯誤",
-                    "無法啟動更新程式。\n請稍後手動重新下載。",
-                    parent=self.dialog
-                )
-                self.dialog.destroy()
-        else:
-            # 使用者選擇稍後重啟
+            # 使用者選擇立即關閉
             messagebox.showinfo(
-                "提示",
-                "更新將在下次啟動程式時生效。\n請記得關閉程式後再重新開啟。",
+                "準備更新",
+                "程式即將關閉。\n\n"
+                "請再次啟動程式,更新將自動完成！",
                 parent=self.dialog
             )
-            # 也啟動批次腳本，但不關閉主程式
+            self._restart_app()
+        else:
+            # 使用者選擇稍後關閉
+            messagebox.showinfo(
+                "稍後更新",
+                "更新檔案已準備就緒。\n\n"
+                "當您關閉並重新啟動程式時,\n"
+                "更新將自動完成。",
+                parent=self.dialog
+            )
+            self.dialog.destroy()
             # 批次腳本會等待主程式關閉
             self.update_manager.execute_update_script()
             self.dialog.destroy()

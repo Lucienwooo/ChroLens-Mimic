@@ -34,7 +34,7 @@ class UpdateManager:
     """更新管理器"""
     
     # GitHub 資訊
-    GITHUB_REPO = "Lucienwooo/ChroLens_Mimic"
+    GITHUB_REPO = "Lucienwooo/ChroLens-Mimic"
     API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
     
     def __init__(self, current_version: str, logger: Optional[Callable] = None):
@@ -551,47 +551,98 @@ class UpdateManager:
                 raise Exception("更新包結構錯誤：找不到可執行檔")
             
             self._logger(f"✅ 找到更新來源：{update_source}")
-            self._update_progress(70, "正在生成安裝腳本...")
+            self._update_progress(70, "正在準備延遲更新...")
             
-            # 建立更新腳本
-            update_script = self._create_update_script(
-                update_source, 
-                current_dir,
-                current_exe
-            )
-            
-            self._logger(f"✅ 批次腳本已生成：{update_script}")
-            self._update_progress(90, "安裝腳本已準備")
-            
-            # === 步驟 4: 準備安裝（不啟動批次腳本） ===
-            self._update_progress(95, "更新已準備完成")
-            
-            # 更新日誌：添加批次腳本信息
-            if log_written and initial_log_path:
-                try:
-                    with open(initial_log_path, 'a', encoding='utf-8') as f:
-                        f.write(f"\n下載完成時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-                        f.write(f"批次腳本路徑: {update_script}\n")
-                        f.write(f"更新來源: {update_source}\n")
-                        f.write("\n批次腳本已準備，等待使用者確認...\n\n")
-                    self._logger(f"已更新日誌: {initial_log_path}")
-                except Exception as e:
-                    self._logger(f"無法更新日誌: {e}")
-            
-            # 儲存批次腳本路徑，供後續使用
-            self._update_script_path = update_script
-            
-            self._update_progress(100, "更新準備完成")
-            self._logger("=" * 60)
-            self._logger("✅ 更新已準備完成，等待使用者確認執行")
-            self._logger(f"   批次腳本：{update_script}")
-            self._logger(f"   更新來源：{update_source}")
-            self._logger(f"   目標目錄：{current_dir}")
-            self._logger("=" * 60)
-            
-            # 通知完成（但不啟動批次腳本）
-            if self._on_complete:
-                self._on_complete()
+            # ===================================================================
+            # 方案3: 延遲更新機制
+            # 不再使用批次腳本,改為標記待更新,下次啟動時自動安裝
+            # ===================================================================
+            try:
+                from update_manager_v2_deferred import PendingUpdateManager
+                
+                # 建立延遲更新管理器
+                pending_mgr = PendingUpdateManager(current_dir)
+                
+                # 標記待處理的更新
+                success = pending_mgr.mark_pending_update(
+                    update_source,
+                    self._latest_version
+                )
+                
+                if success:
+                    self._logger("✅ 已標記待處理更新")
+                    self._logger("   提示: 關閉程式後,下次啟動時將自動完成更新")
+                    self._update_progress(100, "更新準備完成,下次啟動時安裝")
+                    
+                    # 儲存更新來源路徑供參考
+                    self._update_script_path = update_source
+                    
+                    # 更新日誌
+                    if log_written and initial_log_path:
+                        try:
+                            with open(initial_log_path, 'a', encoding='utf-8') as f:
+                                f.write(f"\n下載完成時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                                f.write(f"更新方式: 延遲更新機制 (方案3)\n")
+                                f.write(f"更新來源: {update_source}\n")
+                                f.write("\n✓ 已標記待處理更新\n")
+                                f.write("  關閉程式後,下次啟動時將自動完成更新\n\n")
+                            self._logger(f"已更新日誌: {initial_log_path}")
+                        except Exception as e:
+                            self._logger(f"無法更新日誌: {e}")
+                    
+                    self._logger("=" * 60)
+                    self._logger("✅ 更新已準備完成 (延遲更新模式)")
+                    self._logger(f"   更新來源：{update_source}")
+                    self._logger(f"   目標版本：{self._latest_version}")
+                    self._logger(f"   安裝時機：下次程式啟動")
+                    self._logger("=" * 60)
+                    
+                    # 通知完成
+                    if self._on_complete:
+                        self._on_complete()
+                else:
+                    raise Exception("無法標記待處理更新")
+                    
+            except ImportError:
+                # 如果沒有延遲更新模組,回退到原有的批次腳本方式
+                self._logger("⚠️  延遲更新模組不可用,使用批次腳本模式")
+                
+                # 建立更新腳本
+                update_script = self._create_update_script(
+                    update_source, 
+                    current_dir,
+                    current_exe
+                )
+                
+                self._logger(f"✅ 批次腳本已生成：{update_script}")
+                self._update_progress(90, "安裝腳本已準備")
+                
+                # 更新日誌
+                if log_written and initial_log_path:
+                    try:
+                        with open(initial_log_path, 'a', encoding='utf-8') as f:
+                            f.write(f"\n下載完成時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                            f.write(f"批次腳本路徑: {update_script}\n")
+                            f.write(f"更新來源: {update_source}\n")
+                            f.write("\n批次腳本已準備，等待使用者確認...\n\n")
+                        self._logger(f"已更新日誌: {initial_log_path}")
+                    except Exception as e:
+                        self._logger(f"無法更新日誌: {e}")
+                
+                # 儲存批次腳本路徑
+                self._update_script_path = update_script
+                
+                self._update_progress(100, "更新準備完成")
+                self._logger("=" * 60)
+                self._logger("✅ 更新已準備完成，等待使用者確認執行")
+                self._logger(f"   批次腳本：{update_script}")
+                self._logger(f"   更新來源：{update_source}")
+                self._logger(f"   目標目錄：{current_dir}")
+                self._logger("=" * 60)
+                
+                # 通知完成
+                if self._on_complete:
+                    self._on_complete()
             
         except Exception as e:
             error = f"更新失敗: {str(e)}"
@@ -789,29 +840,60 @@ REM 先刪除可能存在的 .old 檔案
 if exist "{target_dir}\\ChroLens_Mimic.exe.old" (
     echo 刪除 .exe.old 檔案 >> %LOG_FILE%
     del /F /Q "{target_dir}\\ChroLens_Mimic.exe.old" >nul 2>&1
+    if exist "{target_dir}\\ChroLens_Mimic.exe.old" (
+        echo 警告: .old 檔案仍然存在 >> %LOG_FILE%
+    ) else (
+        echo .old 檔案已刪除 >> %LOG_FILE%
+    )
 )
 
-REM 將舊的 exe 重命名為 .old，然後嘗試刪除
+REM 檢查舊版 exe 是否存在
 if exist "{target_dir}\\ChroLens_Mimic.exe" (
-    echo 重命名舊版 exe... >> %LOG_FILE%
-    ren "{target_dir}\\ChroLens_Mimic.exe" "ChroLens_Mimic.exe.old" >nul 2>&1
-    if exist "{target_dir}\\ChroLens_Mimic.exe.old" (
-        REM 重試刪除 3 次
-        set /a retry=0
-        :delete_retry
-        del /F /Q "{target_dir}\\ChroLens_Mimic.exe.old" >nul 2>&1
-        if exist "{target_dir}\\ChroLens_Mimic.exe.old" (
-            if %retry% LSS 3 (
-                timeout /t 1 /nobreak >nul
-                set /a retry+=1
-                goto delete_retry
-            ) else (
-                echo 警告: 無法刪除舊版 exe，但會繼續更新 >> %LOG_FILE%
-            )
+    echo 舊版 exe 存在，開始處理... >> %LOG_FILE%
+    
+    REM 嘗試直接刪除（重試 3 次）
+    set /a retry=0
+    :direct_delete_retry
+    del /F /Q "{target_dir}\\ChroLens_Mimic.exe" >nul 2>&1
+    if exist "{target_dir}\\ChroLens_Mimic.exe" (
+        if %retry% LSS 3 (
+            echo 刪除失敗，重試 %retry%/3... >> %LOG_FILE%
+            timeout /t 2 /nobreak >nul
+            set /a retry+=1
+            goto direct_delete_retry
         ) else (
-            echo 舊版 exe 已刪除 >> %LOG_FILE%
+            echo 直接刪除失敗，嘗試重命名方式... >> %LOG_FILE%
+            
+            REM 如果直接刪除失敗，嘗試重命名
+            ren "{target_dir}\\ChroLens_Mimic.exe" "ChroLens_Mimic.exe.old" >nul 2>&1
+            if exist "{target_dir}\\ChroLens_Mimic.exe.old" (
+                echo 已重命名為 .old >> %LOG_FILE%
+                
+                REM 嘗試刪除 .old 檔案
+                set /a retry2=0
+                :old_delete_retry
+                del /F /Q "{target_dir}\\ChroLens_Mimic.exe.old" >nul 2>&1
+                if exist "{target_dir}\\ChroLens_Mimic.exe.old" (
+                    if %retry2% LSS 3 (
+                        echo 刪除 .old 失敗，重試 %retry2%/3... >> %LOG_FILE%
+                        timeout /t 2 /nobreak >nul
+                        set /a retry2+=1
+                        goto old_delete_retry
+                    ) else (
+                        echo 警告: 無法刪除 .old 檔案，但會繼續更新 >> %LOG_FILE%
+                    )
+                ) else (
+                    echo .old 檔案已刪除 >> %LOG_FILE%
+                )
+            ) else (
+                echo 警告: 重命名失敗，但會繼續更新 >> %LOG_FILE%
+            )
         )
+    ) else (
+        echo 舊版 exe 已成功刪除 >> %LOG_FILE%
     )
+) else (
+    echo 沒有找到舊版 exe，跳過刪除步驟 >> %LOG_FILE%
 )
 
 REM 複製新檔案（覆蓋所有檔案）
@@ -820,15 +902,77 @@ echo 複製新檔案... >> %LOG_FILE%
 echo 來源目錄: {source_dir} >> %LOG_FILE%
 echo 目標目錄: {target_dir} >> %LOG_FILE%
 
-xcopy /E /I /Y /Q "{source_dir}\\*" "{target_dir}\\" >> %LOG_FILE% 2>&1
+REM 列出來源目錄的檔案
+echo 來源檔案列表: >> %LOG_FILE%
+dir /B "{source_dir}" >> %LOG_FILE% 2>&1
 
-if errorlevel 1 (
-    echo 更新失敗！錯誤碼: %errorlevel% >> %LOG_FILE%
-    echo 更新失敗！請查看 update_log.txt
+REM 先複製所有檔案（不包含 exe）
+echo 步驟 1: 複製一般檔案... >> %LOG_FILE%
+for %%F in ("{source_dir}\\*.*") do (
+    if not "%%~nxF"=="ChroLens_Mimic.exe" (
+        echo 複製: %%~nxF >> %LOG_FILE%
+        copy /Y "%%F" "{target_dir}\\" >nul 2>&1
+    )
+)
+
+REM 複製子目錄
+echo 步驟 2: 複製子目錄... >> %LOG_FILE%
+if exist "{source_dir}\\images" (
+    echo 複製 images 目錄... >> %LOG_FILE%
+    xcopy /E /I /Y /Q "{source_dir}\\images" "{target_dir}\\images" >> %LOG_FILE% 2>&1
+)
+if exist "{source_dir}\\TTF" (
+    echo 複製 TTF 目錄... >> %LOG_FILE%
+    xcopy /E /I /Y /Q "{source_dir}\\TTF" "{target_dir}\\TTF" >> %LOG_FILE% 2>&1
+)
+if exist "{source_dir}\\templates" (
+    echo 複製 templates 目錄... >> %LOG_FILE%
+    xcopy /E /I /Y /Q "{source_dir}\\templates" "{target_dir}\\templates" >> %LOG_FILE% 2>&1
+)
+
+REM 最後複製 exe（最關鍵的檔案）
+echo 步驟 3: 複製主程式 exe... >> %LOG_FILE%
+if exist "{source_dir}\\ChroLens_Mimic.exe" (
+    echo 找到新版 exe，開始複製... >> %LOG_FILE%
+    
+    REM 重試複製 exe 5 次
+    set /a exe_retry=0
+    :copy_exe_retry
+    copy /Y "{source_dir}\\ChroLens_Mimic.exe" "{target_dir}\\ChroLens_Mimic.exe" >nul 2>&1
+    if errorlevel 1 (
+        if %exe_retry% LSS 5 (
+            echo exe 複製失敗，重試 %exe_retry%/5... >> %LOG_FILE%
+            timeout /t 2 /nobreak >nul
+            set /a exe_retry+=1
+            goto copy_exe_retry
+        ) else (
+            echo 錯誤: exe 複製失敗！ >> %LOG_FILE%
+            echo 更新失敗：無法複製主程式檔案
+            echo 更新失敗：無法複製主程式檔案 >> %LOG_FILE%
+            pause
+            exit /b 1
+        )
+    ) else (
+        echo exe 複製成功 >> %LOG_FILE%
+    )
+) else (
+    echo 警告: 找不到新版 exe 檔案 >> %LOG_FILE%
+    echo 更新失敗：找不到新版本執行檔
+    echo 更新失敗：找不到新版本執行檔 >> %LOG_FILE%
     pause
     exit /b 1
-) else (
+)
+
+REM 驗證 exe 是否存在且大小正確
+if exist "{target_dir}\\ChroLens_Mimic.exe" (
+    echo 驗證: exe 檔案存在 >> %LOG_FILE%
+    for %%F in ("{target_dir}\\ChroLens_Mimic.exe") do echo exe 大小: %%~zF bytes >> %LOG_FILE%
     echo 檔案複製成功 >> %LOG_FILE%
+) else (
+    echo 錯誤: exe 複製後仍不存在！ >> %LOG_FILE%
+    echo 更新失敗：exe 檔案未成功複製
+    pause
+    exit /b 1
 )
 
 echo 更新完成！

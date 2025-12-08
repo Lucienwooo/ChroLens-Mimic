@@ -1370,7 +1370,7 @@ class CoreRecorder:
             # 辨識圖片（只是辨識，不做動作）
             try:
                 image_name = event.get('image', '')
-                confidence = event.get('confidence', 0.65)  # 🔥 優化：降低預設閾值加快速度
+                confidence = event.get('confidence', 0.6)  # 🔥 優化：降低至0.6加快速度
                 show_border = event.get('show_border', False)  # 是否顯示邊框
                 region = event.get('region', None)  # 辨識範圍
                 
@@ -1403,7 +1403,7 @@ class CoreRecorder:
             # 移動到圖片位置
             try:
                 image_name = event.get('image', '')
-                confidence = event.get('confidence', 0.65)  # 🔥 優化：降低預設閾值加快速度
+                confidence = event.get('confidence', 0.6)  # 🔥 優化：降低至0.6加快速度
                 show_border = event.get('show_border', False)
                 region = event.get('region', None)
                 
@@ -1438,7 +1438,7 @@ class CoreRecorder:
             # 點擊圖片位置（✅ 新增：可選擇返回原位 + 🔥 彈性點擊範圍）
             try:
                 image_name = event.get('image', '')
-                confidence = event.get('confidence', 0.65)  # 🔥 優化：降低預設閾值加快速度
+                confidence = event.get('confidence', 0.6)  # 🔥 優化：降低至0.6加快速度
                 button = event.get('button', 'left')
                 return_to_origin = event.get('return_to_origin', False)  # 預設不返回原位
                 show_border = event.get('show_border', False)
@@ -1703,7 +1703,7 @@ class CoreRecorder:
         elif event['type'] == 'recognize_any':
             try:
                 images = event.get('images', [])  # [{'name': 'pic01', 'action': 'click/move/log'}, ...]
-                confidence = event.get('confidence', 0.75)
+                confidence = event.get('confidence', 0.7)  # 🔥 降低至0.7加快速度
                 timeout = event.get('timeout', 0)  # 0 = 立即返回，>0 = 持續嘗試直到找到或逾時
                 self.logger(f"[多圖辨識] 同時搜尋 {len(images)} 張圖片")
                 
@@ -2461,12 +2461,12 @@ class CoreRecorder:
             del self._motion_history[image_name]
         self.logger(f"[追蹤] 已停用 {image_name} 的追蹤模式")
     
-    def find_image_on_screen(self, image_name_or_path, threshold=0.75, region=None, multi_scale=True, fast_mode=False, use_features_fallback=True, show_border=False, enable_tracking=False):
+    def find_image_on_screen(self, image_name_or_path, threshold=0.7, region=None, multi_scale=True, fast_mode=False, use_features_fallback=True, show_border=False, enable_tracking=False):
         """在螢幕上尋找圖片（🔥 極速優化版 + 智能追蹤）
         
         Args:
             image_name_or_path: 圖片顯示名稱或完整路徑
-            threshold: 匹配閾值 (0-1)，預設0.75平衡速度與準確度
+            threshold: 匹配閾值 (0-1)，預設0.7平衡速度與準確度 (已優化)
             region: 搜尋區域 (x1, y1, x2, y2)，None表示全螢幕
             multi_scale: 是否啟用多尺度搜尋（提高容錯性）
             fast_mode: 快速模式（跳過驗證步驟，大幅提升速度）
@@ -2567,14 +2567,14 @@ class CoreRecorder:
             
             # 🔥 標準模式：多尺度模板匹配（主要方法，支援遮罩）
             if multi_scale:
-                scales = [0.9, 0.95, 1.0, 1.05, 1.1]  # 🔥 優化：減少尺度數量以5個，加快速度
+                scales = [0.95, 1.0, 1.05]  # 🔥 優化：僅保留3個尺度，目標0.5秒內完成
                 for scale in scales:
                     if scale != 1.0:
                         width = int(template.shape[1] * scale)
                         height = int(template.shape[0] * scale)
                         if width < 10 or height < 10 or width > screen_cv.shape[1] or height > screen_cv.shape[0]:
                             continue
-                        scaled_template = cv2.resize(template, (width, height), interpolation=cv2.INTER_CUBIC)
+                        scaled_template = cv2.resize(template, (width, height), interpolation=cv2.INTER_LINEAR)  # 🔥 使用INTER_LINEAR加快速度
                         scaled_mask = cv2.resize(mask, (width, height), interpolation=cv2.INTER_NEAREST) if mask is not None else None
                     else:
                         scaled_template = template
@@ -2638,7 +2638,7 @@ class CoreRecorder:
                     
                     # 調整模板大小以匹配找到的區域
                     if best_scale != 1.0:
-                        template_resized = cv2.resize(template, (w, h), interpolation=cv2.INTER_CUBIC)
+                        template_resized = cv2.resize(template, (w, h), interpolation=cv2.INTER_LINEAR)  # 🔥 使用INTER_LINEAR加快速度
                     else:
                         template_resized = template
                     
@@ -2965,7 +2965,7 @@ class CoreRecorder:
                     height = int(template.shape[0] * scale)
                     if width < 10 or height < 10 or width > screen_cv.shape[1] or height > screen_cv.shape[0]:
                         continue
-                    scaled_template = cv2.resize(template, (width, height), interpolation=cv2.INTER_CUBIC)
+                    scaled_template = cv2.resize(template, (width, height), interpolation=cv2.INTER_LINEAR)  # 🔥 使用INTER_LINEAR加快速度
                     scaled_mask = cv2.resize(mask, (width, height), interpolation=cv2.INTER_NEAREST) if mask is not None else None
                 else:
                     scaled_template = template

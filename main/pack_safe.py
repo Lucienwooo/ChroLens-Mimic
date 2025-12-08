@@ -146,7 +146,6 @@ class SafePacker:
         print("步驟 4/6: 複製更新工具...")
         
         update_files = [
-            ("manual_update.bat", "手動更新腳本"),
             ("更新說明.txt", "更新說明文件")
         ]
         
@@ -157,10 +156,10 @@ class SafePacker:
             
             if src.exists():
                 shutil.copy2(src, dst)
-                print(f"  ✓ {description}: {filename}")
+                print(f"  [OK] {description}: {filename}")
                 copied_count += 1
             else:
-                print(f"  ⚠️  找不到 {description}: {filename}")
+                print(f"  [WARNING] 找不到 {description}: {filename}")
         
         if copied_count > 0:
             print(f"已複製 {copied_count} 個更新檔案\n")

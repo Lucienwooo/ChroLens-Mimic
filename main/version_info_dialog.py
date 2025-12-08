@@ -35,7 +35,7 @@ def get_icon_path():
 
 
 class VersionInfoDialog(tb.Toplevel):
-    """版本資訊對話框"""
+    """版本資訊與更新對話框（合併版）"""
     
     def __init__(self, parent, version_manager, current_version, on_update_callback=None):
         """
@@ -55,9 +55,9 @@ class VersionInfoDialog(tb.Toplevel):
         self.on_update_callback = on_update_callback
         
         self.title("版本資訊 - ChroLens_Mimic")
-        self.geometry("600x500")
+        self.geometry("600x680")
         self.resizable(True, True)
-        self.minsize(550, 450)
+        self.minsize(550, 650)
         
         # 設定圖示
         try:
@@ -169,29 +169,61 @@ class VersionInfoDialog(tb.Toplevel):
         )
         self.update_status_label.pack(side=LEFT)
         
-        # ========== 更新日誌區域 ==========
-        changelog_frame = tb.Labelframe(
+        # ========== 更新說明區域 ==========
+        update_notes_frame = tb.Labelframe(
             main_frame,
-            text="更新日誌",
+            text="更新說明",
             padding=15,
-            bootstyle="primary"
+            bootstyle="success"
         )
-        changelog_frame.pack(fill=BOTH, expand=YES, pady=(0, 15))
+        update_notes_frame.pack(fill=BOTH, expand=YES, pady=(0, 10))
         
-        # 文字框（減少高度）
-        self.changelog_text = scrolledtext.ScrolledText(
-            changelog_frame,
+        # 更新說明文字框
+        self.update_notes_text = scrolledtext.ScrolledText(
+            update_notes_frame,
             wrap=tk.WORD,
-            font=("Consolas", 9),
-            height=10
+            font=("Microsoft JhengHei", 9),
+            height=8
         )
-        self.changelog_text.pack(fill=BOTH, expand=YES)
-        self.changelog_text.insert("1.0", "正在載入更新日誌...")
-        self.changelog_text.config(state=tk.DISABLED)
+        self.update_notes_text.pack(fill=BOTH, expand=YES)
+        self.update_notes_text.insert("1.0", "檢查中...")
+        self.update_notes_text.config(state=tk.DISABLED)
+        
+        # ========== 進度區域（初始隱藏）==========
+        self.progress_frame = tb.Labelframe(
+            main_frame,
+            text="更新進度",
+            padding=10,
+            bootstyle="info"
+        )
+        # 不要立即 pack，等需要時再顯示
+        
+        self.progress_label = tb.Label(
+            self.progress_frame,
+            text="準備下載...",
+            font=("Microsoft JhengHei", 10)
+        )
+        self.progress_label.pack(pady=(0, 5))
+        
+        self.progress_bar = tb.Progressbar(
+            self.progress_frame,
+            mode='determinate',
+            length=500,
+            bootstyle="success"
+        )
+        self.progress_bar.pack(pady=(0, 5))
+        
+        self.progress_detail_label = tb.Label(
+            self.progress_frame,
+            text="",
+            font=("Microsoft JhengHei", 9),
+            bootstyle="secondary"
+        )
+        self.progress_detail_label.pack()
         
         # ========== 按鈕區域 ==========
         button_frame = tb.Frame(main_frame)
-        button_frame.pack(fill=X)
+        button_frame.pack(fill=X, pady=(10, 0))
         
         # 更新按鈕（初始禁用）
         self.update_btn = tb.Button(
@@ -203,26 +235,6 @@ class VersionInfoDialog(tb.Toplevel):
             state=DISABLED
         )
         self.update_btn.pack(side=LEFT, padx=5)
-        
-        # 訪問官網按鈕
-        visit_btn = tb.Button(
-            button_frame,
-            text="訪問官網",
-            bootstyle="info",
-            width=15,
-            command=self._open_website
-        )
-        visit_btn.pack(side=LEFT, padx=5)
-        
-        # 重新檢查按鈕
-        recheck_btn = tb.Button(
-            button_frame,
-            text="重新檢查",
-            bootstyle="secondary",
-            width=15,
-            command=self._reload_content
-        )
-        recheck_btn.pack(side=LEFT, padx=5)
         
         # 關閉按鈕
         close_btn = tb.Button(
@@ -238,206 +250,27 @@ class VersionInfoDialog(tb.Toplevel):
         """載入內容（在背景執行緒中）"""
         threading.Thread(target=self._fetch_data, daemon=True).start()
     
-    def _reload_content(self):
-        """重新載入內容"""
-        self.latest_version_label.config(text="檢查中...")
-        self.update_status_label.config(text="正在檢查更新...", bootstyle="secondary")
-        self.update_btn.config(state=DISABLED)
-        
-        self.changelog_text.config(state=tk.NORMAL)
-        self.changelog_text.delete("1.0", tk.END)
-        self.changelog_text.insert("1.0", "正在載入更新日誌...")
-        self.changelog_text.config(state=tk.DISABLED)
-        
-        self._load_content()
-    
-    def _fetch_data(self):
-        """獲取更新日誌和檢查更新（背景執行緒）"""
-        # 1. 獲取更新日誌
-        changelog = self.version_manager.fetch_changelog()
-        self.after(0, lambda: self._update_changelog(changelog))
-        
-        # 2. 檢查更新
-        update_info = self.version_manager.check_for_updates()
-        self.after(0, lambda: self._update_version_status(update_info))
-    
-    def _update_changelog(self, changelog: str):
-        """更新更新日誌文字框"""
-        self.changelog_text.config(state=tk.NORMAL)
-        self.changelog_text.delete("1.0", tk.END)
-        self.changelog_text.insert("1.0", changelog)
-        self.changelog_text.config(state=tk.DISABLED)
-    
-    def _update_version_status(self, update_info):
-        """更新版本狀態"""
-        if update_info:
-            # 有新版本
-            latest_version = update_info['version']
-            self.latest_version_label.config(text=f"v{latest_version}", bootstyle="success")
-            self.update_status_label.config(text="有新版本可用！", bootstyle="success")
-            self.update_btn.config(state=NORMAL)
-            self.update_info = update_info
-        else:
-            # 已是最新版本
-            self.latest_version_label.config(text=f"v{self.current_version}", bootstyle="info")
-            self.update_status_label.config(text="目前已是最新版本", bootstyle="info")
-            self.update_btn.config(state=DISABLED)
-            self.update_info = None
-    
-    def _start_update(self):
-        """開始更新流程"""
-        if not hasattr(self, 'update_info') or not self.update_info:
-            return
-        
-        # 顯示更新確認對話框
-        UpdateConfirmDialog(self, self.version_manager, self.update_info, self.on_update_callback)
-    
-    def _open_website(self):
-        """開啟官網"""
-        import webbrowser
-        try:
-            webbrowser.open(self.version_manager.CHANGELOG_URL)
-        except Exception as e:
-            messagebox.showerror("錯誤", f"無法開啟網站：\n{e}")
-
-
-class UpdateConfirmDialog(tb.Toplevel):
-    """更新確認對話框"""
-    
-    def __init__(self, parent, version_manager, update_info, on_update_callback=None):
-        super().__init__(parent)
-        
-        self.parent = parent
-        self.version_manager = version_manager
-        self.update_info = update_info
-        self.on_update_callback = on_update_callback
-        
-        self.title("確認更新")
-        self.geometry("480x450")
-        self.resizable(False, False)
-        
-        # 設定圖示
-        try:
-            icon_path = get_icon_path()
-            if os.path.exists(icon_path):
-                self.iconbitmap(icon_path)
-        except:
-            pass
-        
-        # 顯示在父視窗右側
-        self.update_idletasks()
-        if parent:
-            parent_x = parent.winfo_x()
-            parent_y = parent.winfo_y()
-            parent_width = parent.winfo_width()
-            # 緊鄰父視窗右側
-            x = parent_x + parent_width + 10
-            y = parent_y
-        else:
-            # 如果沒有父視窗，則置中
-            x = (self.winfo_screenwidth() // 2) - (self.winfo_width() // 2)
-            y = (self.winfo_screenheight() // 2) - (self.winfo_height() // 2)
-        self.geometry(f"+{x}+{y}")
-        
-        self.transient(parent)
-        self.grab_set()
-        
-        self._create_ui()
-    
-    def _create_ui(self):
-        """創建 UI"""
-        main_frame = tb.Frame(self, padding=15)
-        main_frame.pack(fill=BOTH, expand=YES)
-        
-        # 標題
-        title_label = tb.Label(
-            main_frame,
-            text="發現新版本！",
-            font=("Microsoft JhengHei", 16, "bold"),
-            bootstyle="success"
-        )
-        title_label.pack(pady=(0, 15))
-        
-        # 版本資訊
-        info_frame = tb.Frame(main_frame)
-        info_frame.pack(fill=X, pady=(0, 15))
-        
-        version_text = f"新版本：v{self.update_info['version']}\n發布時間：{self.update_info['published_at'][:10]}"
-        tb.Label(
-            info_frame,
-            text=version_text,
-            font=("Microsoft JhengHei", 11),
-            justify=LEFT
-        ).pack(anchor=W)
-        
-        # 更新說明
-        notes_frame = tb.Labelframe(main_frame, text="更新說明", padding=10)
-        notes_frame.pack(fill=BOTH, expand=YES, pady=(0, 15))
-        
-        notes_text = scrolledtext.ScrolledText(
-            notes_frame,
-            wrap=tk.WORD,
-            font=("Microsoft JhengHei", 9),
-            height=8
-        )
-        notes_text.pack(fill=BOTH, expand=YES)
-        notes_text.insert("1.0", self.update_info['release_notes'])
-        notes_text.config(state=tk.DISABLED)
-        
-        # 進度條
-        self.progress_frame = tb.Labelframe(main_frame, text="下載進度", padding=10)
-        self.progress_label = tb.Label(self.progress_frame, text="準備下載...")
-        self.progress_label.pack()
-        
-        self.progress_bar = tb.Progressbar(
-            self.progress_frame,
-            mode='determinate',
-            length=400
-        )
-        self.progress_bar.pack(pady=5)
-        
-        # 按鈕
-        button_frame = tb.Frame(main_frame)
-        button_frame.pack(fill=X, pady=(15, 0))
-        
-        self.confirm_btn = tb.Button(
-            button_frame,
-            text="開始更新",
-            bootstyle="success",
-            width=15,
-            command=self._confirm_update
-        )
-        self.confirm_btn.pack(side=LEFT, padx=5)
-        
-        cancel_btn = tb.Button(
-            button_frame,
-            text="稍後再說",
-            bootstyle="secondary",
-            width=15,
-            command=self.destroy
-        )
-        cancel_btn.pack(side=RIGHT, padx=5)
-    
-    def _confirm_update(self):
-        """確認更新"""
-        self.confirm_btn.config(state=DISABLED)
-        self.progress_frame.pack(fill=X, pady=(0, 15), before=self.winfo_children()[3])
-        
-        # 在背景執行緒中執行更新
-        threading.Thread(target=self._perform_update, daemon=True).start()
-    
     def _perform_update(self):
         """執行更新流程"""
         try:
-            # 1. 下載更新
-            self.after(0, lambda: self.progress_label.config(text="正在下載更新..."))
+            # 1. 下載更新 (0-40%)
+            self.after(0, lambda: self.progress_label.config(text="階段 1/3: 下載更新檔案"))
+            self.after(0, lambda: self.progress_detail_label.config(text="正在連接伺服器..."))
             
             def progress_callback(downloaded, total):
                 if total > 0:
-                    percent = (downloaded / total) * 100
-                    self.after(0, lambda p=percent: self.progress_bar.config(value=p))
-                    self.after(0, lambda d=downloaded, t=total: 
-                              self.progress_label.config(text=f"正在下載... {d//1024}KB / {t//1024}KB"))
+                    # 下載佔總進度的 40%
+                    download_percent = (downloaded / total) * 40
+                    self.after(0, lambda p=download_percent: self.progress_bar.config(value=p))
+                    
+                    # 格式化檔案大小
+                    downloaded_mb = downloaded / (1024 * 1024)
+                    total_mb = total / (1024 * 1024)
+                    
+                    self.after(0, lambda d=downloaded_mb, t=total_mb: 
+                              self.progress_detail_label.config(
+                                  text=f"已下載: {d:.2f}MB / {t:.2f}MB ({(d/t)*100:.1f}%)"
+                              ))
             
             zip_path = self.version_manager.download_update(
                 self.update_info['download_url'],
@@ -447,22 +280,34 @@ class UpdateConfirmDialog(tb.Toplevel):
             if not zip_path:
                 raise Exception("下載失敗")
             
-            # 2. 解壓縮
-            self.after(0, lambda: self.progress_label.config(text="正在解壓縮..."))
-            self.after(0, lambda: self.progress_bar.config(mode='indeterminate'))
-            self.after(0, lambda: self.progress_bar.start())
+            # 2. 解壓縮 (40-70%)
+            self.after(0, lambda: self.progress_bar.config(value=40))
+            self.after(0, lambda: self.progress_label.config(text="階段 2/3: 解壓縮檔案"))
+            self.after(0, lambda: self.progress_detail_label.config(text="正在解壓縮更新檔案..."))
+            
+            # 模擬解壓縮進度
+            for i in range(40, 70, 5):
+                self.after(0, lambda p=i: self.progress_bar.config(value=p))
+                import time
+                time.sleep(0.1)
             
             extract_dir = self.version_manager.extract_update(zip_path)
             
             if not extract_dir:
                 raise Exception("解壓縮失敗")
             
-            # 3. 應用更新
-            self.after(0, lambda: self.progress_label.config(text="準備應用更新..."))
+            self.after(0, lambda: self.progress_bar.config(value=70))
+            
+            # 3. 應用更新 (70-100%)
+            self.after(0, lambda: self.progress_label.config(text="階段 3/3: 安裝更新"))
+            self.after(0, lambda: self.progress_detail_label.config(text="正在準備更新檔案..."))
+            self.after(0, lambda: self.progress_bar.config(value=80))
             
             success = self.version_manager.apply_update(extract_dir, restart_after=True)
             
             if success:
+                self.after(0, lambda: self.progress_bar.config(value=100))
+                self.after(0, lambda: self.progress_detail_label.config(text="更新完成!"))
                 self.after(0, self._show_success)
             else:
                 raise Exception("應用更新失敗")
@@ -472,28 +317,131 @@ class UpdateConfirmDialog(tb.Toplevel):
     
     def _show_success(self):
         """顯示更新成功"""
-        self.progress_bar.stop()
-        messagebox.showinfo(
-            "更新成功",
-            "更新檔案已準備完成！\n\n程式將在關閉後自動更新並重新啟動。",
+        # 確保進度條顯示 100%
+        self.progress_bar.config(value=100)
+        self.progress_label.config(text="✓ 更新完成!")
+        self.progress_detail_label.config(text="所有檔案已準備就緒")
+        
+        # 詢問是否立即重啟
+        result = messagebox.askyesno(
+            "更新完成",
+            "更新已成功下載並準備完成！\n\n是否立即重新啟動程式以應用更新？\n\n" +
+            "(選擇'否'將在下次啟動時自動更新)",
             parent=self
         )
         
-        # 呼叫回調並關閉程式
-        if self.on_update_callback:
-            self.on_update_callback()
-        
-        # 關閉所有視窗
-        self.destroy()
-        if self.parent:
-            self.parent.destroy()
+        if result:
+            # 立即重啟
+            if self.on_update_callback:
+                self.on_update_callback()
+            # 關閉視窗
+            self.destroy()
+        else:
+            # 稍後重啟
+            messagebox.showinfo(
+                "提示",
+                "更新將在下次啟動程式時自動應用。",
+                parent=self
+            )
+            self.destroy()
     
     def _show_error(self, error_msg: str):
         """顯示更新失敗"""
-        self.progress_bar.stop()
-        self.confirm_btn.config(state=NORMAL)
+        # 停止進度條動畫（如果在運行）
+        try:
+            self.progress_bar.stop()
+        except:
+            pass
+        
+        # 重置進度條為紅色
+        self.progress_bar.config(bootstyle="danger")
+        self.progress_label.config(text="✗ 更新失敗")
+        self.progress_detail_label.config(text=f"錯誤: {error_msg}")
+        
+        # 重新啟用更新按鈕
+        self.update_btn.config(state=NORMAL)
+        
+        # 顯示錯誤訊息
         messagebox.showerror(
             "更新失敗",
             f"更新過程中發生錯誤：\n\n{error_msg}\n\n請稍後再試或手動下載更新。",
             parent=self
         )
+    
+    def _fetch_data(self):
+        """獲取更新資訊和檢查更新（背景執行緒）"""
+        # 檢查更新
+        update_info = self.version_manager.check_for_updates()
+        self.after(0, lambda: self._update_version_status(update_info))
+    
+    def _update_version_status(self, update_info):
+        """更新版本狀態和更新說明"""
+        if update_info:
+            # 有新版本
+            latest_version = update_info['version']
+            self.latest_version_label.config(text=f"v{latest_version}", bootstyle="success")
+            self.update_status_label.config(text="有新版本可用！", bootstyle="success")
+            self.update_btn.config(state=NORMAL)
+            self.update_info = update_info
+            
+            # 顯示更新說明
+            release_notes = update_info.get('release_notes', '無更新說明')
+            self.update_notes_text.config(state=tk.NORMAL)
+            self.update_notes_text.delete("1.0", tk.END)
+            self.update_notes_text.insert("1.0", release_notes)
+            self.update_notes_text.config(state=tk.DISABLED)
+        else:
+            # 已是最新版本
+            self.latest_version_label.config(text=f"v{self.current_version}", bootstyle="info")
+            self.update_status_label.config(text="目前已是最新版本", bootstyle="info")
+            self.update_btn.config(state=DISABLED)
+            self.update_info = None
+            
+            # 顯示當前版本資訊
+            self.update_notes_text.config(state=tk.NORMAL)
+            self.update_notes_text.delete("1.0", tk.END)
+            self.update_notes_text.insert("1.0", "您目前使用的是最新版本，無需更新。")
+            self.update_notes_text.config(state=tk.DISABLED)
+    
+    def _start_update(self):
+        """開始更新流程（直接在此視窗執行）"""
+        if not hasattr(self, 'update_info') or not self.update_info:
+            return
+        
+        # 確認更新
+        result = messagebox.askyesno(
+            "確認更新",
+            f"即將更新到 v{self.update_info['version']}\n\n更新完成後程式將自動重啟。\n\n確定要更新嗎？",
+            parent=self
+        )
+        
+        if not result:
+            return
+        
+        # 禁用更新按鈕和關閉按鈕
+        self.update_btn.config(state=DISABLED)
+        
+        # 顯示進度框（插入到按鈕區域之前）
+        # 獲取 main_frame 的子元件
+        main_frame = self.winfo_children()[0]
+        button_frame = None
+        for child in main_frame.winfo_children():
+            if isinstance(child, tb.Frame) and not isinstance(child, tb.Labelframe):
+                # 找到最後一個 Frame（應該是 button_frame）
+                button_frame = child
+        
+        if button_frame:
+            # 在按鈕框架之前插入進度框
+            self.progress_frame.pack(fill=X, pady=(0, 10), before=button_frame)
+        else:
+            # 如果找不到,就直接pack
+            self.progress_frame.pack(fill=X, pady=(0, 10))
+        
+        # 重置進度條
+        self.progress_bar.config(value=0, mode='determinate')
+        self.progress_label.config(text="準備下載...")
+        self.progress_detail_label.config(text="")
+        
+        # 在背景執行緒中執行更新
+        threading.Thread(target=self._perform_update, daemon=True).start()
+

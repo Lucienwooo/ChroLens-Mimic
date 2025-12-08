@@ -7,13 +7,6 @@
 # 在對本專案進行任何修改前，請先閱讀 AI_AGENT_NOTES.py
 # 該檔案包含所有開發規範、流程說明、版本管理規則和重要備註
 # ═══════════════════════════════════════════════════════════════════════════
-#
-# === 版本更新紀錄 ===
-# [2.7.2] - 強化圖片命名辨識系統、修復版本更新流程
-# [2.7.1] - 邏輯增強：變數/循環/多條件/隨機/計數器/計時器，修復轉換問題
-# [2.7.0] - 全新編輯器系統：真正的軌跡摺疊、效能優化、輸入體驗改善
-# [2.6.7] - 新增圖片辨識邊框顯示、範圍辨識功能、編輯器優化、規範文件建立
-# [2.6.6] - 修復標籤顯示、優化編輯器、強化圖片辨識、新增語法高亮
 
 VERSION = "2.7.2"
 
@@ -805,8 +798,16 @@ class RecorderApp(tb.Window):
         self.about_btn = tb.Button(self.global_setting_frame, text="關於", width=15, style="My.TButton", command=self.show_about_dialog, bootstyle=SECONDARY)
         self.about_btn.pack(anchor="w", pady=4, padx=8)
         
-        self.update_btn = tb.Button(self.global_setting_frame, text="檢查更新", width=15, style="My.TButton", command=self.check_for_updates, bootstyle=INFO)
-        self.update_btn.pack(anchor="w", pady=4, padx=8)
+        # 版本資訊按鈕
+        self.version_info_btn = tb.Button(
+            self.global_setting_frame,
+            text="版本資訊",
+            width=15,
+            style="My.TButton",
+            command=self.show_version_info,
+            bootstyle=INFO
+        )
+        self.version_info_btn.pack(anchor="w", pady=4, padx=8)
         
         # 官網連結按鈕
         self.website_btn = tb.Button(
@@ -1327,6 +1328,29 @@ class RecorderApp(tb.Window):
         except Exception as e:
             print(f"顯示 about 視窗失敗: {e}")
     
+    def show_version_info(self):
+        """顯示版本資訊對話框"""
+        try:
+            from version_manager import VersionManager
+            from version_info_dialog import VersionInfoDialog
+            
+            # 創建版本管理器
+            vm = VersionManager(VERSION, logger=self.log)
+            
+            # 顯示版本資訊對話框
+            def on_update_complete():
+                """更新完成後關閉主程式"""
+                self.log("準備關閉程式以進行更新...")
+                self.after(1000, self.force_quit)
+            
+            VersionInfoDialog(self, vm, VERSION, on_update_complete)
+            
+        except Exception as e:
+            self.log(f"顯示版本資訊失敗: {e}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("錯誤", f"無法顯示版本資訊：\n{e}")
+    
     def open_website(self):
         """開啟 ChroLens Mimic 官網"""
         import webbrowser
@@ -1337,43 +1361,6 @@ class RecorderApp(tb.Window):
             self.log(f"開啟網站失敗: {e}")
             messagebox.showerror("錯誤", f"無法開啟網站：\n{e}")
     
-    def check_for_updates(self):
-        """檢查更新（使用新的更新系統）"""
-        try:
-            from update_manager import UpdateManager
-            from update_dialog import UpdateDialog, NoUpdateDialog
-        except Exception as e:
-            self.log(f"無法載入更新模組: {e}")
-            messagebox.showerror("錯誤", "更新系統模組載入失敗")
-            return
-        
-        def check_in_thread():
-            try:
-                # 建立更新管理器
-                updater = UpdateManager(VERSION, logger=self.log)
-                
-                # 檢查更新
-                update_info = updater.check_for_updates()
-                
-                def show_result():
-                    if update_info:
-                        # 有更新：顯示更新對話框
-                        UpdateDialog(self, updater, update_info)
-                    else:
-                        # 無更新：顯示已是最新版本
-                        NoUpdateDialog(self, VERSION)
-                
-                self.after(0, show_result)
-                
-            except Exception as e:
-                error_msg = str(e)
-                self.after(0, lambda msg=error_msg: messagebox.showerror("錯誤", f"檢查更新失敗：\n{msg}"))
-        
-        # 在背景執行緒中執行
-        threading.Thread(target=check_in_thread, daemon=True).start()
-
-    # ✅ v2.6.5: 已移除 open_image_manager 和 open_combat_control（不必要的功能）
-
 
     def change_language(self, event=None):
         lang = self.language_display_var.get()
@@ -4473,36 +4460,6 @@ def format_time(ts):
     return datetime.datetime.fromtimestamp(ts).strftime("%H:%M:%S")
 
 if __name__ == "__main__":
-    # 方案3: 延遲更新機制 - 在程式啟動時檢查並應用待處理的更新
-    try:
-        from update_manager_v2_deferred import PendingUpdateManager
-        
-        # 檢查是否有待處理的更新
-        update_mgr = PendingUpdateManager()
-        if update_mgr.has_pending_update():
-            print("=" * 60)
-            print("偵測到待處理的更新,正在應用...")
-            print("=" * 60)
-            
-            # 應用更新 (此時程式剛啟動,沒有檔案鎖)
-            success = update_mgr.apply_pending_update()
-            
-            if success:
-                print("✓ 更新已成功完成!")
-                print("  程式將繼續啟動...")
-            else:
-                print("✗ 更新失敗,程式將以當前版本啟動")
-                print("  您可以稍後重試更新")
-            
-            print("=" * 60)
-            time.sleep(2)  # 讓用戶看到更新訊息
-    except ImportError:
-        # 如果沒有 update_manager_v2_deferred 模組,跳過更新檢查
-        pass
-    except Exception as e:
-        print(f"更新檢查發生錯誤: {e}")
-        print("程式將繼續啟動...")
-    
     # 正常啟動主程式
     app = RecorderApp()
     app.mainloop()

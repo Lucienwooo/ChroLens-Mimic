@@ -1,12 +1,12 @@
 @echo off
 chcp 65001 >nul
-title ChroLens_Mimic 打包工具 v2.7.3
+title ChroLens_Mimic 打包工具 v2.7.2
 color 0A
 
 echo.
 echo ═══════════════════════════════════════════════════════════════════════════
-echo    ChroLens_Mimic 自動打包工具 v2.7.3
-echo    更新機制: 延遲更新 (方案3 - 啟動時自動安裝)
+echo    ChroLens_Mimic 自動打包工具 v2.7.2
+echo    更新機制: GitHub Releases + 批次腳本更新
 echo ═══════════════════════════════════════════════════════════════════════════
 echo.
 
@@ -58,25 +58,18 @@ if not exist "ChroLens_Mimic.py" (
     echo ✓ 主程式: ChroLens_Mimic.py
 )
 
-if not exist "update_manager.py" (
-    echo ❌ 更新管理器: update_manager.py
+if not exist "version_manager.py" (
+    echo ❌ 版本管理器: version_manager.py
     set FILE_MISSING=1
 ) else (
-    echo ✓ 更新管理器: update_manager.py
+    echo ✓ 版本管理器: version_manager.py
 )
 
-if not exist "update_manager_v2_deferred.py" (
-    echo ❌ 延遲更新模組: update_manager_v2_deferred.py
+if not exist "version_info_dialog.py" (
+    echo ❌ 版本資訊對話框: version_info_dialog.py
     set FILE_MISSING=1
 ) else (
-    echo ✓ 延遲更新模組: update_manager_v2_deferred.py
-)
-
-if not exist "update_dialog.py" (
-    echo ❌ 更新對話框: update_dialog.py
-    set FILE_MISSING=1
-) else (
-    echo ✓ 更新對話框: update_dialog.py
+    echo ✓ 版本資訊對話框: version_info_dialog.py
 )
 
 if not exist "pack_safe.py" (
@@ -166,6 +159,26 @@ if %PACK_RESULT% neq 0 (
 echo.
 
 REM ═══════════════════════════════════════════════════════════════════════════
+REM 步驟 5.5: 複製更新工具（給舊版用戶使用）
+REM ═══════════════════════════════════════════════════════════════════════════
+echo [5.5/6] 複製更新工具到輸出目錄...
+
+if exist "manual_update.bat" (
+    copy /Y "manual_update.bat" "dist\ChroLens_Mimic\manual_update.bat" >nul
+    echo ✓ 已複製: manual_update.bat
+) else (
+    echo ⚠️  找不到: manual_update.bat
+)
+
+if exist "更新說明.txt" (
+    copy /Y "更新說明.txt" "dist\ChroLens_Mimic\更新說明.txt" >nul
+    echo ✓ 已複製: 更新說明.txt
+) else (
+    echo ⚠️  找不到: 更新說明.txt
+)
+echo.
+
+REM ═══════════════════════════════════════════════════════════════════════════
 REM 步驟 6: 驗證打包結果
 REM ═══════════════════════════════════════════════════════════════════════════
 echo [6/6] 驗證打包產物...
@@ -186,25 +199,48 @@ if not exist "dist\ChroLens_Mimic\ChroLens_Mimic.exe" (
 )
 echo ✓ 主執行檔存在: ChroLens_Mimic.exe
 
-REM 檢查延遲更新模組
-if not exist "dist\ChroLens_Mimic\update_manager_v2_deferred.pyc" (
-    if not exist "dist\ChroLens_Mimic\_internal\update_manager_v2_deferred.pyc" (
+REM 檢查版本管理模組
+if not exist "dist\ChroLens_Mimic\version_manager.pyc" (
+    if not exist "dist\ChroLens_Mimic\_internal\version_manager.pyc" (
         color 0E
-        echo ⚠️  警告: 找不到延遲更新模組 (.pyc 檔案)
-        echo    延遲更新功能可能無法正常運作
+        echo ⚠️  警告: 找不到版本管理模組 (.pyc 檔案)
+        echo    版本更新功能可能無法正常運作
     ) else (
-        echo ✓ 延遲更新模組: update_manager_v2_deferred.pyc (在 _internal)
+        echo ✓ 版本管理模組: version_manager.pyc (在 _internal)
     )
 ) else (
-    echo ✓ 延遲更新模組: update_manager_v2_deferred.pyc
+    echo ✓ 版本管理模組: version_manager.pyc
 )
 
-REM 檢查 ZIP 壓縮檔
-for %%f in (dist\ChroLens_Mimic_*.zip) do (
-    set ZIP_FILE=%%~nxf
-    set ZIP_SIZE=%%~zf
+REM 檢查版本資訊對話框
+if not exist "dist\ChroLens_Mimic\version_info_dialog.pyc" (
+    if not exist "dist\ChroLens_Mimic\_internal\version_info_dialog.pyc" (
+        color 0E
+        echo ⚠️  警告: 找不到版本資訊對話框模組
+    ) else (
+        echo ✓ 版本資訊對話框: version_info_dialog.pyc (在 _internal)
+    )
+) else (
+    echo ✓ 版本資訊對話框: version_info_dialog.pyc
 )
-if defined ZIP_FILE (
+
+REM 檢查更新工具檔案
+if exist "dist\ChroLens_Mimic\manual_update.bat" (
+    echo ✓ 更新工具: manual_update.bat
+) else (
+    color 0E
+    echo ⚠️  警告: 找不到更新工具: manual_update.bat
+    echo    舊版用戶將無法使用自動更新工具
+)
+
+if exist "dist\ChroLens_Mimic\更新說明.txt" (
+    echo ✓ 更新說明: 更新說明.txt
+) else (
+    color 0E
+    echo ⚠️  警告: 找不到更新說明: 更新說明.txt
+)
+    echo ✓ 版本資訊對話框: version_info_dialog.pyc
+)f defined ZIP_FILE (
     echo ✓ ZIP 壓縮檔: %ZIP_FILE%
 ) else (
     color 0E
@@ -217,26 +253,58 @@ REM ═════════════════════════�
 REM 完成訊息
 REM ═══════════════════════════════════════════════════════════════════════════
 color 0A
-echo.
-echo ═══════════════════════════════════════════════════════════════════════════
-echo    ✅ 打包完成！
-echo ═══════════════════════════════════════════════════════════════════════════
-echo.
-echo 📁 輸出位置:
-echo    主目錄: dist\ChroLens_Mimic\
-echo    執行檔: dist\ChroLens_Mimic\ChroLens_Mimic.exe
-if defined ZIP_FILE (
-    echo    壓縮檔: dist\%ZIP_FILE%
-)
-echo.
-echo 📌 更新機制說明 (方案3 - 延遲更新):
+echo 📌 更新機制說明 (GitHub Releases + 批次腳本):
 echo    ┌────────────────────────────────────────────────────────────────────┐
-echo    │ 1. 程式檢測到新版本時，下載更新檔案                               │
-echo    │ 2. 標記為「待處理更新」(pending_update.json)                       │
-echo    │ 3. 提示用戶關閉程式                                                │
-echo    │ 4. 下次啟動時，程式自動安裝更新（此時無檔案鎖）                   │
-echo    │ 5. 更新完成後正常啟動程式                                          │
+echo    │ 【使用者操作流程】                                                 │
+echo    │ 1. 點擊「版本資訊」按鈕 → 自動檢查 GitHub Releases                │
+echo    │ 2. 發現新版本 → 點擊「立即更新」                                  │
+echo    │ 3. 下載 .zip 檔案（顯示進度條）                                   │
+echo    │ 4. 解壓縮並創建批次更新腳本                                       │
+echo    │ 5. 程式自動關閉 → 批次腳本執行更新                                │
+echo    │ 6. 更新完成後自動重啟新版本                                       │
+echo    │                                                                    │
+echo    │ 【技術實作】                                                       │
+echo    │ • API: https://api.github.com/repos/Lucienwooo/                   │
+echo    │        ChroLens-Mimic/releases/latest                              │
+echo    │ • 版本比較: packaging 庫 (PEP 440)                                │
+echo    │ • 更新方式: 批次腳本 (避免檔案鎖定)                               │
+echo    │ • 自動備份: backup\ 目錄                                          │
 echo    └────────────────────────────────────────────────────────────────────┘
+echo.
+echo 🧪 測試建議:
+echo    1. 執行 dist\ChroLens_Mimic\ChroLens_Mimic.exe 確認正常啟動
+echo    2. 測試基本功能（錄製、播放、編輯器、OCR）
+echo    3. 點擊「版本資訊」檢查是否能連接 GitHub API
+echo    4. 測試完整更新流程（需先發布 GitHub Release）
+echo.
+echo 🚀 發布新版本流程:
+echo    【步驟 1】本地準備
+echo       a) 更新 ChroLens_Mimic.py 中的 VERSION = "2.7.x"
+echo       b) 執行本打包腳本 (打包.bat)
+echo       c) 測試 dist\ChroLens_Mimic\ChroLens_Mimic.exe 所有功能
+echo.
+echo    【步驟 2】GitHub 發布
+echo       a) 提交程式碼: git add . ^&^& git commit -m "v2.7.x"
+echo       b) 推送到 GitHub: git push origin main
+echo       c) 前往 GitHub → Releases → Create a new release
+echo          • Tag version: v2.7.x
+echo          • Release title: ChroLens_Mimic v2.7.x
+echo          • Description: 詳細更新說明
+echo          • 上傳 dist\ChroLens_Mimic_v2.7.x.zip
+echo       d) 點擊「Publish release」
+echo.
+echo    【步驟 3】ZIP 檔案結構
+echo       ChroLens_Mimic_v2.7.x.zip
+echo       └── (打包 dist\ChroLens_Mimic\ 整個目錄)
+echo           ├── ChroLens_Mimic.exe
+echo           ├── _internal\       (所有依賴檔案)
+echo           ├── images\
+echo           ├── TTF\
+echo           └── 其他資源檔案
+echo.
+echo    【步驟 4】更新官網 (可選)
+echo       • 更新 docs/index.html 的更新日誌區塊
+echo       • 或直接使用 GitHub Releases 的發布說明─────────────────────────────────────────────────────────┘
 echo.
 echo 🧪 測試建議:
 echo    1. 執行 dist\ChroLens_Mimic\ChroLens_Mimic.exe 確認正常啟動

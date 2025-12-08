@@ -18,6 +18,14 @@ import sys
 from typing import List, Dict, Any, Tuple
 from PIL import Image, ImageGrab, ImageTk
 
+# 🔥 優化：引入更快的螢幕截圖庫
+try:
+    import mss
+    import numpy as np
+    MSS_AVAILABLE = True
+except ImportError:
+    MSS_AVAILABLE = False
+
 # 🔧 載入 LINE Seed 字體
 LINE_SEED_FONT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "TTF", "LINESeedTW_TTF_Rg.ttf")
 try:
@@ -3787,8 +3795,17 @@ class TextCommandEditor(tk.Toplevel):
         try:
             x1, y1, x2, y2 = image_region
             
-            # ✅ 修正：在視窗仍然隱藏的狀態下截圖
-            screenshot = ImageGrab.grab(bbox=(x1, y1, x2, y2))
+            # ✅ 修正：在視窗仍然隱藏的狀態下截圖（🔥 優化：使用 mss）
+            if MSS_AVAILABLE:
+                try:
+                    with mss.mss() as sct:
+                        monitor = {"left": x1, "top": y1, "width": x2 - x1, "height": y2 - y1}
+                        screenshot_mss = sct.grab(monitor)
+                        screenshot = Image.frombytes('RGB', screenshot_mss.size, screenshot_mss.bgra, 'raw', 'BGRX')
+                except Exception:
+                    screenshot = ImageGrab.grab(bbox=(x1, y1, x2, y2))
+            else:
+                screenshot = ImageGrab.grab(bbox=(x1, y1, x2, y2))
             
             # ✅ 修正：截圖完成後才恢復視窗
             self._restore_windows()
@@ -4095,7 +4112,17 @@ class TextCommandEditor(tk.Toplevel):
         
         try:
             x1, y1, x2, y2 = image_region
-            screenshot = ImageGrab.grab(bbox=(x1, y1, x2, y2))
+            # 🔥 優化：使用 mss 截圖
+            if MSS_AVAILABLE:
+                try:
+                    with mss.mss() as sct:
+                        monitor = {"left": x1, "top": y1, "width": x2 - x1, "height": y2 - y1}
+                        screenshot_mss = sct.grab(monitor)
+                        screenshot = Image.frombytes('RGB', screenshot_mss.size, screenshot_mss.bgra, 'raw', 'BGRX')
+                except Exception:
+                    screenshot = ImageGrab.grab(bbox=(x1, y1, x2, y2))
+            else:
+                screenshot = ImageGrab.grab(bbox=(x1, y1, x2, y2))
             
             # 執行 OCR 辨識
             self._perform_ocr_and_show_result(screenshot)

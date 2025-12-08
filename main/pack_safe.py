@@ -141,9 +141,35 @@ class SafePacker:
         
         return size_mb
     
+    def copy_update_files(self):
+        """複製更新相關檔案到輸出目錄（給舊版用戶使用）"""
+        print("步驟 4/6: 複製更新工具...")
+        
+        update_files = [
+            ("manual_update.bat", "手動更新腳本"),
+            ("更新說明.txt", "更新說明文件")
+        ]
+        
+        copied_count = 0
+        for filename, description in update_files:
+            src = self.project_dir / filename
+            dst = self.output_dir / filename
+            
+            if src.exists():
+                shutil.copy2(src, dst)
+                print(f"  ✓ {description}: {filename}")
+                copied_count += 1
+            else:
+                print(f"  ⚠️  找不到 {description}: {filename}")
+        
+        if copied_count > 0:
+            print(f"已複製 {copied_count} 個更新檔案\n")
+        else:
+            print("未複製更新檔案（檔案不存在）\n")
+    
     def create_zip(self):
         """創建 ZIP 壓縮檔"""
-        print("步驟 4/5: 創建 ZIP...")
+        print("步驟 5/6: 創建 ZIP...")
         
         if not self.output_dir.exists():
             print(f"找不到輸出目錄: {self.output_dir}")
@@ -170,7 +196,7 @@ class SafePacker:
     
     def clean_build_files(self):
         """清理建置檔案"""
-        print("步驟 5/5: 清理建置檔案...")
+        print("步驟 6/6: 清理建置檔案...")
         
         if self.build_dir.exists():
             shutil.rmtree(self.build_dir, ignore_errors=True)
@@ -192,10 +218,13 @@ class SafePacker:
             # 3. 計算大小
             uncompressed_size = self.calculate_size()
             
-            # 4. 創建 ZIP
+            # 4. 複製更新工具
+            self.copy_update_files()
+            
+            # 5. 創建 ZIP
             zip_path, compressed_size = self.create_zip()
             
-            # 5. 清理建置檔案
+            # 6. 清理建置檔案
             self.clean_build_files()
             
             # 完成

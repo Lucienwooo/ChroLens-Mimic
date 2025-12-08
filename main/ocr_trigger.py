@@ -26,6 +26,15 @@ from typing import Optional, Tuple, List
 from PIL import ImageGrab
 import re
 
+# 🔥 優化：引入更快的螢幕截圖庫
+try:
+    import mss
+    import numpy as np
+    from PIL import Image
+    MSS_AVAILABLE = True
+except ImportError:
+    MSS_AVAILABLE = False
+
 
 class OCRTrigger:
     """OCR 文字觸發器
@@ -83,7 +92,7 @@ class OCRTrigger:
                     self._ocr_function = self._ocr_windows
                     self._ocr_available = True
                     self.ocr_engine = "windows"
-                    print("✅ OCR: 使用 Windows Runtime 引擎 (內建)")
+                    print("OCR: Using Windows Runtime engine")
                     return True
                 except ImportError:
                     pass
@@ -96,16 +105,12 @@ class OCRTrigger:
                 self._ocr_function = self._ocr_tesseract
                 self._ocr_available = True
                 self.ocr_engine = "tesseract"
-                print("✅ OCR: 使用 Tesseract 引擎")
+                print("OCR: Using Tesseract engine")
                 return True
             except ImportError:
                 pass
         
         return False
-            except Exception:
-                pass
-        
-        elif engine == "tesseract":
     
     def _ocr_tesseract(self, image) -> str:
         """使用 Tesseract 辨識圖片"""
@@ -115,7 +120,7 @@ class OCRTrigger:
             text = pytesseract.image_to_string(image, lang='chi_tra+eng')
             return text.strip()
         except Exception as e:
-            print(f"⚠️ Tesseract OCR 失敗: {e}")
+            print(f"Warning: Tesseract OCR failed: {e}")
             return ""
     
     def _ocr_windows(self, image) -> str:
@@ -155,14 +160,14 @@ class OCRTrigger:
             text = loop.run_until_complete(recognize())
             return text.strip()
         except Exception as e:
-            print(f"⚠️ Windows OCR 失敗: {e}")
+            print(f"Warning: Windows OCR failed: {e}")
             return ""
     
     def capture_screen(
         self,
         region: Optional[Tuple[int, int, int, int]] = None
     ) -> 'PIL.Image.Image':
-        """截取螢幕
+        """截取螢幕（🔥 優化：優先使用 mss）
         
         Args:
             region: 截取區域 (left, top, right, bottom)
@@ -171,10 +176,35 @@ class OCRTrigger:
         Returns:
             PIL Image 物件
         """
-        if region:
-            return ImageGrab.grab(bbox=region)
-        else:
-            return ImageGrab.grab()
+        try:
+            if MSS_AVAILABLE:
+                with mss.mss() as sct:
+                    if region:
+                        monitor = {
+                            "left": region[0], 
+                            "top": region[1],
+                            "width": region[2] - region[0],
+                            "height": region[3] - region[1]
+                        }
+                    else:
+                        monitor = sct.monitors[1]  # 主螢幕
+                    
+                    screenshot = sct.grab(monitor)
+                    # 轉換為 PIL Image
+                    img = Image.frombytes('RGB', screenshot.size, screenshot.bgra, 'raw', 'BGRX')
+                    return img
+            else:
+                # 回退到 PIL.ImageGrab
+                if region:
+                    return ImageGrab.grab(bbox=region)
+                else:
+                    return ImageGrab.grab()
+        except Exception as e:
+            print(f"Warning: mss screenshot failed, using PIL: {e}")
+            if region:
+                return ImageGrab.grab(bbox=region)
+            else:
+                return ImageGrab.grab()
     
     def recognize_text(
         self,
@@ -255,7 +285,7 @@ class OCRTrigger:
                         return True
                 
             except Exception as e:
-                print(f"⚠️ OCR 辨識錯誤: {e}")
+                print(f"Warning: OCR recognition error: {e}")
             
             # 等待後重試
             time.sleep(interval)

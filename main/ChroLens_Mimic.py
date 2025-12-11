@@ -1,4 +1,6 @@
-﻿# ChroLens Studio - Lucienwooo
+﻿指令說明選取時,會造成其他排的浮動,修正
+自訂模組和模組預覽的欄位高度,調高到快速指令按鈕底的下方切齊
+# ChroLens Studio - Lucienwooo
 # python "C:\Users\Lucien\Documents\GitHub\ChroLens_Mimic\main\ChroLens_Mimic.py"
 #
 # ═══════════════════════════════════════════════════════════════════════════

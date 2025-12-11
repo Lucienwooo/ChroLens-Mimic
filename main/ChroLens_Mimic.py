@@ -1,5 +1,6 @@
-﻿指令說明選取時,會造成其他排的浮動,修正
-自訂模組和模組預覽的欄位高度,調高到快速指令按鈕底的下方切齊
+﻿1.編輯器的視窗高度增加100,寬度增加50
+2.使用圖片辨識/左鍵點擊/右鍵點擊之後,編輯器的視窗大小會跑掉,請修復
+3.模組預覽內容以及自訂模組的模組文字大小,比照文字指令的文字大小
 # ChroLens Studio - Lucienwooo
 # python "C:\Users\Lucien\Documents\GitHub\ChroLens_Mimic\main\ChroLens_Mimic.py"
 #

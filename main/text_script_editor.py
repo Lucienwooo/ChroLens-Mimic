@@ -323,7 +323,7 @@ class TextCommandEditor(tk.Toplevel):
         self.text_editor.bind("<Button-3>", self._show_context_menu)
         
         # 左下: 模組管理區（移到左側下方）
-        module_frame = tk.Frame(left_big_frame, bg="#f5f5f5", relief="groove", bd=2, height=200)
+        module_frame = tk.Frame(left_big_frame, bg="#f5f5f5", relief="groove", bd=2, height=380)
         module_frame.pack(fill="both", expand=False, pady=(5, 0))
         module_frame.pack_propagate(False)
         
@@ -415,7 +415,7 @@ class TextCommandEditor(tk.Toplevel):
         self._create_command_buttons_in_frame(middle_frame)
         
         # 右下: 模組預覽框
-        right_frame = tk.Frame(right_big_frame, bg="#f5f5f5", height=200)
+        right_frame = tk.Frame(right_big_frame, bg="#f5f5f5", height=380)
         right_frame.pack(fill="both", expand=False, pady=(5, 0))
         right_frame.pack_propagate(False)
         
@@ -1378,9 +1378,11 @@ class TextCommandEditor(tk.Toplevel):
         
         # 插入指令資料
         for row, (button_name, command, description) in enumerate(commands, start=1):
-            # 創建整行的框架，用於點擊選取
-            row_frame = tk.Frame(parent_frame, bg="#1e1e1e")
+            # 創建整行的框架，用於點擊選取（預留2px邊框空間避免浮動）
+            row_frame = tk.Frame(parent_frame, bg="#1e1e1e", relief="solid", borderwidth=2, highlightthickness=0)
             row_frame.grid(row=row, column=0, columnspan=3, sticky="ew")
+            # 設定透明邊框色（未選取時）
+            row_frame.config(highlightbackground="#1e1e1e", highlightcolor="#1e1e1e")
             
             # 配置內部的 grid
             row_frame.grid_columnconfigure(0, minsize=180)
@@ -1445,10 +1447,10 @@ class TextCommandEditor(tk.Toplevel):
             # 為整行添加點擊事件，顯示選取框
             def make_click_handler(frame, labels):
                 def on_click(event=None):
-                    # 移除所有選取
+                    # 移除所有選取（改變邊框顏色而不是寬度,避免浮動）
                     for child in parent_frame.winfo_children():
                         if isinstance(child, tk.Frame) and child != parent_frame:
-                            child.config(relief="flat", borderwidth=0, bg="#1e1e1e")
+                            child.config(borderwidth=2, bg="#1e1e1e", highlightbackground="#1e1e1e", highlightcolor="#1e1e1e")
                             for widget in child.winfo_children():
                                 if isinstance(widget, tk.Label):
                                     widget.config(bg="#1e1e1e")
@@ -1458,8 +1460,8 @@ class TextCommandEditor(tk.Toplevel):
                                         if isinstance(sub, tk.Text):
                                             sub.config(bg="#1e1e1e")
                     
-                    # 顯示當前選取
-                    frame.config(relief="solid", borderwidth=2, bg="#264f78")
+                    # 顯示當前選取（使用邊框顏色高亮,保持寬度不變）
+                    frame.config(borderwidth=2, bg="#264f78", highlightbackground="#569cd6", highlightcolor="#569cd6")
                     for widget in labels:
                         if isinstance(widget, tk.Label):
                             widget.config(bg="#264f78")

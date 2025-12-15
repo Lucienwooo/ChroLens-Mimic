@@ -1,6 +1,4 @@
-﻿1.在勾選框摺疊軌跡的右邊新增一個開關"圖形模式"
-2."圖形模式"將會把文字指令的整個文字框切換成"blockly_script_editor.py"中的"視覺化編輯畫布"那樣,並且將文字轉換成文字圖塊(浮動工具箱)
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 ChroLens 文字指令式腳本編輯器
 將JSON事件轉換為簡單的文字指令格式
@@ -262,7 +260,7 @@ class TextCommandEditor(tk.Toplevel):
         left_frame = tk.Frame(left_big_frame)
         left_frame.pack(fill="both", expand=True)
         
-        # 新增：摺疊軌跡顯示勾選框
+        # 新增：摺疊軌跡顯示勾選框和圖形模式開關
         trajectory_control = tk.Frame(left_frame)
         trajectory_control.pack(fill="x", pady=(0, 5))
         
@@ -276,11 +274,27 @@ class TextCommandEditor(tk.Toplevel):
         )
         simplify_check.pack(side="left", padx=5)
         
+        # 圖形模式開關
+        self.canvas_mode_var = tk.BooleanVar(value=False)
+        canvas_mode_check = tk.Checkbutton(
+            trajectory_control,
+            text="圖形模式",
+            variable=self.canvas_mode_var,
+            command=self._toggle_canvas_mode,
+            font=font_tuple(9)
+        )
+        canvas_mode_check.pack(side="left", padx=15)
+        
         # 使用 LINE Seed 字體
         editor_font = ("LINE Seed TW", 10) if LINE_SEED_FONT_LOADED else font_tuple(10, monospace=True)
         
+        # 創建編輯器容器（用於切換文字/畫布模式）
+        self.editor_container = tk.Frame(left_frame)
+        self.editor_container.pack(fill="both", expand=True)
+        
+        # 文字編輯器
         self.text_editor = scrolledtext.ScrolledText(
-            left_frame,
+            self.editor_container,
             font=editor_font,
             wrap="none",
             bg="#1e1e1e",           # ✅ VS Code 深色背景
@@ -292,6 +306,40 @@ class TextCommandEditor(tk.Toplevel):
             maxundo=-1
         )
         self.text_editor.pack(fill="both", expand=True)
+        
+        # 畫布編輯器（初始隱藏）
+        self.canvas_frame = tk.Frame(self.editor_container, bg="#252526")
+        self.canvas = tk.Canvas(
+            self.canvas_frame,
+            bg="#252526",
+            highlightthickness=0,
+            cursor="crosshair"
+        )
+        self.canvas.pack(fill="both", expand=True)
+        
+        # 畫布數據結構
+        self.canvas_nodes = []  # 儲存所有節點
+        self.canvas_connections = []  # 儲存所有連接線
+        self.selected_node = None
+        self.drag_data = {"x": 0, "y": 0, "item": None}
+        self.canvas_mode = False  # 當前是否為畫布模式
+        
+        # 畫布縮放相關
+        self.canvas_scale = 1.0  # 當前縮放比例
+        self.canvas_offset_x = 0  # X軸偏移
+        self.canvas_offset_y = 0  # Y軸偏移
+        self.pan_data = {"x": 0, "y": 0, "active": False}  # 平移數據
+        
+        # 畫布事件綁定
+        self.canvas.bind("<Button-1>", self._on_canvas_click)
+        self.canvas.bind("<B1-Motion>", self._on_canvas_drag)
+        self.canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
+        self.canvas.bind("<Button-3>", self._show_canvas_context_menu)
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+        self.canvas.bind("<MouseWheel>", self._on_canvas_zoom)  # 滾輪縮放
+        self.canvas.bind("<Button-2>", self._on_canvas_pan_start)  # 中鍵平移開始
+        self.canvas.bind("<B2-Motion>", self._on_canvas_pan_move)  # 中鍵平移中
+        self.canvas.bind("<ButtonRelease-2>", self._on_canvas_pan_end)  # 中鍵平移結束
         
         # ✅ 設定語法高亮標籤 (VS Code Dark+ 配色方案)
         self.text_editor.tag_config("syntax_symbol", foreground="#d4d4d4")      # 淺灰色 - 符號（,、>等）
@@ -306,6 +354,7 @@ class TextCommandEditor(tk.Toplevel):
         self.text_editor.tag_config("syntax_flow", foreground="#c586c0")        # 紫色 - 流程控制
         self.text_editor.tag_config("syntax_picname", foreground="#ce9178")     # 橘色 - 圖片名稱
         self.text_editor.tag_config("syntax_comment", foreground="#6a9955")     # 綠色 - 註解
+        self.text_editor.tag_config("syntax_module_ref", foreground="#ffd700", font=font_tuple(10, "bold"))  # 金色 - 模組引用
         
         # ✨ 新增：軌跡摺疊相關標籤和配置
         self.text_editor.tag_config("trajectory_summary", foreground="#00BFFF", font=font_tuple(10, "bold"))
@@ -656,6 +705,956 @@ class TextCommandEditor(tk.Toplevel):
         # 重新載入腳本以套用新的顯示模式
         self._load_script()
     
+    def _toggle_canvas_mode(self):
+        """切換文字/畫布模式"""
+        if self.canvas_mode_var.get():
+            # 切換到畫布模式
+            self._switch_to_canvas_mode()
+        else:
+            # 切換到文字模式
+            self._switch_to_text_mode()
+    
+    def _switch_to_canvas_mode(self):
+        """切換到畫布模式"""
+        # 轉換文字指令為畫布節點
+        text_content = self.text_editor.get("1.0", tk.END).strip()
+        if text_content:
+            self._convert_text_to_canvas(text_content)
+        
+        # 隱藏文字編輯器，顯示畫布
+        self.text_editor.pack_forget()
+        self.canvas_frame.pack(fill="both", expand=True)
+        
+        # 繪製網格
+        self._draw_grid()
+        
+        self.canvas_mode = True
+        self._update_status("已切換到圖形模式", "success")
+    
+    def _switch_to_text_mode(self):
+        """切換到文字模式"""
+        # 轉換畫布節點為文字指令
+        if self.canvas_nodes:
+            self._convert_canvas_to_text()
+        
+        # 隱藏畫布，顯示文字編輯器
+        self.canvas_frame.pack_forget()
+        self.text_editor.pack(fill="both", expand=True)
+        
+        self.canvas_mode = False
+        self._update_status("已切換到文字模式", "success")
+    
+    def _draw_grid(self):
+        """繪製畫布網格（已取消格線，保持深色背景）"""
+        # 清除現有網格
+        self.canvas.delete("grid")
+        # 不再繪製格線，僅保持深色背景
+    
+    def _on_canvas_configure(self, event):
+        """畫布大小改變事件"""
+        self._draw_grid()
+    
+    def _convert_text_to_canvas(self, text_content):
+        """將文字指令轉換為畫布節點（支持標記容器）"""
+        # 清空現有節點
+        self.canvas.delete("all")
+        self.canvas_nodes = []
+        self.canvas_connections = []
+        
+        lines = text_content.split('\n')
+        x, y = 100, 100  # 起始位置
+        
+        # 解析層級結構
+        parsed_structure = self._parse_marker_structure(lines)
+        
+        # 繪製結構
+        for item in parsed_structure:
+            if item['type'] == 'marker':
+                # 繪製標記容器
+                container_height = self._draw_marker_container(item, x, y)
+                y += container_height + 30  # 下一個元素
+            else:
+                # 單獨的指令
+                line = item['line'].strip()
+                if not line:
+                    continue
+                
+                color = self._get_command_color(line)
+                display_text = self._get_command_display_text(line)
+                self._create_canvas_node(display_text, color, x, y, original_command=line)
+                y += 80
+            
+            if y > 700:  # 換列
+                y = 100
+                x += 250
+    
+    def _parse_marker_structure(self, lines):
+        """解析標記層級結構
+        返回: [{'type': 'marker', 'name': '#mm', 'children': [...]}, 
+               {'type': 'command', 'line': '...'}]
+        """
+        result = []
+        i = 0
+        
+        while i < len(lines):
+            line = lines[i]
+            stripped = line.strip()
+            
+            # 跳過空行和軌跡標記
+            if not stripped or stripped.startswith('# [軌跡]') or stripped.startswith('# [軌跡結束]'):
+                i += 1
+                continue
+            
+            # 檢查是否是標記（#開頭，且只有一個>）
+            if stripped.startswith('#') and not stripped.startswith('##'):
+                # 這是一個標記
+                marker_name = stripped
+                children = []
+                i += 1
+                
+                # 收集標記內的所有子元素（以>開頭，且縮排比標記多）
+                while i < len(lines):
+                    child_line = lines[i]
+                    child_stripped = child_line.strip()
+                    
+                    # 空行跳過
+                    if not child_stripped:
+                        i += 1
+                        continue
+                    
+                    # 檢查是否是標記的子元素（>開頭且只有一個>）
+                    if child_stripped.startswith('>') and not child_stripped.startswith('>>'):
+                        children.append(child_stripped)
+                        i += 1
+                    else:
+                        # 遇到非子元素，退出
+                        break
+                
+                result.append({
+                    'type': 'marker',
+                    'name': marker_name,
+                    'children': children
+                })
+            else:
+                # 普通指令
+                result.append({
+                    'type': 'command',
+                    'line': line
+                })
+                i += 1
+        
+        return result
+    
+    def _draw_marker_container(self, marker_item, x, y):
+        """繪製標記容器，包含標記名和子元素
+        返回: 容器高度
+        """
+        marker_name = marker_item['name']
+        children = marker_item['children']
+        
+        # 計算容器尺寸
+        marker_height = 40  # 標記名高度
+        child_height = 60  # 每個子元素高度
+        padding = 15  # 內邊距
+        spacing = 10  # 子元素間距
+        
+        total_child_height = len(children) * (child_height + spacing) if children else 0
+        container_height = marker_height + total_child_height + padding * 2
+        container_width = 220
+        
+        # 繪製容器外框（大框）
+        container_rect = self.canvas.create_rectangle(
+            x, y,
+            x + container_width, y + container_height,
+            outline="#4ec9b0",  # 青綠色邊框
+            width=2,
+            fill="#2d2d30",  # 深灰背景
+            tags=("marker_container",)
+        )
+        
+        # 繪製標記名（在頂部）
+        marker_text = self.canvas.create_text(
+            x + container_width // 2,
+            y + marker_height // 2,
+            text=marker_name,
+            fill="#4ec9b0",  # 青綠色
+            font=font_tuple(10, "bold"),  # 固定大小10
+            tags=("marker_name",)
+        )
+        
+        # 繪製分隔線
+        separator = self.canvas.create_line(
+            x + 5, y + marker_height,
+            x + container_width - 5, y + marker_height,
+            fill="#4ec9b0",
+            width=1,
+            tags=("marker_separator",)
+        )
+        
+        # 保存標記容器作為一個特殊節點（包含所有子元素）
+        marker_node = {
+            "rect": container_rect,
+            "text": marker_text,
+            "container_rect": container_rect,
+            "marker_text": marker_text,
+            "separator": separator,
+            "command": marker_name,
+            "original_command": marker_name,
+            "color": "#4ec9b0",
+            "x": x,
+            "y": y,
+            "is_marker": True,
+            "marker_children": [],  # 保存所有子元素的原始指令
+            "child_elements": []  # 保存子元素的canvas元素
+        }
+        
+        # 繪製子元素
+        child_y = y + marker_height + padding
+        for i, child in enumerate(children):
+            color = self._get_command_color(child)
+            display_text = self._get_command_display_text(child)
+            
+            # 子元素框
+            child_x = x + padding
+            child_width = container_width - padding * 2
+            
+            child_rect = self.canvas.create_rectangle(
+                child_x, child_y,
+                child_x + child_width, child_y + child_height,
+                fill=color,
+                outline="#aaaaaa",
+                width=1,
+                tags=("marker_child",)
+            )
+            
+            child_text = self.canvas.create_text(
+                child_x + child_width // 2,
+                child_y + child_height // 2,
+                text=display_text,
+                fill="white",
+                font=font_tuple(10),  # 固定大小10
+                tags=("marker_child_text",),
+                width=child_width - 10
+            )
+            
+            # 保存到標記節點的子元素列表
+            marker_node["marker_children"].append(child)  # 原始指令
+            marker_node["child_elements"].append({
+                "rect": child_rect,
+                "text": child_text,
+                "x": child_x,
+                "y": child_y
+            })
+            
+            child_y += child_height + spacing
+        
+        # 將標記節點加入節點列表
+        self.canvas_nodes.append(marker_node)
+        
+        return container_height
+    
+    def _get_command_color(self, command):
+        """根據指令類型返回對應的顏色（與VS Code語法高亮一致）"""
+        # 註解
+        if command.startswith('#'):
+            return "#6a9955"
+        
+        # 滑鼠操作（藍色系）
+        if command.startswith('>'):
+            if '移動至' in command:
+                return "#569cd6"  # syntax_mouse
+            elif '點擊' in command:
+                return "#569cd6"  # syntax_mouse
+            elif '拖曳' in command:
+                return "#569cd6"  # syntax_mouse
+            elif '滾輪' in command:
+                return "#569cd6"  # syntax_mouse
+            return "#569cd6"
+        
+        # 鍵盤操作（淺藍色）
+        if command.startswith('@'):
+            return "#9cdcfe"  # syntax_keyboard
+        
+        # 等待延遲（淺黃色）
+        if command.startswith('等待'):
+            return "#dcdcaa"  # syntax_delay
+        
+        # 標籤（青綠色）
+        if command.startswith('標籤:'):
+            return "#4ec9b0"  # syntax_label
+        
+        # 圖片辨識（青綠色）
+        if command.startswith('找圖'):
+            return "#4ec9b0"  # syntax_image
+        
+        # OCR文字（青綠色）
+        if command.startswith('找字'):
+            return "#4ec9b0"  # syntax_ocr
+        
+        # 流程控制（紫色）
+        if '條件判斷' in command or '迴圈' in command or '如果' in command or '否則' in command:
+            return "#c586c0"  # syntax_flow/syntax_condition
+        
+        # 時間格式（橘色）
+        if 'T=' in command:
+            return "#ce9178"  # syntax_time
+        
+        return "#d4d4d4"  # 預設 - 淺灰色
+    
+    def _get_command_display_text(self, command):
+        """獲取指令的顯示文字（簡化版）"""
+        # 限制顯示長度
+        if len(command) > 30:
+            return command[:27] + "..."
+        return command
+    
+    def _create_canvas_node(self, text, color, x, y, original_command=None):
+        """在畫布上創建節點（Workflow工作流程圖風格）"""
+        node_idx = len(self.canvas_nodes)
+        node_tag = f"node_{node_idx}"
+        
+        # 判斷節點類型，決定形狀
+        is_condition = '條件判斷' in text or '如果' in text
+        is_label = text.startswith('標籤:')
+        
+        # 創建陰影效果（增加立體感）
+        shadow = self.canvas.create_rectangle(
+            x + 4, y + 4, x + 184, y + 64,
+            fill="#1a1a1a",
+            outline="",
+            tags=("shadow", node_tag)
+        )
+        
+        if is_condition:
+            # 條件判斷用菱形（Workflow風格）
+            node_shape = self.canvas.create_polygon(
+                x + 90, y,           # 上
+                x + 180, y + 30,     # 右
+                x + 90, y + 60,      # 下
+                x, y + 30,           # 左
+                fill=color,
+                outline="#66ccff",   # 亮藍色邊框
+                width=2,
+                smooth=True,
+                tags=("node", node_tag)
+            )
+        elif is_label:
+            # 標籤用橢圓（更柔和）
+            node_shape = self.canvas.create_oval(
+                x, y, x + 180, y + 60,
+                fill=color,
+                outline="#99ff99",   # 亮綠色邊框
+                width=2,
+                tags=("node", node_tag)
+            )
+        else:
+            # 一般指令用圓角矩形（通過多邊形模擬）
+            radius = 10
+            node_shape = self._create_rounded_rectangle(
+                x, y, x + 180, y + 60,
+                radius=radius,
+                fill=color,
+                outline="#aaaaaa",
+                width=2,
+                tags=("node", node_tag)
+            )
+        
+        # 創建節點文字
+        node_text = self.canvas.create_text(
+            x + 90, y + 30,
+            text=text,
+            fill="white",
+            font=font_tuple(10, "bold"),  # 固定大小10
+            tags=("node", node_tag),
+            width=170
+        )
+        
+        # 儲存節點資料（包含完整原始指令和陰影）
+        node_data = {
+            "rect": node_shape,
+            "text": node_text,
+            "shadow": shadow,  # 陰影元素
+            "command": text,
+            "original_command": original_command if original_command else text,  # 保存原始指令
+            "color": color,
+            "x": x,
+            "y": y,
+            "is_condition": is_condition
+        }
+        self.canvas_nodes.append(node_data)
+        
+        # 自動連接到前一個節點
+        if len(self.canvas_nodes) > 1:
+            prev_node = self.canvas_nodes[-2]
+            # 如果前一個是條件判斷，創建兩條分支
+            if prev_node.get("is_condition", False):
+                self._connect_nodes(len(self.canvas_nodes) - 2, len(self.canvas_nodes) - 1, label="True")
+            else:
+                self._connect_nodes(len(self.canvas_nodes) - 2, len(self.canvas_nodes) - 1)
+        
+        return node_idx
+    
+    def _create_rounded_rectangle(self, x1, y1, x2, y2, radius=10, **kwargs):
+        """創建圓角矩形（模擬Workflow風格）"""
+        points = [
+            x1 + radius, y1,
+            x2 - radius, y1,
+            x2, y1,
+            x2, y1 + radius,
+            x2, y2 - radius,
+            x2, y2,
+            x2 - radius, y2,
+            x1 + radius, y2,
+            x1, y2,
+            x1, y2 - radius,
+            x1, y1 + radius,
+            x1, y1,
+        ]
+        return self.canvas.create_polygon(points, smooth=True, **kwargs)
+    
+    def _connect_nodes(self, idx1, idx2, label=None):
+        """連接兩個節點"""
+        if idx1 < 0 or idx1 >= len(self.canvas_nodes) or idx2 < 0 or idx2 >= len(self.canvas_nodes):
+            return
+        
+        node1 = self.canvas_nodes[idx1]
+        node2 = self.canvas_nodes[idx2]
+        
+        # 計算連接點
+        x1 = node1["x"] + 90
+        y1 = node1["y"] + 60
+        x2 = node2["x"] + 90
+        y2 = node2["y"]
+        
+        # 創建連接線（Workflow風格：更粗、更平滑的箭頭）
+        line_color = "#4CAF50" if label == "True" else "#F44336" if label == "False" else "#60a5fa"
+        line = self.canvas.create_line(
+            x1, y1, x2, y2,
+            fill=line_color,
+            width=3,
+            arrow=tk.LAST,
+            arrowshape=(12, 15, 6),  # 更大更明顯的箭頭
+            smooth=True,              # 平滑曲線
+            tags="connection"
+        )
+        
+        # 如果有標籤，添加文字
+        label_text = None
+        if label:
+            mid_x = (x1 + x2) / 2
+            mid_y = (y1 + y2) / 2
+            label_text = self.canvas.create_text(
+                mid_x, mid_y,
+                text=label,
+                fill=line_color,
+                font=font_tuple(8, "bold"),
+                tags="connection_label"
+            )
+        
+        self.canvas_connections.append({
+            "line": line,
+            "label_text": label_text,
+            "from": idx1,
+            "to": idx2
+        })
+        
+        # 將連接線移到節點下層
+        self.canvas.tag_lower("connection")
+        self.canvas.tag_lower("grid")
+    
+    def _convert_canvas_to_text(self):
+        """將畫布節點轉換為文字指令（支持標記容器）"""
+        if not self.canvas_nodes:
+            return
+        
+        # 清空文字編輯器
+        self.text_editor.delete("1.0", tk.END)
+        
+        # 轉換節點為文字（使用原始指令）
+        for node in self.canvas_nodes:
+            # 檢查是否是標記容器
+            if node.get("is_marker", False):
+                # 標記容器：先寫標記名，再寫所有子元素
+                marker_name = node.get("original_command", node["command"])
+                self.text_editor.insert(tk.END, marker_name + "\n")
+                
+                # 寫入所有子元素
+                for child_cmd in node.get("marker_children", []):
+                    self.text_editor.insert(tk.END, child_cmd + "\n")
+            else:
+                # 普通節點
+                original_command = node.get("original_command", node["command"])
+                self.text_editor.insert(tk.END, original_command + "\n")
+    
+    def _on_canvas_click(self, event):
+        """畫布點擊事件（支援節點拖動和畫布平移）"""
+        # 檢查是否點擊到節點
+        items = self.canvas.find_overlapping(event.x - 5, event.y - 5, event.x + 5, event.y + 5)
+        
+        for item in items:
+            tags = self.canvas.gettags(item)
+            # 檢查標記容器和普通節點
+            if "node" in tags or "marker_container" in tags or "marker_name" in tags or "marker_child" in tags:
+                # 查找對應的節點索引
+                for idx, node in enumerate(self.canvas_nodes):
+                    # 檢查是否點擊到該節點的任何元素
+                    if node.get("is_marker", False):
+                        # 標記容器：檢查容器、標記名或子元素
+                        if (item == node.get("container_rect") or 
+                            item == node.get("marker_text") or
+                            item == node.get("separator")):
+                            self.selected_node = idx
+                            self.drag_data["item"] = item
+                            self.drag_data["x"] = event.x
+                            self.drag_data["y"] = event.y
+                            return
+                        # 檢查子元素
+                        for child_elem in node.get("child_elements", []):
+                            if item == child_elem["rect"] or item == child_elem["text"]:
+                                self.selected_node = idx
+                                self.drag_data["item"] = item
+                                self.drag_data["x"] = event.x
+                                self.drag_data["y"] = event.y
+                                return
+                    else:
+                        # 普通節點
+                        if item == node.get("rect") or item == node.get("text") or item == node.get("shadow"):
+                            self.selected_node = idx
+                            self.drag_data["item"] = item
+                            self.drag_data["x"] = event.x
+                            self.drag_data["y"] = event.y
+                            return
+        
+        # 如果沒有點擊到節點，啟動畫布拖移模式
+        self.pan_data["active"] = True
+        self.pan_data["x"] = event.x
+        self.pan_data["y"] = event.y
+        self.canvas.config(cursor="fleur")
+    
+    def _on_canvas_drag(self, event):
+        """畫布拖曳事件（節點拖動或畫布平移）"""
+        if self.drag_data["item"] and self.selected_node is not None:
+            # 拖動節點
+            dx = event.x - self.drag_data["x"]
+            dy = event.y - self.drag_data["y"]
+            
+            node = self.canvas_nodes[self.selected_node]
+            
+            # 檢查是否是標記容器
+            if node.get("is_marker", False):
+                # 移動整個標記容器
+                self.canvas.move(node["container_rect"], dx, dy)
+                self.canvas.move(node["marker_text"], dx, dy)
+                self.canvas.move(node["separator"], dx, dy)
+                
+                # 移動所有子元素
+                for child_elem in node.get("child_elements", []):
+                    self.canvas.move(child_elem["rect"], dx, dy)
+                    self.canvas.move(child_elem["text"], dx, dy)
+                    child_elem["x"] += dx
+                    child_elem["y"] += dy
+            else:
+                # 移動普通節點（包含陰影、形狀、文字）
+                if "shadow" in node:
+                    self.canvas.move(node["shadow"], dx, dy)
+                self.canvas.move(node["rect"], dx, dy)
+                self.canvas.move(node["text"], dx, dy)
+            
+            # 更新節點位置
+            node["x"] += dx
+            node["y"] += dy
+            
+            # 更新連接線
+            self._update_node_connections(self.selected_node)
+            
+            # 更新拖曳數據
+            self.drag_data["x"] = event.x
+            self.drag_data["y"] = event.y
+        elif self.pan_data["active"]:
+            # 拖移畫布
+            dx = event.x - self.pan_data["x"]
+            dy = event.y - self.pan_data["y"]
+            
+            # 移動所有元素
+            self.canvas.move("all", dx, dy)
+            
+            # 更新節點位置記錄
+            for node in self.canvas_nodes:
+                node["x"] += dx
+                node["y"] += dy
+            
+            self.pan_data["x"] = event.x
+            self.pan_data["y"] = event.y
+    
+    def _on_canvas_release(self, event):
+        """畫布釋放事件（結束節點拖動或畫布平移）"""
+        self.drag_data["item"] = None
+        self.selected_node = None
+        if self.pan_data["active"]:
+            self.pan_data["active"] = False
+            self.canvas.config(cursor="crosshair")
+    
+    def _update_node_connections(self, node_idx):
+        """更新與指定節點相關的所有連接線"""
+        for conn in self.canvas_connections:
+            if conn["from"] == node_idx or conn["to"] == node_idx:
+                from_node = self.canvas_nodes[conn["from"]]
+                to_node = self.canvas_nodes[conn["to"]]
+                
+                x1 = from_node["x"] + 90
+                y1 = from_node["y"] + 60
+                x2 = to_node["x"] + 90
+                y2 = to_node["y"]
+                
+                self.canvas.coords(conn["line"], x1, y1, x2, y2)
+                
+                # 更新標籤位置
+                if conn.get("label_text"):
+                    mid_x = (x1 + x2) / 2
+                    mid_y = (y1 + y2) / 2
+                    self.canvas.coords(conn["label_text"], mid_x, mid_y)
+    
+    def _on_canvas_zoom(self, event):
+        """畫布縮放事件（滾輪）- 同步縮放文字和圖形"""
+        # 獲取滾輪方向
+        if event.delta > 0:
+            scale_factor = 1.1
+        else:
+            scale_factor = 0.9
+        
+        # 限制縮放範圍
+        new_scale = self.canvas_scale * scale_factor
+        if new_scale < 0.3 or new_scale > 3.0:
+            return
+        
+        self.canvas_scale = new_scale
+        
+        # 縮放所有元素（圖形部分）
+        self.canvas.scale("all", event.x, event.y, scale_factor, scale_factor)
+        
+        # 更新節點位置和文字大小
+        for node in self.canvas_nodes:
+            # 更新節點位置記錄
+            dx = node["x"] - event.x
+            dy = node["y"] - event.y
+            node["x"] = event.x + dx * scale_factor
+            node["y"] = event.y + dy * scale_factor
+            
+            # 同步更新文字大小（確保文字跟圖形框同步）
+            new_font_size = max(6, int(9 * self.canvas_scale))
+            self.canvas.itemconfig(node["text"], font=font_tuple(new_font_size, "bold"))
+        
+        # 顯示縮放比例
+        self._update_status(f"縮放: {int(self.canvas_scale * 100)}%", "info")
+    
+    def _on_canvas_pan_start(self, event):
+        """開始平移畫布（中鍵）"""
+        self.pan_data["active"] = True
+        self.pan_data["x"] = event.x
+        self.pan_data["y"] = event.y
+        self.canvas.config(cursor="fleur")
+    
+    def _on_canvas_pan_move(self, event):
+        """平移畫布中"""
+        if self.pan_data["active"]:
+            dx = event.x - self.pan_data["x"]
+            dy = event.y - self.pan_data["y"]
+            
+            # 移動所有元素
+            self.canvas.move("all", dx, dy)
+            
+            # 更新節點位置記錄
+            for node in self.canvas_nodes:
+                node["x"] += dx
+                node["y"] += dy
+            
+            self.pan_data["x"] = event.x
+            self.pan_data["y"] = event.y
+    
+    def _on_canvas_pan_end(self, event):
+        """結束平移畫布"""
+        self.pan_data["active"] = False
+        self.canvas.config(cursor="crosshair")
+    
+    def _show_canvas_context_menu(self, event):
+        """顯示畫布右鍵選單（Workflow工作流模式）"""
+        menu = tk.Menu(self, tearoff=0)
+        
+        # 檢查是否點擊在節點上
+        items = self.canvas.find_overlapping(event.x - 5, event.y - 5, event.x + 5, event.y + 5)
+        clicked_node = None
+        
+        for item in items:
+            for idx, node in enumerate(self.canvas_nodes):
+                if node.get("is_marker", False):
+                    if (item == node.get("container_rect") or 
+                        item == node.get("marker_text")):
+                        clicked_node = idx
+                        break
+                else:
+                    if item == node.get("rect") or item == node.get("text"):
+                        clicked_node = idx
+                        break
+            if clicked_node is not None:
+                break
+        
+        if clicked_node is not None:
+            # 點擊在節點上 - 顯示節點操作選單
+            node = self.canvas_nodes[clicked_node]
+            menu.add_command(label=f"✏️ 編輯節點", command=lambda: self._edit_node(clicked_node))
+            menu.add_command(label=f"🗑️ 刪除節點", command=lambda: self._delete_node(clicked_node))
+            menu.add_separator()
+            if node.get("is_marker"):
+                menu.add_command(label=f"➕ 添加子動作到標記", command=lambda: self._add_action_to_marker(clicked_node))
+        else:
+            # 點擊在空白處 - 顯示添加節點選單
+            menu.add_command(label="➕ 添加指令節點", command=lambda: self._add_command_node(event.x, event.y))
+            menu.add_command(label="🏷️ 添加標記節點", command=lambda: self._add_marker_node(event.x, event.y))
+            menu.add_separator()
+        
+        # 通用操作
+        menu.add_command(label="🔄 自動排列", command=self._auto_arrange_nodes)
+        menu.add_command(label="📐 重置縮放 (100%)", command=self._reset_canvas_zoom)
+        menu.add_separator()
+        menu.add_command(label="🗑️ 清空畫布", command=self._clear_canvas)
+        menu.add_separator()
+        menu.add_command(label="📝 切換到文字模式", command=lambda: self.canvas_mode_var.set(False) or self._toggle_canvas_mode())
+        
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+    
+    def _clear_canvas(self):
+        """清空畫布"""
+        if messagebox.askyesno("確認", "確定要清空畫布嗎？"):
+            self.canvas.delete("all")
+            self.canvas_nodes = []
+            self.canvas_connections = []
+            self._draw_grid()
+            self._update_status("已清空畫布", "success")
+    
+    def _add_command_node(self, x, y):
+        """在指定位置添加指令節點"""
+        # 彈出對話框輸入指令
+        command = simpledialog.askstring("添加指令", "請輸入指令內容：\n(例如：>移動至(100,100), 延遲0ms, T=0s000)")
+        if command:
+            color = self._get_command_color(command)
+            display_text = self._get_command_display_text(command)
+            self._create_canvas_node(display_text, color, x, y, original_command=command)
+            self._update_status("已添加指令節點", "success")
+    
+    def _add_marker_node(self, x, y):
+        """在指定位置添加標記節點"""
+        # 彈出對話框輸入標記名
+        marker_name = simpledialog.askstring("添加標記", "請輸入標記名稱：\n(例如：#start、#loop等)")
+        if marker_name:
+            if not marker_name.startswith('#'):
+                marker_name = '#' + marker_name
+            
+            # 創建標記容器（暫無子元素）
+            marker_item = {
+                'type': 'marker',
+                'name': marker_name,
+                'children': []
+            }
+            self._draw_marker_container(marker_item, x, y)
+            self._update_status("已添加標記節點", "success")
+    
+    def _edit_node(self, node_idx):
+        """編輯節點內容"""
+        if node_idx < 0 or node_idx >= len(self.canvas_nodes):
+            return
+        
+        node = self.canvas_nodes[node_idx]
+        current_command = node.get("original_command", node["command"])
+        
+        if node.get("is_marker"):
+            # 編輯標記名
+            new_name = simpledialog.askstring("編輯標記", f"當前標記：{current_command}\n請輸入新的標記名稱：", 
+                                              initialvalue=current_command)
+            if new_name and new_name != current_command:
+                if not new_name.startswith('#'):
+                    new_name = '#' + new_name
+                node["original_command"] = new_name
+                node["command"] = new_name
+                # 更新顯示
+                self.canvas.itemconfig(node["marker_text"], text=new_name)
+                self._update_status("已更新標記名稱", "success")
+        else:
+            # 編輯普通指令
+            new_command = simpledialog.askstring("編輯指令", f"當前指令：{current_command}\n請輸入新的指令：",
+                                                 initialvalue=current_command)
+            if new_command and new_command != current_command:
+                node["original_command"] = new_command
+                node["command"] = self._get_command_display_text(new_command)
+                node["color"] = self._get_command_color(new_command)
+                # 更新顯示
+                self.canvas.itemconfig(node["text"], text=node["command"])
+                self.canvas.itemconfig(node["rect"], fill=node["color"])
+                self._update_status("已更新指令內容", "success")
+    
+    def _delete_node(self, node_idx):
+        """刪除節點"""
+        if node_idx < 0 or node_idx >= len(self.canvas_nodes):
+            return
+        
+        if not messagebox.askyesno("確認", "確定要刪除此節點嗎？"):
+            return
+        
+        node = self.canvas_nodes[node_idx]
+        
+        # 刪除canvas元素
+        if node.get("is_marker"):
+            # 刪除標記容器及所有子元素
+            self.canvas.delete(node["container_rect"])
+            self.canvas.delete(node["marker_text"])
+            self.canvas.delete(node["separator"])
+            for child_elem in node.get("child_elements", []):
+                self.canvas.delete(child_elem["rect"])
+                self.canvas.delete(child_elem["text"])
+        else:
+            # 刪除普通節點
+            if "shadow" in node:
+                self.canvas.delete(node["shadow"])
+            self.canvas.delete(node["rect"])
+            self.canvas.delete(node["text"])
+        
+        # 從列表中移除
+        self.canvas_nodes.pop(node_idx)
+        
+        # 刪除相關連接線
+        self.canvas_connections = [conn for conn in self.canvas_connections 
+                                   if conn["from"] != node_idx and conn["to"] != node_idx]
+        
+        self._update_status("已刪除節點", "success")
+    
+    def _add_action_to_marker(self, marker_idx):
+        """向標記添加子動作"""
+        if marker_idx < 0 or marker_idx >= len(self.canvas_nodes):
+            return
+        
+        node = self.canvas_nodes[marker_idx]
+        if not node.get("is_marker"):
+            return
+        
+        # 輸入新動作
+        action = simpledialog.askstring("添加動作", "請輸入要添加的動作：\n(例如：>按下a, 延遲50ms, T=0s000)")
+        if action:
+            # 添加到標記的子元素列表
+            node["marker_children"].append(action)
+            
+            # 重新繪製整個標記容器
+            # 先刪除舊的
+            self.canvas.delete(node["container_rect"])
+            self.canvas.delete(node["marker_text"])
+            self.canvas.delete(node["separator"])
+            for child_elem in node.get("child_elements", []):
+                self.canvas.delete(child_elem["rect"])
+                self.canvas.delete(child_elem["text"])
+            
+            # 重新創建
+            marker_item = {
+                'type': 'marker',
+                'name': node["original_command"],
+                'children': node["marker_children"]
+            }
+            
+            x, y = node["x"], node["y"]
+            # 移除舊節點
+            self.canvas_nodes.pop(marker_idx)
+            # 插入新節點到相同位置
+            self._draw_marker_container(marker_item, x, y)
+            # 將新節點移動到正確的索引位置
+            new_node = self.canvas_nodes.pop()
+            self.canvas_nodes.insert(marker_idx, new_node)
+            
+            self._update_status("已添加動作到標記", "success")
+    
+    def _reset_canvas_zoom(self):
+        """重置畫布縮放到100%"""
+        if self.canvas_scale == 1.0:
+            self._update_status("已是100%縮放", "info")
+            return
+        
+        # 計算需要的縮放因子
+        reset_factor = 1.0 / self.canvas_scale
+        
+        # 獲取畫布中心點
+        width = self.canvas.winfo_width()
+        height = self.canvas.winfo_height()
+        center_x = width / 2
+        center_y = height / 2
+        
+        # 以中心點為基準縮放
+        self.canvas.scale("all", center_x, center_y, reset_factor, reset_factor)
+        
+        # 更新節點位置記錄
+        for node in self.canvas_nodes:
+            dx = node["x"] - center_x
+            dy = node["y"] - center_y
+            node["x"] = center_x + dx * reset_factor
+            node["y"] = center_y + dy * reset_factor
+        
+        # 重置縮放比例
+        self.canvas_scale = 1.0
+        self._update_status("已重置縮放到100%", "success")
+    
+    def _auto_arrange_nodes(self):
+        """自動排列節點（支持標記容器）"""
+        if not self.canvas_nodes:
+            return
+        
+        # 垂直排列
+        x = 100
+        y = 100
+        
+        for i, node in enumerate(self.canvas_nodes):
+            # 計算位移
+            dx = x - node["x"]
+            dy = y - node["y"]
+            
+            # 檢查是否是標記容器
+            if node.get("is_marker", False):
+                # 移動標記容器及其所有子元素
+                self.canvas.move(node["container_rect"], dx, dy)
+                self.canvas.move(node["marker_text"], dx, dy)
+                self.canvas.move(node["separator"], dx, dy)
+                
+                # 移動所有子元素
+                for child_elem in node.get("child_elements", []):
+                    self.canvas.move(child_elem["rect"], dx, dy)
+                    self.canvas.move(child_elem["text"], dx, dy)
+                    child_elem["x"] += dx
+                    child_elem["y"] += dy
+                
+                # 計算容器高度用於下一個位置
+                container_height = 40 + len(node.get("marker_children", [])) * 70 + 30
+                y += container_height + 30
+            else:
+                # 移動普通節點（包含陰影）
+                if "shadow" in node:
+                    self.canvas.move(node["shadow"], dx, dy)
+                self.canvas.move(node["rect"], dx, dy)
+                self.canvas.move(node["text"], dx, dy)
+                
+                # 下一個位置
+                y += 80
+            
+            # 更新節點位置
+            node["x"] = x
+            node["y"] = y
+            
+            if y > 700:
+                y = 100
+                x += 250
+        
+        # 更新所有連接線
+        for i in range(len(self.canvas_nodes)):
+            self._update_node_connections(i)
+        
+        self._update_status("已自動排列節點", "success")
+    
     def _auto_fold_all_trajectories(self):
         """自動摺疊所有軌跡區塊"""
         try:
@@ -810,7 +1809,11 @@ class TextCommandEditor(tk.Toplevel):
         
         # 滑鼠滾輪支援（僅在 canvas 上）
         def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            try:
+                if canvas.winfo_exists():
+                    canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            except tk.TclError:
+                pass  # Canvas 已銷毀，忽略
         
         canvas.bind("<MouseWheel>", _on_mousewheel)
         
@@ -960,6 +1963,72 @@ class TextCommandEditor(tk.Toplevel):
         # 聚焦到編輯器
         self.text_editor.focus_set()
     
+    def _insert_module_reference(self):
+        """插入模組引用"""
+        # 獲取所有可用模組
+        modules = []
+        if os.path.exists(self.modules_dir):
+            for filename in os.listdir(self.modules_dir):
+                if filename.endswith('.txt'):
+                    module_name = filename[:-4]
+                    modules.append(module_name)
+        
+        if not modules:
+            self._show_message("提示", "沒有可用的模組\n\n請先保存模組（選擇指令後點擊「儲存新模組」）", "info")
+            return
+        
+        # 創建對話框選擇模組
+        dialog = tk.Toplevel(self)
+        dialog.title("選擇模組")
+        dialog.geometry("400x300")
+        dialog.transient(self)
+        dialog.grab_set()
+        
+        tk.Label(dialog, text="選擇要引用的模組：", font=font_tuple(10)).pack(pady=10)
+        
+        # 模組列表
+        listbox = tk.Listbox(dialog, font=font_tuple(10), height=10)
+        listbox.pack(fill="both", expand=True, padx=10, pady=5)
+        
+        for module in modules:
+            listbox.insert(tk.END, module)
+        
+        # 選擇層級
+        level_frame = tk.Frame(dialog)
+        level_frame.pack(pady=5)
+        
+        tk.Label(level_frame, text="引用層級：", font=font_tuple(9)).pack(side="left", padx=5)
+        level_var = tk.StringVar(value=">>")
+        
+        tk.Radiobutton(level_frame, text=">>  (條件成功)", variable=level_var, value=">>", font=font_tuple(9)).pack(side="left")
+        tk.Radiobutton(level_frame, text=">>> (條件失敗)", variable=level_var, value=">>>", font=font_tuple(9)).pack(side="left")
+        
+        def insert():
+            selection = listbox.curselection()
+            if not selection:
+                return
+            
+            module_name = listbox.get(selection[0])
+            level = level_var.get()
+            reference = f"{level}#{module_name}"
+            
+            # 插入到編輯器
+            self.text_editor.insert(tk.INSERT, reference + "\n")
+            self._update_status(f"已插入模組引用：{reference}", "success")
+            dialog.destroy()
+        
+        # 按鈕
+        btn_frame = tk.Frame(dialog)
+        btn_frame.pack(pady=10)
+        
+        tk.Button(btn_frame, text="插入", command=insert, bg="#4CAF50", fg="white", 
+                 font=font_tuple(10), padx=20, pady=5).pack(side="left", padx=5)
+        tk.Button(btn_frame, text="取消", command=dialog.destroy, bg="#757575", fg="white",
+                 font=font_tuple(10), padx=20, pady=5).pack(side="left", padx=5)
+        
+        # 雙擊也可以插入
+        listbox.bind("<Double-Button-1>", lambda e: insert())
+    
     def _show_command_reference(self):
         """顯示指令說明視窗（使用 grid 佈局的表格）"""
         # 創建獨立的說明視窗
@@ -1006,8 +2075,23 @@ class TextCommandEditor(tk.Toplevel):
         
         # 綁定滑鼠滾輪
         def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            try:
+                if canvas.winfo_exists():
+                    canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            except tk.TclError:
+                pass  # Canvas 已銷毀，忽略
+        
         canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        # 窗口關閉時解綁事件
+        def _on_close():
+            try:
+                canvas.unbind_all("<MouseWheel>")
+            except:
+                pass
+            ref_window.destroy()
+        
+        ref_window.protocol("WM_DELETE_WINDOW", _on_close)
         
         # 確保視窗在編輯器之上
         ref_window.transient(self)
@@ -1812,7 +2896,7 @@ class TextCommandEditor(tk.Toplevel):
             
             # 載入空白腳本
             self.text_editor.delete("1.0", "end")
-            self.text_editor.insert("1.0", f"# ChroLens 文字指令腳本\n# 預設按鍵持續時間: 50ms\n# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+            # 不再顯示標題文字，直接空白
             
             # 刷新列表並選中新腳本
             self._refresh_script_list()
@@ -1831,7 +2915,7 @@ class TextCommandEditor(tk.Toplevel):
         """載入腳本並轉換為文字指令"""
         if not self.script_path or not os.path.exists(self.script_path):
             self.text_editor.delete("1.0", "end")
-            self.text_editor.insert("1.0", "# ChroLens 文字指令腳本\n# 預設按鍵持續時間: 50ms\n# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+            # 不再顯示標題文字，直接空白
             return
         
         try:
@@ -1918,9 +3002,7 @@ class TextCommandEditor(tk.Toplevel):
     def _json_to_text(self, data: Dict) -> str:
         """將JSON事件轉換為文字指令"""
         events = data.get("events", [])
-        lines = ["# ChroLens 文字指令腳本\n"]
-        lines.append(f"# 預設按鍵持續時間: {self.default_key_duration}ms\n")
-        lines.append("# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
+        lines = []  # 不再添加標題文字
         
         # 空腳本處理
         if not events:
@@ -3246,6 +4328,7 @@ class TextCommandEditor(tk.Toplevel):
                     branches["failure"] = {"action": "jump", "target": label}
                 elif action_str.startswith("#"):
                     # 簡化格式：直接寫 '>>>#標籤' 或 '>>>#標籤*N' 表示跳轉到該標籤並執行N次
+                    # 🔧 修復：沒有指定次數時，預設為無限循環（999999次）
                     label_with_count = action_str[1:].strip()
                     if "*" in label_with_count:
                         label, count_str = label_with_count.split("*", 1)
@@ -3253,9 +4336,10 @@ class TextCommandEditor(tk.Toplevel):
                             count = int(count_str.strip())
                             branches["failure"] = {"action": "jump", "target": label.strip(), "repeat_count": count}
                         except ValueError:
-                            branches["failure"] = {"action": "jump", "target": label_with_count}
+                            branches["failure"] = {"action": "jump", "target": label_with_count, "repeat_count": 999999}
                     else:
-                        branches["failure"] = {"action": "jump", "target": label_with_count}
+                        # 沒有指定次數，預設無限循環
+                        branches["failure"] = {"action": "jump", "target": label_with_count, "repeat_count": 999999}
                 else:
                     # 其他文字視為註解，保存下來（保留用戶的註解內容）
                     branches["failure"] = {"action": "continue", "comment": action_str}
@@ -3275,6 +4359,7 @@ class TextCommandEditor(tk.Toplevel):
                     branches["success"] = {"action": "jump", "target": label}
                 elif action_str.startswith("#"):
                     # 簡化格式：直接寫 '>>#標籤' 或 '>>#標籤*N' 表示跳轉到該標籤並執行N次
+                    # 🔧 修復：沒有指定次數時，預設為無限循環（999999次）
                     label_with_count = action_str[1:].strip()
                     if "*" in label_with_count:
                         label, count_str = label_with_count.split("*", 1)
@@ -3282,9 +4367,10 @@ class TextCommandEditor(tk.Toplevel):
                             count = int(count_str.strip())
                             branches["success"] = {"action": "jump", "target": label.strip(), "repeat_count": count}
                         except ValueError:
-                            branches["success"] = {"action": "jump", "target": label_with_count}
+                            branches["success"] = {"action": "jump", "target": label_with_count, "repeat_count": 999999}
                     else:
-                        branches["success"] = {"action": "jump", "target": label_with_count}
+                        # 沒有指定次數，預設無限循環
+                        branches["success"] = {"action": "jump", "target": label_with_count, "repeat_count": 999999}
                 else:
                     # 其他文字視為註解，保存下來（保留用戶的註解內容）
                     branches["success"] = {"action": "continue", "comment": action_str}
@@ -3764,7 +4850,7 @@ class TextCommandEditor(tk.Toplevel):
         return ""  # 預設值
     
     def _save_script(self):
-        """儲存文字指令回JSON格式（雙向驗證增強版）"""
+        """儲存文字指令回JSON格式（支持模組引用展開）"""
         if not self.script_path:
             self._show_message("警告", "沒有指定要儲存的腳本檔案", "warning")
             return
@@ -3773,9 +4859,12 @@ class TextCommandEditor(tk.Toplevel):
             # 獲取編輯器內容
             text_content = self.text_editor.get("1.0", "end-1c")
             
+            # ✨ 展開模組引用（將 >>#a 替換為模組內容）
+            expanded_content = self._expand_module_references(text_content)
+            
             # 檢查是否只有註解和空行（避免保存空腳本）
             has_commands = False
-            for line in text_content.split("\n"):
+            for line in expanded_content.split("\n"):
                 line_stripped = line.strip()
                 if line_stripped and not line_stripped.startswith("#"):
                     has_commands = True
@@ -3790,8 +4879,8 @@ class TextCommandEditor(tk.Toplevel):
                 self._update_status("警告: 無法儲存：腳本無指令", "warning")
                 return
             
-            # 轉換為JSON
-            json_data = self._text_to_json(text_content)
+            # 轉換為JSON（使用展開後的內容）
+            json_data = self._text_to_json(expanded_content)
             
             # 二次檢查：確保轉換後的events不為空
             if not json_data.get("events") or len(json_data.get("events", [])) == 0:
@@ -3927,7 +5016,7 @@ class TextCommandEditor(tk.Toplevel):
             self.module_preview.config(state="disabled")
     
     def _save_new_module_inline(self):
-        """儲存新模組（內嵌版）"""
+        """儲存新模組（內嵌版，支持標記引用）"""
         try:
             selected_text = self.text_editor.get(tk.SEL_FIRST, tk.SEL_LAST)
         except:
@@ -3938,11 +5027,20 @@ class TextCommandEditor(tk.Toplevel):
             self._show_message("提示", "選取的內容為空", "warning")
             return
         
+        # 自動檢測模組名稱（如果選取內容以#開頭，提取標記名）
+        lines = selected_text.strip().split('\n')
+        suggested_name = ""
+        
+        if lines[0].startswith('#') and not lines[0].startswith('##'):
+            # 第一行是標記，使用標記名作為預設模組名
+            suggested_name = lines[0].strip()[1:]  # 移除#
+        
         # 詢問模組名稱
         module_name = simpledialog.askstring(
             "模組名稱",
-            "請輸入自訂模組的名稱：",
-            parent=self
+            "請輸入自訂模組的名稱：\n\n提示：如果儲存標記（例如#a），可以直接用'a'作為模組名",
+            parent=self,
+            initialvalue=suggested_name
         )
         
         if not module_name:
@@ -3968,7 +5066,7 @@ class TextCommandEditor(tk.Toplevel):
                     break
             
             self.status_label.config(
-                text=f"模組已儲存：{module_name}",
+                text=f"模組已儲存：{module_name} (可使用 >>#或>>#{module_name} 引用)",
                 bg="#e8f5e9",
                 fg="#2e7d32"
             )
@@ -4033,6 +5131,72 @@ class TextCommandEditor(tk.Toplevel):
             )
         except Exception as e:
             self._show_message("錯誤", f"刪除模組失敗：{e}", "error")
+    
+    def _expand_module_references(self, text_content):
+        """展開模組引用：將 >>#a 或 >>>#a 替換為模組內容
+        
+        用於在保存或執行時，將標記引用替換為實際的模組內容
+        """
+        lines = text_content.split('\n')
+        expanded_lines = []
+        
+        for line in lines:
+            stripped = line.strip()
+            
+            # 檢查是否是標記引用（>>#xxx 或 >>>#xxx 等）
+            if re.match(r'^(>+)#(\w+)$', stripped):
+                match = re.match(r'^(>+)#(\w+)$', stripped)
+                prefix = match.group(1)  # 獲取前綴（>>或>>>等）
+                module_ref = match.group(2)  # 獲取模組名（a、b等）
+                
+                # 嘗試加載對應的模組
+                module_path = os.path.join(self.modules_dir, f"{module_ref}.txt")
+                
+                if os.path.exists(module_path):
+                    try:
+                        with open(module_path, 'r', encoding='utf-8') as f:
+                            module_content = f.read()
+                        
+                        # 處理模組內容，添加適當的縮進前綴
+                        module_lines = module_content.strip().split('\n')
+                        for module_line in module_lines:
+                            # 如果模組內容本身有>，需要增加縮進層級
+                            if module_line.strip().startswith('>'):
+                                # 計算原有的>數量
+                                original_prefix_count = len(module_line) - len(module_line.lstrip('>'))
+                                # 增加引用處的>數量（去掉#後的>數量）
+                                new_prefix_count = len(prefix) - 1 + original_prefix_count
+                                # 重構行內容
+                                expanded_line = '>' * new_prefix_count + module_line.lstrip('>')
+                                expanded_lines.append(expanded_line)
+                            elif module_line.strip().startswith('#'):
+                                # 標記行，保持原樣添加引用層級
+                                expanded_lines.append(module_line)
+                            else:
+                                # 其他行直接添加
+                                expanded_lines.append(module_line)
+                    except Exception as e:
+                        # 加載失敗，保留原始引用並添加註釋
+                        expanded_lines.append(f"{line}  # 模組加載失敗: {e}")
+                else:
+                    # 模組不存在，保留原始引用並添加註釋
+                    expanded_lines.append(f"{line}  # 模組不存在")
+            else:
+                # 非標記引用，直接保留
+                expanded_lines.append(line)
+        
+        return '\n'.join(expanded_lines)
+    
+    def _get_module_content(self, module_name):
+        """獲取模組內容（用於預覽和引用）"""
+        module_path = os.path.join(self.modules_dir, f"{module_name}.txt")
+        if os.path.exists(module_path):
+            try:
+                with open(module_path, 'r', encoding='utf-8') as f:
+                    return f.read()
+            except:
+                return None
+        return None
     
     # ==================== 右鍵選單功能 ====================
     
@@ -4185,8 +5349,13 @@ class TextCommandEditor(tk.Toplevel):
             # 標籤 (青色)
             patterns_label = [
                 (r'^#\S+', 'syntax_label'),           # 行首的 # 標籤
-                (r'>>#\S+', 'syntax_label'),          # >> 後的 # 標籤
-                (r'>>>#\S+', 'syntax_label'),         # >>> 後的 # 標籤
+            ]
+            
+            # 模組引用 (金色 - 特殊標記)
+            patterns_module_ref = [
+                (r'>>#\w+', 'syntax_module_ref'),     # >>#a 模組引用
+                (r'>>>#\w+', 'syntax_module_ref'),    # >>>#a 模組引用  
+                (r'>>>>#\w+', 'syntax_module_ref'),   # >>>>#a 模組引用
             ]
             
             # 符號 (淡紫色) - 最後處理
@@ -4201,7 +5370,7 @@ class TextCommandEditor(tk.Toplevel):
             all_patterns = (patterns_flow + patterns_condition + patterns_delay + 
                           patterns_ocr + patterns_keyboard + patterns_mouse + 
                           patterns_image + patterns_picname + patterns_time + 
-                          patterns_label + patterns_symbol)
+                          patterns_module_ref + patterns_label + patterns_symbol)
             
             # 逐行處理（調整行號以配合範圍）
             lines = content.split('\n')

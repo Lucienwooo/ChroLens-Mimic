@@ -251,32 +251,91 @@ class TextCommandEditor(tk.Toplevel):
         main_frame = tk.Frame(self)
         main_frame.pack(fill="both", expand=True, padx=10, pady=5)
         
-        # 左側大區: 按鈕區 + 模組預覽（對調後）
+        # 左側大區: 編輯器 + 模組管理
         left_big_frame = tk.Frame(main_frame, width=450)
         left_big_frame.pack(side="left", fill="both", expand=False)
         left_big_frame.pack_propagate(False)
         
-        # 左上: 快速指令按鈕區（移到左側）
+        # 左上: 文字編輯器
         left_frame = tk.Frame(left_big_frame)
         left_frame.pack(fill="both", expand=True)
         
-        # 快速指令按鈕區
-        self._create_command_buttons_in_frame(left_frame)
+        # 新增：摺疊軌跡顯示勾選框
+        trajectory_control = tk.Frame(left_frame)
+        trajectory_control.pack(fill="x", pady=(0, 5))
         
-        # 左下: 自訂模組管理（移到左側下方）
-        left_bottom_frame = tk.Frame(left_big_frame, bg="#f5f5f5", relief="groove", bd=2, height=380)
-        left_bottom_frame.pack(fill="both", expand=False, pady=(5, 0))
-        left_bottom_frame.pack_propagate(False)
+        self.simplify_display_var = tk.BooleanVar(value=True)
+        simplify_check = tk.Checkbutton(
+            trajectory_control,
+            text="摺疊軌跡顯示",
+            variable=self.simplify_display_var,
+            command=self._toggle_trajectory_display,
+            font=font_tuple(9)
+        )
+        simplify_check.pack(side="left", padx=5)
+        
+        # 使用 LINE Seed 字體
+        editor_font = ("LINE Seed TW", 10) if LINE_SEED_FONT_LOADED else font_tuple(10, monospace=True)
+        
+        self.text_editor = scrolledtext.ScrolledText(
+            left_frame,
+            font=editor_font,
+            wrap="none",
+            bg="#1e1e1e",           # ✅ VS Code 深色背景
+            fg="#d4d4d4",           # ✅ VS Code 淺灰色（非指令文字）
+            insertbackground="white",
+            selectbackground="#264f78",  # ✅ VS Code 選取背景色
+            selectforeground="white",
+            undo=True,
+            maxundo=-1
+        )
+        self.text_editor.pack(fill="both", expand=True)
+        
+        # ✅ 設定語法高亮標籤 (VS Code Dark+ 配色方案)
+        self.text_editor.tag_config("syntax_symbol", foreground="#d4d4d4")      # 淺灰色 - 符號（,、>等）
+        self.text_editor.tag_config("syntax_time", foreground="#ce9178")        # 橘色 - 時間參數
+        self.text_editor.tag_config("syntax_label", foreground="#4ec9b0")       # 青綠色 - 標籤
+        self.text_editor.tag_config("syntax_keyboard", foreground="#9cdcfe")    # 淺藍色 - 鍵盤操作
+        self.text_editor.tag_config("syntax_mouse", foreground="#569cd6")       # 藍色 - 滑鼠座標
+        self.text_editor.tag_config("syntax_image", foreground="#4ec9b0")       # 青綠色 - 圖片辨識
+        self.text_editor.tag_config("syntax_condition", foreground="#c586c0")   # 紫色 - 條件判斷
+        self.text_editor.tag_config("syntax_ocr", foreground="#4ec9b0")         # 青綠色 - OCR 文字
+        self.text_editor.tag_config("syntax_delay", foreground="#dcdcaa")       # 淺黃色 - 延遲控制
+        self.text_editor.tag_config("syntax_flow", foreground="#c586c0")        # 紫色 - 流程控制
+        self.text_editor.tag_config("syntax_picname", foreground="#ce9178")     # 橘色 - 圖片名稱
+        self.text_editor.tag_config("syntax_comment", foreground="#6a9955")     # 綠色 - 註解
+        
+        # ✨ 新增：軌跡摺疊相關標籤和配置
+        self.text_editor.tag_config("trajectory_summary", foreground="#00BFFF", font=font_tuple(10, "bold"))
+        self.text_editor.tag_config("trajectory_hidden", elide=True)  # elide=True 會隱藏文字
+        self.text_editor.tag_config("trajectory_clickable", foreground="#00BFFF", underline=1)
+        
+        # 追蹤摺疊狀態 {行號: 是否已摺疊}
+        self.trajectory_fold_state = {}
+        
+        # 綁定內容變更事件以觸發語法高亮
+        self.text_editor.bind("<<Modified>>", self._on_text_modified)
+        
+        # 綁定滑鼠點擊事件以處理摺疊/展開
+        self.text_editor.bind("<Button-1>", self._on_editor_click)
+        
+        # 綁定右鍵選單
+        self.text_editor.bind("<Button-3>", self._show_context_menu)
+        
+        # 左下: 模組管理區（移到左側下方）
+        module_frame = tk.Frame(left_big_frame, bg="#f5f5f5", relief="groove", bd=2, height=380)
+        module_frame.pack(fill="both", expand=False, pady=(5, 0))
+        module_frame.pack_propagate(False)
         
         tk.Label(
-            left_bottom_frame,
+            module_frame,
             text="自訂模組",
             font=font_tuple(10),
             bg="#f5f5f5"
         ).pack(anchor="w", padx=10, pady=5)
         
         # 按鈕列
-        module_btn_frame = tk.Frame(left_bottom_frame, bg="#f5f5f5")
+        module_btn_frame = tk.Frame(module_frame, bg="#f5f5f5")
         module_btn_frame.pack(fill="x", padx=10, pady=5)
         
         tk.Button(
@@ -313,7 +372,7 @@ class TextCommandEditor(tk.Toplevel):
         ).pack(side="left", padx=2)
         
         # 模組列表
-        module_list_frame = tk.Frame(left_bottom_frame, bg="#f5f5f5")
+        module_list_frame = tk.Frame(module_frame, bg="#f5f5f5")
         module_list_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         
         tk.Label(
@@ -344,188 +403,31 @@ class TextCommandEditor(tk.Toplevel):
         # 載入模組列表
         self._load_modules_inline()
         
-        # 右側大區: 編輯器 + 模組管理（對調後）
+        # 右側大區: 按鈕區 + 模組預覽
         right_big_frame = tk.Frame(main_frame)
         right_big_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
         
-        # 右上: 文字編輯器（移到右側）
-        right_frame = tk.Frame(right_big_frame)
-        right_frame.pack(fill="both", expand=True)
+        # 右上: 快速指令按鈕區
+        middle_frame = tk.Frame(right_big_frame)
+        middle_frame.pack(fill="both", expand=True)
         
-        # 新增：摺疊軌跡顯示勾選框和圖形模式開關
-        trajectory_control = tk.Frame(right_frame)
-        trajectory_control.pack(fill="x", pady=(0, 5))
+        # 快速指令按鈕區
+        self._create_command_buttons_in_frame(middle_frame)
         
-        self.simplify_display_var = tk.BooleanVar(value=True)
-        simplify_check = tk.Checkbutton(
-            trajectory_control,
-            text="摺疊軌跡顯示",
-            variable=self.simplify_display_var,
-            command=self._toggle_trajectory_display,
-            font=font_tuple(9)
-        )
-        simplify_check.pack(side="left", padx=5)
-        
-        # 圖形模式開關 (新的 Workflow 流程圖)
-        self.workflow_mode_var = tk.BooleanVar(value=False)
-        workflow_mode_check = tk.Checkbutton(
-            trajectory_control,
-            text="圖形模式",
-            variable=self.workflow_mode_var,
-            command=self._toggle_workflow_mode,
-            font=font_tuple(9)
-        )
-        workflow_mode_check.pack(side="left", padx=15)
-        
-        # 使用 LINE Seed 字體
-        editor_font = ("LINE Seed TW", 10) if LINE_SEED_FONT_LOADED else font_tuple(10, monospace=True)
-        
-        # 創建編輯器容器（用於切換文字/畫布模式）
-        self.editor_container = tk.Frame(right_frame)
-        self.editor_container.pack(fill="both", expand=True)
-        
-        # 文字編輯器
-        self.text_editor = scrolledtext.ScrolledText(
-            self.editor_container,
-            font=editor_font,
-            wrap="none",
-            bg="#1e1e1e",           # ✅ VS Code 深色背景
-            fg="#d4d4d4",           # ✅ VS Code 淺灰色（非指令文字）
-            insertbackground="white",
-            selectbackground="#264f78",  # ✅ VS Code 選取背景色
-            selectforeground="white",
-            undo=True,
-            maxundo=-1
-        )
-        self.text_editor.pack(fill="both", expand=True)
-        
-        # 綁定 Ctrl+A 全選功能
-        self.text_editor.bind("<Control-a>", self._select_all_text)
-        self.text_editor.bind("<Control-A>", self._select_all_text)
-        
-        # 畫布編輯器（初始隱藏）
-        self.canvas_frame = tk.Frame(self.editor_container, bg="#252526")
-        self.canvas = tk.Canvas(
-            self.canvas_frame,
-            bg="#252526",
-            highlightthickness=0,
-            cursor="crosshair"
-        )
-        self.canvas.pack(fill="both", expand=True)
-        
-        # 畫布數據結構
-        self.canvas_nodes = []  # 儲存所有節點
-        self.canvas_connections = []  # 儲存所有連接線
-        self.selected_node = None
-        self.drag_data = {"x": 0, "y": 0, "item": None}
-        self.canvas_mode = False  # 當前是否為畫布模式
-        
-        # 畫布縮放相關
-        self.canvas_scale = 1.0  # 當前縮放比例
-        self.canvas_offset_x = 0  # X軸偏移
-        self.canvas_offset_y = 0  # Y軸偏移
-        self.pan_data = {"x": 0, "y": 0, "active": False}  # 平移數據
-        
-        # 畫布事件綁定
-        self.canvas.bind("<Button-1>", self._on_canvas_click)
-        self.canvas.bind("<B1-Motion>", self._on_canvas_drag)
-        self.canvas.bind("<ButtonRelease-1>", self._on_canvas_release)
-        self.canvas.bind("<Button-3>", self._show_canvas_context_menu)
-        self.canvas.bind("<Configure>", self._on_canvas_configure)
-        self.canvas.bind("<MouseWheel>", self._on_canvas_zoom)  # 滾輪縮放
-        self.canvas.bind("<Button-2>", self._on_canvas_pan_start)  # 中鍵平移開始
-        self.canvas.bind("<B2-Motion>", self._on_canvas_pan_move)  # 中鍵平移中
-        self.canvas.bind("<ButtonRelease-2>", self._on_canvas_pan_end)  # 中鍵平移結束
-        
-        # === 新增 Workflow 流程圖畫布 ===
-        self.workflow_frame = tk.Frame(self.editor_container, bg="#1e1e1e")
-        self.workflow_canvas = tk.Canvas(
-            self.workflow_frame,
-            bg="#1e1e1e",
-            highlightthickness=0
-        )
-        
-        # 添加滾動條
-        workflow_v_scroll = tk.Scrollbar(self.workflow_frame, orient="vertical", command=self.workflow_canvas.yview)
-        workflow_h_scroll = tk.Scrollbar(self.workflow_frame, orient="horizontal", command=self.workflow_canvas.xview)
-        self.workflow_canvas.configure(yscrollcommand=workflow_v_scroll.set, xscrollcommand=workflow_h_scroll.set)
-        
-        workflow_v_scroll.pack(side="right", fill="y")
-        workflow_h_scroll.pack(side="bottom", fill="x")
-        self.workflow_canvas.pack(side="left", fill="both", expand=True)
-        
-        # Workflow 資料結構
-        self.workflow_nodes = {}  # {label_name: node_data}
-        self.workflow_connections = []  # [(from_label, to_label, connection_type)]
-        self.workflow_mode = False
-        self.workflow_scale = 1.0
-        self.workflow_dragging_node = None  # 正在拖移的節點
-        self.workflow_drag_start_x = 0
-        self.workflow_drag_start_y = 0
-        self.workflow_pan_start_x = 0  # 畫布拖移起點
-        self.workflow_pan_start_y = 0
-        self.workflow_is_panning = False
-        
-        # 畫布事件綁定
-        self.workflow_canvas.bind("<Button-1>", self._on_workflow_click)
-        self.workflow_canvas.bind("<B1-Motion>", self._on_workflow_drag)
-        self.workflow_canvas.bind("<ButtonRelease-1>", self._on_workflow_release)
-        self.workflow_canvas.bind("<Button-3>", self._show_workflow_context_menu)
-        self.workflow_canvas.bind("<MouseWheel>", self._on_workflow_zoom)
-        self.workflow_canvas.bind("<Button-3>", self._show_workflow_context_menu)
-        
-        # ✅ 設定語法高亮標籤 (VS Code Dark+ 配色方案)
-        self.text_editor.tag_config("syntax_symbol", foreground="#d4d4d4")      # 淺灰色 - 符號（,、>等）
-        self.text_editor.tag_config("syntax_time", foreground="#ce9178")        # 橘色 - 時間參數
-        self.text_editor.tag_config("syntax_label", foreground="#4ec9b0")       # 青綠色 - 標籤
-        self.text_editor.tag_config("syntax_keyboard", foreground="#9cdcfe")    # 淺藍色 - 鍵盤操作
-        self.text_editor.tag_config("syntax_mouse", foreground="#569cd6")       # 藍色 - 滑鼠座標
-        self.text_editor.tag_config("syntax_image", foreground="#4ec9b0")       # 青綠色 - 圖片辨識
-        self.text_editor.tag_config("syntax_condition", foreground="#c586c0")   # 紫色 - 條件判斷
-        self.text_editor.tag_config("syntax_ocr", foreground="#4ec9b0")         # 青綠色 - OCR 文字
-        self.text_editor.tag_config("syntax_delay", foreground="#dcdcaa")       # 淺黃色 - 延遲控制
-        self.text_editor.tag_config("syntax_flow", foreground="#c586c0")        # 紫色 - 流程控制
-        self.text_editor.tag_config("syntax_picname", foreground="#ce9178")     # 橘色 - 圖片名稱
-        self.text_editor.tag_config("syntax_comment", foreground="#6a9955")     # 綠色 - 註解
-        self.text_editor.tag_config("syntax_module_ref", foreground="#ffd700", font=font_tuple(10, "bold"))  # 金色 - 模組引用
-        
-        # ✨ 新增：軌跡摺疊相關標籤和配置
-        self.text_editor.tag_config("trajectory_summary", foreground="#00BFFF", font=font_tuple(10, "bold"))
-        self.text_editor.tag_config("trajectory_hidden", elide=True)  # elide=True 會隱藏文字
-        self.text_editor.tag_config("trajectory_clickable", foreground="#00BFFF", underline=1)
-        
-        # ✨ 新增：標籤範圍摺疊相關標籤和配置
-        self.text_editor.tag_config("label_foldable", foreground="#4ec9b0", font=font_tuple(10, "bold"), underline=1)
-        self.text_editor.tag_config("label_end", foreground="#6a9955", font=font_tuple(9))  # 標籤結束標記
-        self.text_editor.tag_config("label_content_hidden", elide=True)  # 隱藏標籤內容
-        
-        # 追蹤摺疊狀態 {行號: 是否已摺疊}
-        self.trajectory_fold_state = {}
-        self.label_fold_state = {}  # 標籤摺疊狀態 {標籤名: 是否已摺疊}
-        
-        # 綁定內容變更事件以觸發語法高亮
-        self.text_editor.bind("<<Modified>>", self._on_text_modified)
-        
-        # 綁定滑鼠點擊事件以處理摺疊/展開
-        self.text_editor.bind("<Button-1>", self._on_editor_click)
-        
-        # 綁定右鍵選單
-        self.text_editor.bind("<Button-3>", self._show_context_menu)
-        
-        # 右下: 模組內容預覽（移到右側下方）
-        module_frame = tk.Frame(right_big_frame, bg="#f5f5f5", height=380)
-        module_frame.pack(fill="both", expand=False, pady=(5, 0))
-        module_frame.pack_propagate(False)
+        # 右下: 模組預覽框
+        right_frame = tk.Frame(right_big_frame, bg="#f5f5f5", height=380)
+        right_frame.pack(fill="both", expand=False, pady=(5, 0))
+        right_frame.pack_propagate(False)
         
         tk.Label(
-            module_frame,
+            right_frame,
             text="模組內容預覽",
             font=font_tuple(10),
             bg="#f5f5f5"
         ).pack(anchor="w", padx=5, pady=5)
         
         self.module_preview = scrolledtext.ScrolledText(
-            module_frame,
+            right_frame,
             font=font_tuple(10, monospace=True),
             wrap="none",
             state="disabled",
@@ -655,7 +557,7 @@ class TextCommandEditor(tk.Toplevel):
         return result[0]
     
     def _on_editor_click(self, event):
-        """處理編輯器點擊事件（用於軌跡和標籤展開/收合）"""
+        """處理編輯器點擊事件（用於軌跡展開/收合）"""
         try:
             # 獲取點擊位置的索引
             index = self.text_editor.index(f"@{event.x},{event.y}")
@@ -668,20 +570,8 @@ class TextCommandEditor(tk.Toplevel):
                 line_num = int(index.split('.')[0])
                 self._toggle_trajectory_fold(line_num)
                 return "break"  # 阻止預設行為
-            
-            # 檢查是否點擊了標籤範圍
-            if line_text.startswith("#b"):
-                label_name = line_text[2:].strip()
-                self._toggle_label_fold(label_name)
-                return "break"
         except Exception as e:
             pass  # 忽略錯誤，不影響正常編輯
-    
-    def _select_all_text(self, event):
-        """全選文字內容 (Ctrl+A)"""
-        self.text_editor.tag_remove("sel", "1.0", "end")
-        self.text_editor.tag_add("sel", "1.0", "end")
-        return "break"  # 阻止 ttkbootstrap 的預設處理
     
     def _toggle_trajectory_fold(self, summary_line):
         """切換指定軌跡的摺疊狀態"""
@@ -745,45 +635,6 @@ class TextCommandEditor(tk.Toplevel):
         except Exception as e:
             print(f"更新摘要文字失敗: {e}")
     
-    def _toggle_label_fold(self, label_name):
-        """切換標籤範圍的摺疊狀態"""
-        try:
-            # 找到標籤起始和結束行
-            start_line = None
-            end_line = None
-            
-            total_lines = int(self.text_editor.index('end-1c').split('.')[0])
-            
-            # 搜尋標籤範圍
-            for i in range(1, total_lines + 1):
-                line_text = self.text_editor.get(f"{i}.0", f"{i}.0 lineend").strip()
-                
-                if line_text == f"#b{label_name}":
-                    start_line = i
-                elif line_text == f"#/{label_name}" and start_line:
-                    end_line = i
-                    break
-            
-            if not start_line or not end_line:
-                return  # 找不到完整的標籤範圍
-            
-            # 切換摺疊狀態
-            is_folded = self.label_fold_state.get(label_name, False)
-            
-            if is_folded:
-                # 展開：移除 elide 標籤
-                self.text_editor.tag_remove("label_content_hidden", f"{start_line + 1}.0", f"{end_line}.0")
-                self.label_fold_state[label_name] = False
-                # ✅ 展開後重新套用語法高亮
-                self._apply_syntax_highlighting()
-            else:
-                # 收合：添加 elide 標籤
-                self.text_editor.tag_add("label_content_hidden", f"{start_line + 1}.0", f"{end_line}.0")
-                self.label_fold_state[label_name] = True
-                
-        except Exception as e:
-            print(f"切換標籤摺疊失敗: {e}")
-    
     def _update_status(self, text, status_type="info"):
         """更新狀態列，支持不同類型的狀態顯示"""
         status_colors = {
@@ -802,1159 +653,6 @@ class TextCommandEditor(tk.Toplevel):
         self.trajectory_fold_state = {}
         # 重新載入腳本以套用新的顯示模式
         self._load_script()
-    
-    def _toggle_workflow_mode(self):
-        """切換文字/Workflow流程圖模式"""
-        if self.workflow_mode_var.get():
-            # 切換到 Workflow 模式
-            self._switch_to_workflow_mode()
-        else:
-            # 切換回文字模式
-            self._switch_to_text_mode_from_workflow()
-    
-    def _switch_to_workflow_mode(self):
-        """切換到 Workflow 流程圖模式"""
-        try:
-            # 獲取文字內容
-            text_content = self.text_editor.get("1.0", tk.END).strip()
-            if not text_content:
-                self._update_status("沒有內容可以轉換", "warning")
-                self.workflow_mode_var.set(False)
-                return
-            
-            # 解析文字指令生成流程圖
-            self._parse_and_draw_workflow(text_content)
-            
-            # 隱藏文字編輯器，顯示 Workflow 畫布
-            self.text_editor.pack_forget()
-            self.workflow_frame.pack(fill="both", expand=True)
-            
-            self.workflow_mode = True
-            self._update_status("已切換到圖形模式", "success")
-            
-        except Exception as e:
-            self._update_status(f"切換失敗: {str(e)}", "error")
-            self.workflow_mode_var.set(False)
-    
-    def _switch_to_text_mode_from_workflow(self):
-        """從 Workflow 模式切換回文字模式"""
-        # 隱藏 Workflow 畫布，顯示文字編輯器
-        self.workflow_frame.pack_forget()
-        self.text_editor.pack(fill="both", expand=True)
-        
-        self.workflow_mode = False
-        self._update_status("已切換回文字模式", "success")
-    
-    def _toggle_canvas_mode(self):
-        """切換文字/畫布模式"""
-        if self.canvas_mode_var.get():
-            # 切換到畫布模式
-            self._switch_to_canvas_mode()
-        else:
-            # 切換到文字模式
-            self._switch_to_text_mode()
-    
-    def _switch_to_canvas_mode(self):
-        """切換到畫布模式"""
-        # 轉換文字指令為畫布節點
-        text_content = self.text_editor.get("1.0", tk.END).strip()
-        if text_content:
-            self._convert_text_to_canvas(text_content)
-        
-        # 隱藏文字編輯器，顯示畫布
-        self.text_editor.pack_forget()
-        self.canvas_frame.pack(fill="both", expand=True)
-        
-        # 繪製網格
-        self._draw_grid()
-        
-        self.canvas_mode = True
-        self._update_status("已切換到圖形模式", "success")
-    
-    def _switch_to_text_mode(self):
-        """切換到文字模式"""
-        # 轉換畫布節點為文字指令
-        if self.canvas_nodes:
-            self._convert_canvas_to_text()
-        
-        # 隱藏畫布，顯示文字編輯器
-        self.canvas_frame.pack_forget()
-        self.text_editor.pack(fill="both", expand=True)
-        
-        self.canvas_mode = False
-        self._update_status("已切換到文字模式", "success")
-    
-    def _draw_grid(self):
-        """繪製畫布網格（已取消格線，保持深色背景）"""
-        # 清除現有網格
-        self.canvas.delete("grid")
-        # 不再繪製格線，僅保持深色背景
-    
-    def _on_canvas_configure(self, event):
-        """畫布大小改變事件"""
-        self._draw_grid()
-    
-    def _convert_text_to_canvas(self, text_content):
-        """將文字指令轉換為畫布節點（Workflow層次化布局）"""
-        # 清空現有節點
-        self.canvas.delete("all")
-        self.canvas_nodes = []
-        self.canvas_connections = []
-        
-        lines = text_content.split('\n')
-        
-        # 解析層級結構
-        parsed_structure = self._parse_marker_structure(lines)
-        
-        # 使用層次化布局算法
-        x, y = 150, 80  # 起始位置（更大的邊距）
-        max_width = 0
-        row_height = 0
-        
-        # 第一遍：計算所有節點
-        for item in parsed_structure:
-            if item['type'] == 'marker':
-                # 標記容器需要更多空間
-                row_height = max(row_height, 200)
-                max_width = max(max_width, 250)
-            else:
-                row_height = max(row_height, 90)
-                max_width = max(max_width, 200)
-        
-        # 第二遍：繪製節點
-        col = 0
-        max_cols = 4  # 每行最多4個節點
-        
-        for item in parsed_structure:
-            if item['type'] == 'marker':
-                # 繪製標記容器
-                container_height = self._draw_marker_container(item, x, y)
-                y += container_height + 50  # 標記後增加間距
-                col = 0  # 標記後重新開始
-            else:
-                # 單獨的指令
-                line = item['line'].strip()
-                if not line:
-                    continue
-                
-                color = self._get_command_color(line)
-                display_text = self._get_command_display_text(line)
-                self._create_canvas_node(display_text, color, x + (col * 280), y, original_command=line)
-                
-                col += 1
-                if col >= max_cols:
-                    col = 0
-                    y += 100  # 換行
-        
-        # 建立分支連接（在所有節點繪製完成後）
-        self._create_branch_connections()
-        
-        # 調整畫布滾動區域
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-    
-    def _parse_marker_structure(self, lines):
-        """解析標記層級結構
-        返回: [{'type': 'marker', 'name': '#mm', 'children': [...]}, 
-               {'type': 'command', 'line': '...'}]
-        """
-        result = []
-        i = 0
-        
-        while i < len(lines):
-            line = lines[i]
-            stripped = line.strip()
-            
-            # 跳過空行和軌跡標記
-            if not stripped or stripped.startswith('# [軌跡]') or stripped.startswith('# [軌跡結束]'):
-                i += 1
-                continue
-            
-            # 檢查是否是標記（#開頭，且只有一個>）
-            if stripped.startswith('#') and not stripped.startswith('##'):
-                # 這是一個標記
-                marker_name = stripped
-                children = []
-                i += 1
-                
-                # 收集標記內的所有子元素（以>開頭，且縮排比標記多）
-                while i < len(lines):
-                    child_line = lines[i]
-                    child_stripped = child_line.strip()
-                    
-                    # 空行跳過
-                    if not child_stripped:
-                        i += 1
-                        continue
-                    
-                    # 檢查是否是標記的子元素（>開頭且只有一個>）
-                    if child_stripped.startswith('>') and not child_stripped.startswith('>>'):
-                        children.append(child_stripped)
-                        i += 1
-                    else:
-                        # 遇到非子元素，退出
-                        break
-                
-                result.append({
-                    'type': 'marker',
-                    'name': marker_name,
-                    'children': children
-                })
-            else:
-                # 普通指令
-                result.append({
-                    'type': 'command',
-                    'line': line
-                })
-                i += 1
-        
-        return result
-    
-    def _create_branch_connections(self):
-        """建立分支連接（處理 >>#label 和 >>>#label）"""
-        # 解析當前的文字內容以找到分支關係
-        text_content = self.text_editor.get("1.0", tk.END).strip()
-        lines = text_content.split('\n')
-        
-        # 建立標籤名到節點索引的映射
-        label_to_node = {}
-        for idx, node in enumerate(self.canvas_nodes):
-            cmd = node.get("original_command", node.get("command", ""))
-            if cmd.startswith('#') and not cmd.startswith('##'):
-                # 這是一個標籤，提取標籤名
-                label_name = cmd.strip()
-                label_to_node[label_name] = idx
-        
-        # 查找分支指令並建立連接
-        i = 0
-        current_marker = None
-        current_marker_has_condition = False
-        
-        while i < len(lines):
-            line = lines[i].strip()
-            
-            # 追蹤當前標籤
-            if line.startswith('#') and not line.startswith('##'):
-                current_marker = line
-                current_marker_has_condition = False
-                
-            # 檢查標籤內是否有條件判斷指令
-            elif current_marker and line.startswith('>'):
-                # 檢查是否是條件判斷類型的指令
-                if any(keyword in line for keyword in ['>辨識>', '>if>', '>if文字>', '>if變數>', '>if全部存在>', '>if任一存在>', '>隨機執行>']):
-                    current_marker_has_condition = True
-            
-            # 檢查是否是分支指令
-            elif line.startswith('>>#') or line.startswith('>>>#'):
-                # 解析目標標籤
-                target_label = '#' + line.split('#', 1)[1].split(',')[0].split('*')[0].strip()
-                
-                # 找到目標節點
-                if target_label in label_to_node:
-                    target_idx = label_to_node[target_label]
-                    
-                    # 找到當前標籤的節點
-                    if current_marker and current_marker in label_to_node:
-                        source_idx = label_to_node[current_marker]
-                        
-                        # 判斷是成功分支還是失敗分支
-                        if line.startswith('>>#'):
-                            self._connect_nodes(source_idx, target_idx, label="成功")
-                        else:  # >>>#
-                            self._connect_nodes(source_idx, target_idx, label="失敗")
-            
-            i += 1
-        
-        # 如果沒有找到任何分支連接，建立順序連接作為備用
-        if not self.canvas_connections and len(self.canvas_nodes) > 1:
-            for i in range(len(self.canvas_nodes) - 1):
-                self._connect_nodes(i, i + 1)
-    
-    def _draw_marker_container(self, marker_item, x, y):
-        """繪製標記容器，包含標記名和子元素
-        返回: 容器高度
-        """
-        marker_name = marker_item['name']
-        children = marker_item['children']
-        
-        # 計算容器尺寸
-        marker_height = 40  # 標記名高度
-        child_height = 60  # 每個子元素高度
-        padding = 15  # 內邊距
-        spacing = 10  # 子元素間距
-        
-        total_child_height = len(children) * (child_height + spacing) if children else 0
-        container_height = marker_height + total_child_height + padding * 2
-        container_width = 220
-        
-        # 繪製容器外框（大框）
-        container_rect = self.canvas.create_rectangle(
-            x, y,
-            x + container_width, y + container_height,
-            outline="#4ec9b0",  # 青綠色邊框
-            width=2,
-            fill="#2d2d30",  # 深灰背景
-            tags=("marker_container",)
-        )
-        
-        # 繪製標記名（在頂部）
-        marker_text = self.canvas.create_text(
-            x + container_width // 2,
-            y + marker_height // 2,
-            text=marker_name,
-            fill="#4ec9b0",  # 青綠色
-            font=font_tuple(10, "bold"),  # 固定大小10
-            tags=("marker_name",)
-        )
-        
-        # 繪製分隔線
-        separator = self.canvas.create_line(
-            x + 5, y + marker_height,
-            x + container_width - 5, y + marker_height,
-            fill="#4ec9b0",
-            width=1,
-            tags=("marker_separator",)
-        )
-        
-        # 保存標記容器作為一個特殊節點（包含所有子元素）
-        marker_node = {
-            "rect": container_rect,
-            "text": marker_text,
-            "container_rect": container_rect,
-            "marker_text": marker_text,
-            "separator": separator,
-            "command": marker_name,
-            "original_command": marker_name,
-            "color": "#4ec9b0",
-            "x": x,
-            "y": y,
-            "is_marker": True,
-            "marker_children": [],  # 保存所有子元素的原始指令
-            "child_elements": []  # 保存子元素的canvas元素
-        }
-        
-        # 繪製子元素
-        child_y = y + marker_height + padding
-        for i, child in enumerate(children):
-            color = self._get_command_color(child)
-            display_text = self._get_command_display_text(child)
-            
-            # 子元素框
-            child_x = x + padding
-            child_width = container_width - padding * 2
-            
-            child_rect = self.canvas.create_rectangle(
-                child_x, child_y,
-                child_x + child_width, child_y + child_height,
-                fill=color,
-                outline="#aaaaaa",
-                width=1,
-                tags=("marker_child",)
-            )
-            
-            child_text = self.canvas.create_text(
-                child_x + child_width // 2,
-                child_y + child_height // 2,
-                text=display_text,
-                fill="white",
-                font=font_tuple(10),  # 固定大小10
-                tags=("marker_child_text",),
-                width=child_width - 10
-            )
-            
-            # 保存到標記節點的子元素列表
-            marker_node["marker_children"].append(child)  # 原始指令
-            marker_node["child_elements"].append({
-                "rect": child_rect,
-                "text": child_text,
-                "x": child_x,
-                "y": child_y
-            })
-            
-            child_y += child_height + spacing
-        
-        # 將標記節點加入節點列表
-        self.canvas_nodes.append(marker_node)
-        
-        return container_height
-    
-    def _get_command_color(self, command):
-        """根據指令類型返回對應的顏色（與VS Code語法高亮一致）"""
-        # 註解
-        if command.startswith('#'):
-            return "#6a9955"
-        
-        # 滑鼠操作（藍色系）
-        if command.startswith('>'):
-            if '移動至' in command:
-                return "#569cd6"  # syntax_mouse
-            elif '點擊' in command:
-                return "#569cd6"  # syntax_mouse
-            elif '拖曳' in command:
-                return "#569cd6"  # syntax_mouse
-            elif '滾輪' in command:
-                return "#569cd6"  # syntax_mouse
-            return "#569cd6"
-        
-        # 鍵盤操作（淺藍色）
-        if command.startswith('@'):
-            return "#9cdcfe"  # syntax_keyboard
-        
-        # 等待延遲（淺黃色）
-        if command.startswith('等待'):
-            return "#dcdcaa"  # syntax_delay
-        
-        # 標籤（青綠色）
-        if command.startswith('標籤:'):
-            return "#4ec9b0"  # syntax_label
-        
-        # 圖片辨識（青綠色）
-        if command.startswith('找圖'):
-            return "#4ec9b0"  # syntax_image
-        
-        # OCR文字（青綠色）
-        if command.startswith('找字'):
-            return "#4ec9b0"  # syntax_ocr
-        
-        # 流程控制（紫色）
-        if '條件判斷' in command or '迴圈' in command or '如果' in command or '否則' in command:
-            return "#c586c0"  # syntax_flow/syntax_condition
-        
-        # 時間格式（橘色）
-        if 'T=' in command:
-            return "#ce9178"  # syntax_time
-        
-        return "#d4d4d4"  # 預設 - 淺灰色
-    
-    def _get_command_display_text(self, command):
-        """獲取指令的顯示文字（簡化版）"""
-        # 限制顯示長度
-        if len(command) > 30:
-            return command[:27] + "..."
-        return command
-    
-    def _create_canvas_node(self, text, color, x, y, original_command=None):
-        """在畫布上創建節點（Workflow工作流程圖風格）"""
-        node_idx = len(self.canvas_nodes)
-        node_tag = f"node_{node_idx}"
-        
-        # 判斷節點類型，決定形狀
-        is_condition = '條件判斷' in text or '如果' in text
-        is_label = text.startswith('標籤:')
-        
-        # 創建陰影效果（增加立體感）
-        shadow = self.canvas.create_rectangle(
-            x + 4, y + 4, x + 184, y + 64,
-            fill="#1a1a1a",
-            outline="",
-            tags=("shadow", node_tag)
-        )
-        
-        if is_condition:
-            # 條件判斷用菱形（Workflow風格）
-            node_shape = self.canvas.create_polygon(
-                x + 90, y,           # 上
-                x + 180, y + 30,     # 右
-                x + 90, y + 60,      # 下
-                x, y + 30,           # 左
-                fill=color,
-                outline="#66ccff",   # 亮藍色邊框
-                width=2,
-                smooth=True,
-                tags=("node", node_tag)
-            )
-        elif is_label:
-            # 標籤用橢圓（更柔和）
-            node_shape = self.canvas.create_oval(
-                x, y, x + 180, y + 60,
-                fill=color,
-                outline="#99ff99",   # 亮綠色邊框
-                width=2,
-                tags=("node", node_tag)
-            )
-        else:
-            # 一般指令用圓角矩形（通過多邊形模擬）
-            radius = 10
-            node_shape = self._create_rounded_rectangle(
-                x, y, x + 180, y + 60,
-                radius=radius,
-                fill=color,
-                outline="#aaaaaa",
-                width=2,
-                tags=("node", node_tag)
-            )
-        
-        # 創建節點文字
-        node_text = self.canvas.create_text(
-            x + 90, y + 30,
-            text=text,
-            fill="white",
-            font=font_tuple(10, "bold"),  # 固定大小10
-            tags=("node", node_tag),
-            width=170
-        )
-        
-        # 儲存節點資料（包含完整原始指令和陰影）
-        node_data = {
-            "rect": node_shape,
-            "text": node_text,
-            "shadow": shadow,  # 陰影元素
-            "command": text,
-            "original_command": original_command if original_command else text,  # 保存原始指令
-            "color": color,
-            "x": x,
-            "y": y,
-            "is_condition": is_condition
-        }
-        self.canvas_nodes.append(node_data)
-        
-        # 不再自動連接節點，改由 _create_branch_connections() 統一處理
-        # 這樣可以更好地處理分支邏輯
-        
-        return node_idx
-    
-    def _create_rounded_rectangle(self, x1, y1, x2, y2, radius=10, **kwargs):
-        """創建圓角矩形（模擬Workflow風格）"""
-        points = [
-            x1 + radius, y1,
-            x2 - radius, y1,
-            x2, y1,
-            x2, y1 + radius,
-            x2, y2 - radius,
-            x2, y2,
-            x2 - radius, y2,
-            x1 + radius, y2,
-            x1, y2,
-            x1, y2 - radius,
-            x1, y1 + radius,
-            x1, y1,
-        ]
-        return self.canvas.create_polygon(points, smooth=True, **kwargs)
-    
-    def _connect_nodes(self, idx1, idx2, label=None):
-        """連接兩個節點 - 使用流暢的貝茲曲線"""
-        if idx1 < 0 or idx1 >= len(self.canvas_nodes) or idx2 < 0 or idx2 >= len(self.canvas_nodes):
-            return
-        
-        node1 = self.canvas_nodes[idx1]
-        node2 = self.canvas_nodes[idx2]
-        
-        # 計算連接點
-        x1 = node1["x"] + 90
-        y1 = node1["y"] + 60
-        x2 = node2["x"] + 90
-        y2 = node2["y"]
-        
-        # 根據標籤選擇顏色
-        if label == "成功" or label == "True":
-            line_color = "#4CAF50"  # 綠色表示成功
-            glow_color = "#81C784"
-        elif label == "失敗" or label == "False":
-            line_color = "#F44336"  # 紅色表示失敗
-            glow_color = "#E57373"
-        else:
-            line_color = "#60a5fa"  # 藍色表示普通連接
-            glow_color = "#93C5FD"
-        
-        # 計算貝茲曲線控制點
-        dx = x2 - x1
-        dy = y2 - y1
-        
-        # 根據節點相對位置調整控制點
-        if abs(dx) < 50:  # 垂直連接
-            ctrl_offset = abs(dy) / 3
-            points = [
-                x1, y1,
-                x1, y1 + ctrl_offset,
-                x2, y2 - ctrl_offset,
-                x2, y2
-            ]
-        else:  # 有水平偏移
-            ctrl_offset_x = dx / 2
-            ctrl_offset_y = dy / 3
-            points = [
-                x1, y1,
-                x1 + ctrl_offset_x, y1 + ctrl_offset_y,
-                x2 - ctrl_offset_x, y2 - ctrl_offset_y,
-                x2, y2
-            ]
-        
-        # 繪製發光效果（外層粗線）
-        glow_line = self.canvas.create_line(
-            *points,
-            fill=glow_color,
-            width=6,
-            smooth=True,
-            splinesteps=36,
-            tags="connection_glow"
-        )
-        
-        # 繪製主連接線（帶箭頭）
-        line = self.canvas.create_line(
-            *points,
-            fill=line_color,
-            width=3,
-            arrow=tk.LAST,
-            arrowshape=(14, 18, 6),  # 更大更明顯的箭頭
-            smooth=True,
-            splinesteps=36,
-            tags="connection"
-        )
-        
-        # 如果有標籤，添加帶背景的文字
-        label_text = None
-        label_bg = None
-        if label:
-            # 計算標籤位置（曲線中點）
-            mid_x = (x1 + x2) / 2
-            mid_y = (y1 + y2) / 2 + (dy / 6)  # 稍微偏移以適應曲線
-            
-            # 創建標籤背景
-            label_bg = self.canvas.create_rectangle(
-                mid_x - 28, mid_y - 12,
-                mid_x + 28, mid_y + 12,
-                fill="#2d2d30",
-                outline=line_color,
-                width=2,
-                tags="connection_label_bg"
-            )
-            
-            # 創建標籤文字
-            label_text = self.canvas.create_text(
-                mid_x, mid_y,
-                text=label,
-                fill=line_color,
-                font=font_tuple(9, "bold"),
-                tags="connection_label"
-            )
-        
-        self.canvas_connections.append({
-            "line": line,
-            "glow_line": glow_line,
-            "label_text": label_text,
-            "label_bg": label_bg,
-            "from": idx1,
-            "to": idx2
-        })
-        
-        # 將連接線移到節點下層
-        self.canvas.tag_lower("connection_label_bg")
-        self.canvas.tag_lower("connection")
-        self.canvas.tag_lower("connection_glow")
-        self.canvas.tag_lower("grid")
-    
-    def _convert_canvas_to_text(self):
-        """將畫布節點轉換為文字指令（支持標記容器）"""
-        if not self.canvas_nodes:
-            return
-        
-        # 清空文字編輯器
-        self.text_editor.delete("1.0", tk.END)
-        
-        # 轉換節點為文字（使用原始指令）
-        for node in self.canvas_nodes:
-            # 檢查是否是標記容器
-            if node.get("is_marker", False):
-                # 標記容器：先寫標記名，再寫所有子元素
-                marker_name = node.get("original_command", node["command"])
-                self.text_editor.insert(tk.END, marker_name + "\n")
-                
-                # 寫入所有子元素
-                for child_cmd in node.get("marker_children", []):
-                    self.text_editor.insert(tk.END, child_cmd + "\n")
-            else:
-                # 普通節點
-                original_command = node.get("original_command", node["command"])
-                self.text_editor.insert(tk.END, original_command + "\n")
-    
-    def _on_canvas_click(self, event):
-        """畫布點擊事件（支援節點拖動和畫布平移）"""
-        # 檢查是否點擊到節點
-        items = self.canvas.find_overlapping(event.x - 5, event.y - 5, event.x + 5, event.y + 5)
-        
-        for item in items:
-            tags = self.canvas.gettags(item)
-            # 檢查標記容器和普通節點
-            if "node" in tags or "marker_container" in tags or "marker_name" in tags or "marker_child" in tags:
-                # 查找對應的節點索引
-                for idx, node in enumerate(self.canvas_nodes):
-                    # 檢查是否點擊到該節點的任何元素
-                    if node.get("is_marker", False):
-                        # 標記容器：檢查容器、標記名或子元素
-                        if (item == node.get("container_rect") or 
-                            item == node.get("marker_text") or
-                            item == node.get("separator")):
-                            self.selected_node = idx
-                            self.drag_data["item"] = item
-                            self.drag_data["x"] = event.x
-                            self.drag_data["y"] = event.y
-                            return
-                        # 檢查子元素
-                        for child_elem in node.get("child_elements", []):
-                            if item == child_elem["rect"] or item == child_elem["text"]:
-                                self.selected_node = idx
-                                self.drag_data["item"] = item
-                                self.drag_data["x"] = event.x
-                                self.drag_data["y"] = event.y
-                                return
-                    else:
-                        # 普通節點
-                        if item == node.get("rect") or item == node.get("text") or item == node.get("shadow"):
-                            self.selected_node = idx
-                            self.drag_data["item"] = item
-                            self.drag_data["x"] = event.x
-                            self.drag_data["y"] = event.y
-                            return
-        
-        # 如果沒有點擊到節點，啟動畫布拖移模式
-        self.pan_data["active"] = True
-        self.pan_data["x"] = event.x
-        self.pan_data["y"] = event.y
-        self.canvas.config(cursor="fleur")
-    
-    def _on_canvas_drag(self, event):
-        """畫布拖曳事件（節點拖動或畫布平移）"""
-        if self.drag_data["item"] and self.selected_node is not None:
-            # 拖動節點
-            dx = event.x - self.drag_data["x"]
-            dy = event.y - self.drag_data["y"]
-            
-            node = self.canvas_nodes[self.selected_node]
-            
-            # 檢查是否是標記容器
-            if node.get("is_marker", False):
-                # 移動整個標記容器
-                self.canvas.move(node["container_rect"], dx, dy)
-                self.canvas.move(node["marker_text"], dx, dy)
-                self.canvas.move(node["separator"], dx, dy)
-                
-                # 移動所有子元素
-                for child_elem in node.get("child_elements", []):
-                    self.canvas.move(child_elem["rect"], dx, dy)
-                    self.canvas.move(child_elem["text"], dx, dy)
-                    child_elem["x"] += dx
-                    child_elem["y"] += dy
-            else:
-                # 移動普通節點（包含陰影、形狀、文字）
-                if "shadow" in node:
-                    self.canvas.move(node["shadow"], dx, dy)
-                self.canvas.move(node["rect"], dx, dy)
-                self.canvas.move(node["text"], dx, dy)
-            
-            # 更新節點位置
-            node["x"] += dx
-            node["y"] += dy
-            
-            # 更新連接線
-            self._update_node_connections(self.selected_node)
-            
-            # 更新拖曳數據
-            self.drag_data["x"] = event.x
-            self.drag_data["y"] = event.y
-        elif self.pan_data["active"]:
-            # 拖移畫布
-            dx = event.x - self.pan_data["x"]
-            dy = event.y - self.pan_data["y"]
-            
-            # 移動所有元素
-            self.canvas.move("all", dx, dy)
-            
-            # 更新節點位置記錄
-            for node in self.canvas_nodes:
-                node["x"] += dx
-                node["y"] += dy
-            
-            self.pan_data["x"] = event.x
-            self.pan_data["y"] = event.y
-    
-    def _on_canvas_release(self, event):
-        """畫布釋放事件（結束節點拖動或畫布平移）"""
-        self.drag_data["item"] = None
-        self.selected_node = None
-        if self.pan_data["active"]:
-            self.pan_data["active"] = False
-            self.canvas.config(cursor="crosshair")
-    
-    def _update_node_connections(self, node_idx):
-        """更新與指定節點相關的所有連接線"""
-        for conn in self.canvas_connections:
-            if conn["from"] == node_idx or conn["to"] == node_idx:
-                from_node = self.canvas_nodes[conn["from"]]
-                to_node = self.canvas_nodes[conn["to"]]
-                
-                x1 = from_node["x"] + 90
-                y1 = from_node["y"] + 60
-                x2 = to_node["x"] + 90
-                y2 = to_node["y"]
-                
-                self.canvas.coords(conn["line"], x1, y1, x2, y2)
-                
-                # 更新標籤位置
-                if conn.get("label_text"):
-                    mid_x = (x1 + x2) / 2
-                    mid_y = (y1 + y2) / 2
-                    self.canvas.coords(conn["label_text"], mid_x, mid_y)
-    
-    def _on_canvas_zoom(self, event):
-        """畫布縮放事件（滾輪）- 同步縮放文字和圖形"""
-        # 獲取滾輪方向
-        if event.delta > 0:
-            scale_factor = 1.1
-        else:
-            scale_factor = 0.9
-        
-        # 限制縮放範圍
-        new_scale = self.canvas_scale * scale_factor
-        if new_scale < 0.3 or new_scale > 3.0:
-            return
-        
-        self.canvas_scale = new_scale
-        
-        # 縮放所有元素（圖形部分）
-        self.canvas.scale("all", event.x, event.y, scale_factor, scale_factor)
-        
-        # 更新節點位置和文字大小
-        for node in self.canvas_nodes:
-            # 更新節點位置記錄
-            dx = node["x"] - event.x
-            dy = node["y"] - event.y
-            node["x"] = event.x + dx * scale_factor
-            node["y"] = event.y + dy * scale_factor
-            
-            # 同步更新文字大小（確保文字跟圖形框同步）
-            new_font_size = max(6, int(9 * self.canvas_scale))
-            self.canvas.itemconfig(node["text"], font=font_tuple(new_font_size, "bold"))
-        
-        # 顯示縮放比例
-        self._update_status(f"縮放: {int(self.canvas_scale * 100)}%", "info")
-    
-    def _on_canvas_pan_start(self, event):
-        """開始平移畫布（中鍵）"""
-        self.pan_data["active"] = True
-        self.pan_data["x"] = event.x
-        self.pan_data["y"] = event.y
-        self.canvas.config(cursor="fleur")
-    
-    def _on_canvas_pan_move(self, event):
-        """平移畫布中"""
-        if self.pan_data["active"]:
-            dx = event.x - self.pan_data["x"]
-            dy = event.y - self.pan_data["y"]
-            
-            # 移動所有元素
-            self.canvas.move("all", dx, dy)
-            
-            # 更新節點位置記錄
-            for node in self.canvas_nodes:
-                node["x"] += dx
-                node["y"] += dy
-            
-            self.pan_data["x"] = event.x
-            self.pan_data["y"] = event.y
-    
-    def _on_canvas_pan_end(self, event):
-        """結束平移畫布"""
-        self.pan_data["active"] = False
-        self.canvas.config(cursor="crosshair")
-    
-    def _show_canvas_context_menu(self, event):
-        """顯示畫布右鍵選單（簡化版）"""
-        menu = tk.Menu(self, tearoff=0)
-        
-        # 只保留自動排列功能
-        menu.add_command(label="🔄 自動排列", command=self._auto_arrange_nodes)
-        
-        try:
-            menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            menu.grab_release()
-    
-    def _clear_canvas(self):
-        """清空畫布"""
-        if messagebox.askyesno("確認", "確定要清空畫布嗎？"):
-            self.canvas.delete("all")
-            self.canvas_nodes = []
-            self.canvas_connections = []
-            self._draw_grid()
-            self._update_status("已清空畫布", "success")
-    
-    def _add_command_node(self, x, y):
-        """在指定位置添加指令節點"""
-        # 彈出對話框輸入指令
-        command = simpledialog.askstring("添加指令", "請輸入指令內容：\n(例如：>移動至(100,100), 延遲0ms, T=0s000)")
-        if command:
-            color = self._get_command_color(command)
-            display_text = self._get_command_display_text(command)
-            self._create_canvas_node(display_text, color, x, y, original_command=command)
-            self._update_status("已添加指令節點", "success")
-    
-    def _add_marker_node(self, x, y):
-        """在指定位置添加標記節點"""
-        # 彈出對話框輸入標記名
-        marker_name = simpledialog.askstring("添加標記", "請輸入標記名稱：\n(例如：#start、#loop等)")
-        if marker_name:
-            if not marker_name.startswith('#'):
-                marker_name = '#' + marker_name
-            
-            # 創建標記容器（暫無子元素）
-            marker_item = {
-                'type': 'marker',
-                'name': marker_name,
-                'children': []
-            }
-            self._draw_marker_container(marker_item, x, y)
-            self._update_status("已添加標記節點", "success")
-    
-    def _edit_node(self, node_idx):
-        """編輯節點內容"""
-        if node_idx < 0 or node_idx >= len(self.canvas_nodes):
-            return
-        
-        node = self.canvas_nodes[node_idx]
-        current_command = node.get("original_command", node["command"])
-        
-        if node.get("is_marker"):
-            # 編輯標記名
-            new_name = simpledialog.askstring("編輯標記", f"當前標記：{current_command}\n請輸入新的標記名稱：", 
-                                              initialvalue=current_command)
-            if new_name and new_name != current_command:
-                if not new_name.startswith('#'):
-                    new_name = '#' + new_name
-                node["original_command"] = new_name
-                node["command"] = new_name
-                # 更新顯示
-                self.canvas.itemconfig(node["marker_text"], text=new_name)
-                self._update_status("已更新標記名稱", "success")
-        else:
-            # 編輯普通指令
-            new_command = simpledialog.askstring("編輯指令", f"當前指令：{current_command}\n請輸入新的指令：",
-                                                 initialvalue=current_command)
-            if new_command and new_command != current_command:
-                node["original_command"] = new_command
-                node["command"] = self._get_command_display_text(new_command)
-                node["color"] = self._get_command_color(new_command)
-                # 更新顯示
-                self.canvas.itemconfig(node["text"], text=node["command"])
-                self.canvas.itemconfig(node["rect"], fill=node["color"])
-                self._update_status("已更新指令內容", "success")
-    
-    def _delete_node(self, node_idx):
-        """刪除節點"""
-        if node_idx < 0 or node_idx >= len(self.canvas_nodes):
-            return
-        
-        if not messagebox.askyesno("確認", "確定要刪除此節點嗎？"):
-            return
-        
-        node = self.canvas_nodes[node_idx]
-        
-        # 刪除canvas元素
-        if node.get("is_marker"):
-            # 刪除標記容器及所有子元素
-            self.canvas.delete(node["container_rect"])
-            self.canvas.delete(node["marker_text"])
-            self.canvas.delete(node["separator"])
-            for child_elem in node.get("child_elements", []):
-                self.canvas.delete(child_elem["rect"])
-                self.canvas.delete(child_elem["text"])
-        else:
-            # 刪除普通節點
-            if "shadow" in node:
-                self.canvas.delete(node["shadow"])
-            self.canvas.delete(node["rect"])
-            self.canvas.delete(node["text"])
-        
-        # 從列表中移除
-        self.canvas_nodes.pop(node_idx)
-        
-        # 刪除相關連接線
-        self.canvas_connections = [conn for conn in self.canvas_connections 
-                                   if conn["from"] != node_idx and conn["to"] != node_idx]
-        
-        self._update_status("已刪除節點", "success")
-    
-    def _add_action_to_marker(self, marker_idx):
-        """向標記添加子動作"""
-        if marker_idx < 0 or marker_idx >= len(self.canvas_nodes):
-            return
-        
-        node = self.canvas_nodes[marker_idx]
-        if not node.get("is_marker"):
-            return
-        
-        # 輸入新動作
-        action = simpledialog.askstring("添加動作", "請輸入要添加的動作：\n(例如：>按下a, 延遲50ms, T=0s000)")
-        if action:
-            # 添加到標記的子元素列表
-            node["marker_children"].append(action)
-            
-            # 重新繪製整個標記容器
-            # 先刪除舊的
-            self.canvas.delete(node["container_rect"])
-            self.canvas.delete(node["marker_text"])
-            self.canvas.delete(node["separator"])
-            for child_elem in node.get("child_elements", []):
-                self.canvas.delete(child_elem["rect"])
-                self.canvas.delete(child_elem["text"])
-            
-            # 重新創建
-            marker_item = {
-                'type': 'marker',
-                'name': node["original_command"],
-                'children': node["marker_children"]
-            }
-            
-            x, y = node["x"], node["y"]
-            # 移除舊節點
-            self.canvas_nodes.pop(marker_idx)
-            # 插入新節點到相同位置
-            self._draw_marker_container(marker_item, x, y)
-            # 將新節點移動到正確的索引位置
-            new_node = self.canvas_nodes.pop()
-            self.canvas_nodes.insert(marker_idx, new_node)
-            
-            self._update_status("已添加動作到標記", "success")
-    
-    def _reset_canvas_zoom(self):
-        """重置畫布縮放到100%"""
-        if self.canvas_scale == 1.0:
-            self._update_status("已是100%縮放", "info")
-            return
-        
-        # 計算需要的縮放因子
-        reset_factor = 1.0 / self.canvas_scale
-        
-        # 獲取畫布中心點
-        width = self.canvas.winfo_width()
-        height = self.canvas.winfo_height()
-        center_x = width / 2
-        center_y = height / 2
-        
-        # 以中心點為基準縮放
-        self.canvas.scale("all", center_x, center_y, reset_factor, reset_factor)
-        
-        # 更新節點位置記錄
-        for node in self.canvas_nodes:
-            dx = node["x"] - center_x
-            dy = node["y"] - center_y
-            node["x"] = center_x + dx * reset_factor
-            node["y"] = center_y + dy * reset_factor
-        
-        # 重置縮放比例
-        self.canvas_scale = 1.0
-        self._update_status("已重置縮放到100%", "success")
-    
-    def _auto_arrange_nodes(self):
-        """智能自動排列節點（符合指令判斷邏輯）"""
-        if not self.canvas_nodes:
-            return
-        
-        # 建立標籤到節點索引的映射
-        label_to_idx = {}
-        for idx, node in enumerate(self.canvas_nodes):
-            cmd = node.get("original_command", node.get("command", ""))
-            if cmd.startswith('#') and not cmd.startswith('##'):
-                label_to_idx[cmd.strip()] = idx
-        
-        # 建立節點層級和位置映射
-        node_levels = {}  # {idx: level}
-        node_columns = {}  # {idx: column}
-        visited = set()
-        
-        def calculate_layout(idx, level=0, column=0):
-            """遞歸計算節點的層級和列位置"""
-            if idx in visited or idx >= len(self.canvas_nodes):
-                return
-            
-            visited.add(idx)
-            node_levels[idx] = level
-            node_columns[idx] = column
-            
-            # 查找此節點的分支目標
-            node = self.canvas_nodes[idx]
-            cmd = node.get("original_command", node.get("command", ""))
-            
-            # 查找文字內容中的分支指令
-            text_content = self.text_editor.get("1.0", tk.END)
-            lines = text_content.split('\n')
-            
-            # 找到當前標籤後的分支指令
-            in_current_label = False
-            for line in lines:
-                line = line.strip()
-                if line == cmd:
-                    in_current_label = True
-                    continue
-                
-                if in_current_label:
-                    # 檢查是否到下一個標籤
-                    if line.startswith('#') and not line.startswith('##'):
-                        break
-                    
-                    # 檢查分支指令
-                    if line.startswith('>>#') or line.startswith('>>>#'):
-                        target_label = '#' + line.split('#', 1)[1].split(',')[0].strip()
-                        if target_label in label_to_idx:
-                            target_idx = label_to_idx[target_label]
-                            # 成功分支往右，失敗分支往更右
-                            branch_column = column + 1 if line.startswith('>>#') else column + 2
-                            calculate_layout(target_idx, level + 1, branch_column)
-        
-        # 從第一個節點開始計算
-        if self.canvas_nodes:
-            calculate_layout(0, 0, 0)
-        
-        # 根據層級和列進行排列
-        x_spacing = 300
-        y_spacing = 120
-        start_x = 150
-        start_y = 100
-        
-        for idx, node in enumerate(self.canvas_nodes):
-            if idx not in node_levels:
-                # 未訪問的節點按順序排列
-                level = len([i for i in range(idx) if i in node_levels])
-                column = 0
-            else:
-                level = node_levels[idx]
-                column = node_columns[idx]
-            
-            new_x = start_x + column * x_spacing
-            new_y = start_y + level * y_spacing
-            
-            # 計算位移
-            dx = new_x - node["x"]
-            dy = new_y - node["y"]
-            
-            # 移動節點
-            if node.get("is_marker", False):
-                # 移動標記容器
-                self.canvas.move(node["container_rect"], dx, dy)
-                self.canvas.move(node["marker_text"], dx, dy)
-                self.canvas.move(node["separator"], dx, dy)
-                for child_elem in node.get("child_elements", []):
-                    self.canvas.move(child_elem["rect"], dx, dy)
-                    self.canvas.move(child_elem["text"], dx, dy)
-                    child_elem["x"] += dx
-                    child_elem["y"] += dy
-            else:
-                # 移動普通節點
-                if "shadow" in node:
-                    self.canvas.move(node["shadow"], dx, dy)
-                self.canvas.move(node["rect"], dx, dy)
-                self.canvas.move(node["text"], dx, dy)
-            
-            # 更新節點位置
-            node["x"] = new_x
-            node["y"] = new_y
-        
-        # 更新所有連接線
-        for i in range(len(self.canvas_nodes)):
-            self._update_node_connections(i)
-        
-        # 調整畫布滾動區域
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        
-        self._update_status("已智能排列節點", "success")
     
     def _auto_fold_all_trajectories(self):
         """自動摺疊所有軌跡區塊"""
@@ -2059,208 +757,186 @@ class TextCommandEditor(tk.Toplevel):
         return simplified
     
     def _create_command_buttons_in_frame(self, parent_frame):
-        """在指定的父框架中創建快速指令按鈕區（分類選單切換）"""
+        """在指定的父框架中創建快速指令按鈕區（使用捲軸）"""
         # 主容器框架
         cmd_frame = tk.Frame(parent_frame, bg="#2b2b2b")
         cmd_frame.pack(fill="both", expand=True, pady=(0, 10))
         
-        # 定義所有按鈕（按功能分類）
-        self.button_categories = {
-            "圖片辨識": [
-                ("圖片辨識", "#9C27B0", self._capture_and_recognize, None),
-                ("範圍辨識", "#7B1FA2", self._capture_region_for_recognition, None),
-                ("移動至圖片", "#673AB7", None, ">移動至>pic01, T=0s000"),
-                ("點擊圖片", "#3F51B5", None, ">左鍵點擊>pic01, T=0s000"),
-                ("條件判斷", "#2196F3", None, ">if>pic01, T=0s000\n>>#標籤\n>>>#標籤"),
-            ],
-            "滑鼠鍵盤": [
-                ("左鍵點擊", "#03A9F4", self._capture_left_click_coordinate, None),
-                ("右鍵點擊", "#00BCD4", self._capture_right_click_coordinate, None),
-                ("滑鼠移動", "#009688", None, ">移動至(0,0), 延遲0ms, T=0s000"),
-                ("滑鼠滾輪", "#4CAF50", None, ">滾輪(1), 延遲0ms, T=0s000"),
-                ("按下按鍵", "#8BC34A", None, ">按下a, 延遲50ms, T=0s000"),
-                ("放開按鍵", "#CDDC39", None, ">放開a, 延遲0ms, T=0s000"),
-            ],
-            "流程控制": [
-                ("新增標籤", "#FFC107", None, "#標籤名稱"),
-                ("跳轉標籤", "#FF9800", None, ">>#標籤名稱"),
-                ("條件失敗跳轉", "#FF5722", None, ">>>#標籤名稱"),
-                ("OCR文字判斷", "#00BCD4", None, ">if文字>更改為需判斷文字, T=0s000\n>>#找到\n>>>#沒找到"),
-                ("OCR等待文字", "#009688", None, ">等待文字>更改為需等待文字, 最長10s, T=0s000"),
-                ("OCR點擊文字", "#4CAF50", None, ">點擊文字>更改為需點擊文字, T=0s000"),
-                ("延遲等待", "#795548", None, ">延遲1000ms, T=0s000"),
-            ],
-            "變數系統": [
-                ("設定變數", "#6A1B9A", None, ">設定變數>count, 0, T=0s000"),
-                ("變數加1", "#7B1FA2", None, ">變數加1>count, T=0s000"),
-                ("變數減1", "#8E24AA", None, ">變數減1>count, T=0s000"),
-                ("變數條件", "#9C27B0", None, ">if變數>count, >=, 10, T=0s000\n>>#成功\n>>>#失敗"),
-            ],
-            "循環控制": [
-                ("重複N次", "#1565C0", None, ">重複>10次, T=0s000\n  # 在此處添加要重複的指令\n>重複結束, T=0s000"),
-                ("條件循環", "#1976D2", None, ">當圖片存在>loading, T=0s000\n  # 在此處添加循環內的指令\n>循環結束, T=0s000"),
-            ],
-            "多條件與隨機": [
-                ("全部圖片存在", "#00695C", None, ">if全部存在>pic01,pic02,pic03, T=0s000\n>>#全部找到\n>>>#缺少某個"),
-                ("任一圖片存在", "#00796B", None, ">if任一存在>pic01,pic02,pic03, T=0s000\n>>#找到其中一個\n>>>#全部都沒有"),
-                ("隨機延遲", "#388E3C", None, ">隨機延遲>100ms,500ms, T=0s000"),
-                ("隨機分支", "#4CAF50", None, ">隨機執行>30%, T=0s000\n>>#執行A\n>>>#執行B"),
-            ],
-            "計時系統": [
-                ("計數器觸發", "#E65100", None, ">計數器>找圖失敗, 3次後, T=0s000\n>>#下一步"),
-                ("計時器觸發", "#F57C00", None, ">計時器>等待載入, 60秒後, T=0s000\n>>#超時處理"),
-                ("重置計數器", "#FF6F00", None, ">重置計數器>找圖失敗, T=0s000"),
-                ("重置計時器", "#FF9800", None, ">重置計時器>等待載入, T=0s000"),
-            ]
-        }
+        # 標題（已隱藏）
+        # title_label = tk.Label(
+        #     cmd_frame,
+        #     text="快速指令",
+        #     font=font_tuple(9, "bold"),
+        #     bg="#2b2b2b",
+        #     fg="#ffffff"
+        # )
+        # title_label.pack(anchor="w", padx=10, pady=(3, 3))
         
-        # 創建分類選單按鈕區（上方）
-        category_btn_frame = tk.Frame(cmd_frame, bg="#2b2b2b")
-        category_btn_frame.pack(fill="x", padx=10, pady=(5, 10))
-        
-        # 創建分類按鈕
-        self.category_buttons = {}
-        self.current_category = "圖片辨識"  # 默認選中
-        
-        for idx, category_name in enumerate(self.button_categories.keys()):
-            # 根據是否為當前分類設置初始顏色
-            initial_bg = "#4A90E2" if category_name == self.current_category else "#3a3a3a"
-            
-            btn = tk.Button(
-                category_btn_frame,
-                text=category_name,
-                bg=initial_bg,
-                fg="white",
-                font=font_tuple(9, "bold"),
-                padx=10,
-                pady=5,
-                relief="raised",
-                bd=2,
-                cursor="hand2",
-                command=lambda cat=category_name: self._switch_category(cat)
-            )
-            btn.grid(row=idx // 3, column=idx % 3, padx=2, pady=2, sticky="ew")
-            self.category_buttons[category_name] = btn
-            
-            # 配置列權重使按鈕平均分配寬度
-            category_btn_frame.grid_columnconfigure(idx % 3, weight=1)
-        
-        # 創建按鈕區外框
-        button_area_frame = tk.Frame(cmd_frame, bg="#2b2b2b", relief="groove", bd=1, highlightbackground="#555555", highlightthickness=1)
-        button_area_frame.pack(fill="both", expand=True, padx=10, pady=(0, 5))
-        
-        # 創建 Canvas 和 Scrollbar 以支援捲動（顯示當前分類的按鈕）
-        canvas = tk.Canvas(button_area_frame, bg="#2b2b2b", highlightthickness=0)
-        scrollbar = tk.Scrollbar(button_area_frame, orient="vertical", command=canvas.yview)
+        # 創建 Canvas 和 Scrollbar 以支援捲動
+        canvas = tk.Canvas(cmd_frame, bg="#2b2b2b", highlightthickness=0)
+        scrollbar = tk.Scrollbar(cmd_frame, orient="vertical", command=canvas.yview)
         
         # 可捲動的按鈕容器
-        self.button_container = tk.Frame(canvas, bg="#2b2b2b")
+        button_container = tk.Frame(canvas, bg="#2b2b2b")
         
         # 配置 Canvas
         canvas.configure(yscrollcommand=scrollbar.set)
         
         # 放置 Canvas 和 Scrollbar
-        canvas.pack(side="left", fill="both", expand=True, padx=5, pady=5)
+        canvas.pack(side="left", fill="both", expand=True, padx=10, pady=(0, 5))
         scrollbar.pack(side="right", fill="y")
         
         # 在 Canvas 上創建窗口
-        canvas_window = canvas.create_window((0, 0), window=self.button_container, anchor="nw")
+        canvas_window = canvas.create_window((0, 0), window=button_container, anchor="nw")
         
         # 綁定事件以更新捲動區域
         def _on_frame_configure(event=None):
             canvas.configure(scrollregion=canvas.bbox("all"))
+            # 檢查是否需要顯示捲軸
+            if button_container.winfo_reqheight() > canvas.winfo_height():
+                if scrollbar not in canvas.pack_slaves():
+                    scrollbar.pack(side="right", fill="y")
+            else:
+                scrollbar.pack_forget()
         
         def _on_canvas_configure(event):
             # 更新 canvas_window 的寬度以匹配 canvas
             canvas.itemconfig(canvas_window, width=event.width)
         
-        self.button_container.bind("<Configure>", _on_frame_configure)
+        button_container.bind("<Configure>", _on_frame_configure)
         canvas.bind("<Configure>", _on_canvas_configure)
         
-        # 滑鼠滾輪支援
+        # 滑鼠滾輪支援（僅在 canvas 上）
         def _on_mousewheel(event):
-            try:
-                if canvas.winfo_exists():
-                    canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-            except tk.TclError:
-                pass
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
         
         canvas.bind("<MouseWheel>", _on_mousewheel)
         
-        # 保存 canvas 引用
-        self.cmd_canvas = canvas
+        # 定義所有按鈕（按功能分類）
+        # 格式：(category_name, button_rows)
+        button_categories = [
+            ("圖片辨識", [
+                [
+                    ("圖片辨識", "#9C27B0", self._capture_and_recognize, None),
+                    ("範圍辨識", "#7B1FA2", self._capture_region_for_recognition, None),
+                    ("移動至圖片", "#673AB7", None, ">移動至>pic01, T=0s000"),
+                    ("點擊圖片", "#3F51B5", None, ">左鍵點擊>pic01, T=0s000"),
+                    ("條件判斷", "#2196F3", None, ">if>pic01, T=0s000\n>>#標籤\n>>>#標籤"),
+                ]
+            ]),
+            ("滑鼠鍵盤", [
+                [
+                    ("左鍵點擊", "#03A9F4", self._capture_left_click_coordinate, None),
+                    ("右鍵點擊", "#00BCD4", self._capture_right_click_coordinate, None),
+                    ("滑鼠移動", "#009688", None, ">移動至(0,0), 延遲0ms, T=0s000"),
+                    ("滑鼠滾輪", "#4CAF50", None, ">滾輪(1), 延遲0ms, T=0s000"),
+                    ("按下按鍵", "#8BC34A", None, ">按下a, 延遲50ms, T=0s000"),
+                    ("放開按鍵", "#CDDC39", None, ">放開a, 延遲0ms, T=0s000"),
+                ]
+            ]),
+            ("流程控制", [
+                [
+                    ("新增標籤", "#FFC107", None, "#標籤名稱"),
+                    ("跳轉標籤", "#FF9800", None, ">>#標籤名稱"),
+                    ("條件失敗跳轉", "#FF5722", None, ">>>#標籤名稱"),
+                    ("OCR文字判斷", "#00BCD4", None, ">if文字>更改為需判斷文字, T=0s000\n>>#找到\n>>>#沒找到"),
+                    ("OCR等待文字", "#009688", None, ">等待文字>更改為需等待文字, 最長10s, T=0s000"),
+                    ("OCR點擊文字", "#4CAF50", None, ">點擊文字>更改為需點擊文字, T=0s000"),
+                    ("延遲等待", "#795548", None, ">延遲1000ms, T=0s000"),
+                ]
+            ]),
+            ("變數系統", [
+                [
+                    ("設定變數", "#6A1B9A", None, ">設定變數>count, 0, T=0s000"),
+                    ("變數加1", "#7B1FA2", None, ">變數加1>count, T=0s000"),
+                    ("變數減1", "#8E24AA", None, ">變數減1>count, T=0s000"),
+                    ("變數條件", "#9C27B0", None, ">if變數>count, >=, 10, T=0s000\n>>#成功\n>>>#失敗"),
+                ]
+            ]),
+            ("循環控制", [
+                [
+                    ("重複N次", "#1565C0", None, ">重複>10次, T=0s000\n  # 在此處添加要重複的指令\n>重複結束, T=0s000"),
+                    ("條件循環", "#1976D2", None, ">當圖片存在>loading, T=0s000\n  # 在此處添加循環內的指令\n>循環結束, T=0s000"),
+                ]
+            ]),
+            ("多條件與隨機", [
+                [
+                    ("全部圖片存在", "#00695C", None, ">if全部存在>pic01,pic02,pic03, T=0s000\n>>#全部找到\n>>>#缺少某個"),
+                    ("任一圖片存在", "#00796B", None, ">if任一存在>pic01,pic02,pic03, T=0s000\n>>#找到其中一個\n>>>#全部都沒有"),
+                    ("隨機延遲", "#388E3C", None, ">隨機延遲>100ms,500ms, T=0s000"),
+                    ("隨機分支", "#4CAF50", None, ">隨機執行>30%, T=0s000\n>>#執行A\n>>>#執行B"),
+                ]
+            ]),
+            ("計時系統", [
+                [
+                    ("計數器觸發", "#E65100", None, ">計數器>找圖失敗, 3次後, T=0s000\n>>#下一步"),
+                    ("計時器觸發", "#F57C00", None, ">計時器>等待載入, 60秒後, T=0s000\n>>#超時處理"),
+                    ("重置計數器", "#FF6F00", None, ">重置計數器>找圖失敗, T=0s000"),
+                    ("重置計時器", "#FF9800", None, ">重置計時器>等待載入, T=0s000"),
+                ]
+            ])
+        ]
         
-        # 顯示默認分類的按鈕
-        self._show_category_buttons(self.current_category)
-    
-    def _switch_category(self, category_name):
-        """切換分類並更新按鈕顯示"""
-        # 更新當前分類
-        self.current_category = category_name
-        
-        # 更新分類按鈕的顏色
-        for cat_name, btn in self.category_buttons.items():
-            if cat_name == category_name:
-                btn.config(bg="#4A90E2")  # 選中的顏色
-            else:
-                btn.config(bg="#3a3a3a")  # 未選中的顏色
-        
-        # 顯示該分類的按鈕
-        self._show_category_buttons(category_name)
-    
-    def _show_category_buttons(self, category_name):
-        """顯示指定分類的按鈕"""
-        # 清空容器中的所有按鈕
-        for widget in self.button_container.winfo_children():
-            widget.destroy()
-        
-        # 獲取該分類的按鈕列表
-        buttons = self.button_categories.get(category_name, [])
-        
-        # 創建按鈕（每行3個）
-        for idx, (text, color, command, template) in enumerate(buttons):
-            row = idx // 3
-            col = idx % 3
+        # 創建所有分類和按鈕
+        current_grid_row = 0
+        for category_name, category_rows in button_categories:
+            # 創建分類框架（類似附圖的"攻擊設定"樣式）
+            category_frame = tk.LabelFrame(
+                button_container,
+                text=category_name,
+                font=font_tuple(9, "bold"),
+                bg="#2b2b2b",
+                fg="#569cd6",
+                relief="groove",
+                bd=2,
+                padx=5,
+                pady=5
+            )
+            category_frame.grid(row=current_grid_row, column=0, columnspan=10, sticky="ew", padx=5, pady=(8, 2))
+            current_grid_row += 1
             
-            if command:
-                # 特殊功能按鈕（如圖片辨識）
-                btn = tk.Button(
-                    self.button_container,
-                    text=text,
-                    bg=color,
-                    fg="white",
-                    font=font_tuple(9, "bold"),
-                    padx=8,
-                    pady=6,
-                    height=2,
-                    relief="raised",
-                    bd=2,
-                    cursor="hand2",
-                    command=command,
-                    wraplength=100  # 文字換行
-                )
-            else:
-                # 插入模板的按鈕
-                btn = tk.Button(
-                    self.button_container,
-                    text=text,
-                    bg=color,
-                    fg="white",
-                    font=font_tuple(9, "bold"),
-                    padx=8,
-                    pady=6,
-                    height=2,
-                    relief="raised",
-                    bd=2,
-                    cursor="hand2",
-                    command=lambda t=template: self._insert_command_template(t),
-                    wraplength=100  # 文字換行
-                )
-            
-            btn.grid(row=row, column=col, padx=3, pady=3, sticky="ew")
-            
-            # 配置列權重使按鈕平均分配寬度
-            self.button_container.grid_columnconfigure(col, weight=1)
+            # 創建該分類下的所有按鈕行
+            btn_row = 0
+            for row_buttons in category_rows:
+                for col_idx, (text, color, command, template) in enumerate(row_buttons):
+                    if command:
+                        # 特殊功能按鈕（如圖片辨識）
+                        btn = tk.Button(
+                            category_frame,
+                            text=text,
+                            bg=color,
+                            fg="white",
+                            font=font_tuple(9, "bold"),
+                            padx=8,
+                            pady=3,
+                            relief="raised",
+                            bd=2,
+                            cursor="hand2",
+                            command=command
+                        )
+                    else:
+                        # 插入模板的按鈕
+                        btn = tk.Button(
+                            category_frame,
+                            text=text,
+                            bg=color,
+                            fg="white",
+                            font=font_tuple(9, "bold"),
+                            padx=8,
+                            pady=3,
+                            relief="raised",
+                            bd=2,
+                            cursor="hand2",
+                            command=lambda t=template: self._insert_command_template(t)
+                        )
+                    
+                    btn.grid(row=btn_row, column=col_idx, padx=2, pady=2, sticky="ew")
+                
+                # 設定列權重，讓按鈕平均分配空間
+                for col in range(len(row_buttons)):
+                    category_frame.columnconfigure(col, weight=1)
+                
+                btn_row += 1
 
     def _insert_command_template(self, template):
         """插入指令模板到編輯器"""
@@ -2281,72 +957,6 @@ class TextCommandEditor(tk.Toplevel):
         
         # 聚焦到編輯器
         self.text_editor.focus_set()
-    
-    def _insert_module_reference(self):
-        """插入模組引用"""
-        # 獲取所有可用模組
-        modules = []
-        if os.path.exists(self.modules_dir):
-            for filename in os.listdir(self.modules_dir):
-                if filename.endswith('.txt'):
-                    module_name = filename[:-4]
-                    modules.append(module_name)
-        
-        if not modules:
-            self._show_message("提示", "沒有可用的模組\n\n請先保存模組（選擇指令後點擊「儲存新模組」）", "info")
-            return
-        
-        # 創建對話框選擇模組
-        dialog = tk.Toplevel(self)
-        dialog.title("選擇模組")
-        dialog.geometry("400x300")
-        dialog.transient(self)
-        dialog.grab_set()
-        
-        tk.Label(dialog, text="選擇要引用的模組：", font=font_tuple(10)).pack(pady=10)
-        
-        # 模組列表
-        listbox = tk.Listbox(dialog, font=font_tuple(10), height=10)
-        listbox.pack(fill="both", expand=True, padx=10, pady=5)
-        
-        for module in modules:
-            listbox.insert(tk.END, module)
-        
-        # 選擇層級
-        level_frame = tk.Frame(dialog)
-        level_frame.pack(pady=5)
-        
-        tk.Label(level_frame, text="引用層級：", font=font_tuple(9)).pack(side="left", padx=5)
-        level_var = tk.StringVar(value=">>")
-        
-        tk.Radiobutton(level_frame, text=">>  (條件成功)", variable=level_var, value=">>", font=font_tuple(9)).pack(side="left")
-        tk.Radiobutton(level_frame, text=">>> (條件失敗)", variable=level_var, value=">>>", font=font_tuple(9)).pack(side="left")
-        
-        def insert():
-            selection = listbox.curselection()
-            if not selection:
-                return
-            
-            module_name = listbox.get(selection[0])
-            level = level_var.get()
-            reference = f"{level}#{module_name}"
-            
-            # 插入到編輯器
-            self.text_editor.insert(tk.INSERT, reference + "\n")
-            self._update_status(f"已插入模組引用：{reference}", "success")
-            dialog.destroy()
-        
-        # 按鈕
-        btn_frame = tk.Frame(dialog)
-        btn_frame.pack(pady=10)
-        
-        tk.Button(btn_frame, text="插入", command=insert, bg="#4CAF50", fg="white", 
-                 font=font_tuple(10), padx=20, pady=5).pack(side="left", padx=5)
-        tk.Button(btn_frame, text="取消", command=dialog.destroy, bg="#757575", fg="white",
-                 font=font_tuple(10), padx=20, pady=5).pack(side="left", padx=5)
-        
-        # 雙擊也可以插入
-        listbox.bind("<Double-Button-1>", lambda e: insert())
     
     def _show_command_reference(self):
         """顯示指令說明視窗（使用 grid 佈局的表格）"""
@@ -2394,23 +1004,8 @@ class TextCommandEditor(tk.Toplevel):
         
         # 綁定滑鼠滾輪
         def _on_mousewheel(event):
-            try:
-                if canvas.winfo_exists():
-                    canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-            except tk.TclError:
-                pass  # Canvas 已銷毀，忽略
-        
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
         canvas.bind_all("<MouseWheel>", _on_mousewheel)
-        
-        # 窗口關閉時解綁事件
-        def _on_close():
-            try:
-                canvas.unbind_all("<MouseWheel>")
-            except:
-                pass
-            ref_window.destroy()
-        
-        ref_window.protocol("WM_DELETE_WINDOW", _on_close)
         
         # 確保視窗在編輯器之上
         ref_window.transient(self)
@@ -3215,7 +1810,7 @@ class TextCommandEditor(tk.Toplevel):
             
             # 載入空白腳本
             self.text_editor.delete("1.0", "end")
-            # 不再顯示標題文字，直接空白
+            self.text_editor.insert("1.0", f"# ChroLens 文字指令腳本\n# 預設按鍵持續時間: 50ms\n# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
             
             # 刷新列表並選中新腳本
             self._refresh_script_list()
@@ -3234,7 +1829,7 @@ class TextCommandEditor(tk.Toplevel):
         """載入腳本並轉換為文字指令"""
         if not self.script_path or not os.path.exists(self.script_path):
             self.text_editor.delete("1.0", "end")
-            # 不再顯示標題文字，直接空白
+            self.text_editor.insert("1.0", "# ChroLens 文字指令腳本\n# 預設按鍵持續時間: 50ms\n# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
             return
         
         try:
@@ -3321,7 +1916,9 @@ class TextCommandEditor(tk.Toplevel):
     def _json_to_text(self, data: Dict) -> str:
         """將JSON事件轉換為文字指令"""
         events = data.get("events", [])
-        lines = []  # 不再添加標題文字
+        lines = ["# ChroLens 文字指令腳本\n"]
+        lines.append(f"# 預設按鍵持續時間: {self.default_key_duration}ms\n")
+        lines.append("# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n")
         
         # 空腳本處理
         if not events:
@@ -3356,40 +1953,22 @@ class TextCommandEditor(tk.Toplevel):
                 elif event_type == "keyboard":
                     key_name = event.get("name", "")
                     
-                    # 🔧 檢查特殊標記
-                    is_press = event.get("_is_press", False)
-                    is_release = event.get("_is_release", False)
-                    auto_pair = event.get("_auto_pair", False)
-                    
                     if event_name == "down":
-                        if is_press:
-                            # 獨立的按下指令
-                            lines.append(f">按下{key_name}, 延遲0ms, T={time_str}\n")
-                        elif auto_pair:
-                            # 自動配對的按下，記錄但不輸出
-                            pressed_keys[key_name] = time_offset
-                        else:
-                            # 記錄按下時間（等待配對）
-                            pressed_keys[key_name] = time_offset
+                        # 記錄按下時間
+                        pressed_keys[key_name] = time_offset
                         
-                    elif event_name == "up":
-                        if is_release:
-                            # 獨立的放開指令
-                            lines.append(f">放開{key_name}, 延遲0ms, T={time_str}\n")
-                        elif auto_pair and key_name in pressed_keys:
-                            # 自動配對的放開，輸出完整的按鍵指令
-                            press_time = pressed_keys[key_name]
-                            duration = round((time_offset - press_time) * 1000)
-                            press_time_str = self._format_time(press_time)
-                            lines.append(f">按{key_name}, 延遲{duration}ms, T={press_time_str}\n")
-                            del pressed_keys[key_name]
-                        elif key_name in pressed_keys:
-                            # 普通配對
-                            press_time = pressed_keys[key_name]
-                            duration = round((time_offset - press_time) * 1000)
-                            press_time_str = self._format_time(press_time)
-                            lines.append(f">按{key_name}, 延遲{duration}ms, T={press_time_str}\n")
-                            del pressed_keys[key_name]
+                    elif event_name == "up" and key_name in pressed_keys:
+                        # 計算持續時間
+                        press_time = pressed_keys[key_name]
+                        duration = round((time_offset - press_time) * 1000)  # 🔥 使用 round 四捨五入
+                        
+                        # 格式化按下時間
+                        press_time_str = self._format_time(press_time)
+                        
+                        # 生成指令
+                        lines.append(f">按{key_name}, 延遲{duration}ms, T={press_time_str}\n")
+                        
+                        del pressed_keys[key_name]
                 
                 elif event_type == "mouse":
                     x = event.get("x", 0)
@@ -3438,25 +2017,6 @@ class TextCommandEditor(tk.Toplevel):
                 # 範圍結束
                 elif event_type == "region_end":
                     lines.append(f">範圍結束, T={time_str}\n")
-                
-                # 獨立的分支指令
-                elif event_type == "branch_success":
-                    if event.get("_standalone", False):
-                        target = event.get("target", "")
-                        repeat_count = event.get("repeat_count", 999999)
-                        if repeat_count == 999999:
-                            lines.append(f">>#{ target}\n")
-                        else:
-                            lines.append(f">>#{ target}, *{repeat_count}\n")
-                
-                elif event_type == "branch_failure":
-                    if event.get("_standalone", False):
-                        target = event.get("target", "")
-                        repeat_count = event.get("repeat_count", 999999)
-                        if repeat_count == 999999:
-                            lines.append(f">>>#{ target}\n")
-                        else:
-                            lines.append(f">>>#{ target}, *{repeat_count}\n")
                 
                 # 圖片辨識指令
                 elif event_type == "recognize_image":
@@ -3868,105 +2428,8 @@ class TextCommandEditor(tk.Toplevel):
             
             # 解析指令
             if line.startswith(">"):
-                # 🔧 處理分支指令（>> 和 >>>）
-                # 檢查這些分支是否緊接在條件判斷後面（中間只能有空行或分支）
-                if line.startswith(">>>"):
-                    # 失敗分支
-                    target_match = re.match(r'>>>#([a-zA-Z0-9_\u4e00-\u9fa5]+)', line)
-                    if target_match:
-                        target_label = target_match.group(1)
-                        # 🔧 檢查是否緊接在條件判斷後（向上找，遇到非分支的>指令就停止）
-                        has_preceding_condition = False
-                        for check_i in range(i-1, max(-1, i-10), -1):
-                            if check_i < 0 or check_i >= len(lines):
-                                break
-                            prev_line = lines[check_i].strip()
-                            
-                            # 跳過空行和分支指令
-                            if not prev_line or prev_line.startswith('>>'):
-                                continue
-                            
-                            # 遇到條件判斷指令
-                            if any(kw in prev_line for kw in ['>if>', '>辨識>', '>if文字>', '>if變數>', '>if全部存在>', '>if任一存在>', '>隨機執行>']):
-                                has_preceding_condition = True
-                                break
-                            
-                            # 遇到其他>指令（如>範圍結束），停止搜索
-                            if prev_line.startswith('>'):
-                                break
-                            
-                            # 遇到標籤定義，停止
-                            if prev_line.startswith('#'):
-                                break
-                        
-                        if not has_preceding_condition:
-                            # 這是一個獨立的分支指令，需要保存
-                            repeat_count = 999999
-                            repeat_match = re.search(r'\*(\d+)', line)
-                            if repeat_match:
-                                repeat_count = int(repeat_match.group(1))
-                            
-                            time_str = line.split(",")[-1].strip() if "," in line and "T=" in line else "T=0s000"
-                            abs_time = start_time + self._parse_time(time_str)
-                            
-                            events.append({
-                                "type": "branch_failure",
-                                "target": target_label,
-                                "repeat_count": repeat_count,
-                                "time": abs_time,
-                                "_line_number": line_number,
-                                "_standalone": True  # 標記為獨立分支
-                            })
-                    i += 1
-                    continue
-                    
-                elif line.startswith(">>"):
-                    # 成功分支
-                    target_match = re.match(r'>>#([a-zA-Z0-9_\u4e00-\u9fa5]+)', line)
-                    if target_match:
-                        target_label = target_match.group(1)
-                        # 🔧 檢查是否緊接在條件判斷後（向上找，遇到非分支的>指令就停止）
-                        has_preceding_condition = False
-                        for check_i in range(i-1, max(-1, i-10), -1):
-                            if check_i < 0 or check_i >= len(lines):
-                                break
-                            prev_line = lines[check_i].strip()
-                            
-                            # 跳過空行和分支指令
-                            if not prev_line or prev_line.startswith('>>'):
-                                continue
-                            
-                            # 遇到條件判斷指令
-                            if any(kw in prev_line for kw in ['>if>', '>辨識>', '>if文字>', '>if變數>', '>if全部存在>', '>if任一存在>', '>隨機執行>']):
-                                has_preceding_condition = True
-                                break
-                            
-                            # 遇到其他>指令（如>範圍結束），停止搜索
-                            if prev_line.startswith('>'):
-                                break
-                            
-                            # 遇到標籤定義，停止
-                            if prev_line.startswith('#'):
-                                break
-                        
-                        if not has_preceding_condition:
-                            # 這是一個獨立的分支指令，需要保存
-                            repeat_count = 999999
-                            repeat_match = re.search(r'\*(\d+)', line)
-                            if repeat_match:
-                                repeat_count = int(repeat_match.group(1))
-                            
-                            time_str = line.split(",")[-1].strip() if "," in line and "T=" in line else "T=0s000"
-                            abs_time = start_time + self._parse_time(time_str)
-                            
-                            events.append({
-                                "type": "branch_success",
-                                "target": target_label,
-                                "repeat_count": repeat_count,
-                                "time": abs_time,
-                                "_line_number": line_number,
-                                "_standalone": True  # 標記為獨立分支
-                            })
+                # 跳過分支指令（>> 和 >>>），這些會在條件指令中處理
+                if line.startswith(">>"):
                     i += 1
                     continue
                 
@@ -4146,32 +2609,8 @@ class TextCommandEditor(tk.Toplevel):
                                     "_line_number": line_number
                                 })
                         
-                        elif "按下" in action:
-                            # 🔧 按下按鍵（不自動加放開）
-                            key = action.replace("按下", "").strip()
-                            events.append({
-                                "type": "keyboard",
-                                "event": "down",
-                                "name": key,
-                                "time": abs_time,
-                                "_line_number": line_number,
-                                "_is_press": True  # 標記為按下指令
-                            })
-                        
-                        elif "放開" in action:
-                            # 🔧 單純放開按鍵
-                            key = action.replace("放開", "").strip()
-                            events.append({
-                                "type": "keyboard",
-                                "event": "up",
-                                "name": key,
-                                "time": abs_time,
-                                "_line_number": line_number,
-                                "_is_release": True  # 標記為放開指令
-                            })
-                        
                         elif action.startswith("按") and "按下" not in action and "按鍵" not in action:
-                            # 🔧 鍵盤操作（按 = 按下 + 放開，自動配對）
+                            # 鍵盤操作（按 = 按下 + 放開）
                             key = action.replace("按", "").strip()
                             
                             # 按下事件
@@ -4180,8 +2619,7 @@ class TextCommandEditor(tk.Toplevel):
                                 "event": "down",
                                 "name": key,
                                 "time": abs_time,
-                                "_line_number": line_number,
-                                "_auto_pair": True  # 標記為自動配對
+                                "_line_number": line_number
                             })
                             
                             # 放開事件
@@ -4190,8 +2628,38 @@ class TextCommandEditor(tk.Toplevel):
                                 "event": "up",
                                 "name": key,
                                 "time": abs_time + delay_s,
-                                "_line_number": line_number,
-                                "_auto_pair": True  # 標記為自動配對
+                                "_line_number": line_number
+                            })
+                        
+                        elif "按下" in action:
+                            # 按下按鍵（如果有延遲，自動加上放開）
+                            key = action.replace("按下", "").strip()
+                            events.append({
+                                "type": "keyboard",
+                                "event": "down",
+                                "name": key,
+                                "time": abs_time,
+                                "_line_number": line_number
+                            })
+                            # 🔥 如果有延遲，自動加上放開事件
+                            if delay_s > 0:
+                                events.append({
+                                    "type": "keyboard",
+                                    "event": "up",
+                                    "name": key,
+                                    "time": abs_time + delay_s,
+                                    "_line_number": line_number
+                                })
+                        
+                        elif "放開" in action:
+                            # 單純放開按鍵
+                            key = action.replace("放開", "").strip()
+                            events.append({
+                                "type": "keyboard",
+                                "event": "up",
+                                "name": key,
+                                "time": abs_time,
+                                "_line_number": line_number
                             })
                 
                 except Exception as e:
@@ -4746,25 +3214,19 @@ class TextCommandEditor(tk.Toplevel):
         解析簡化條件判斷的分支(>> 成功, >>> 失敗)
         :param next_lines: 後續行列表
         :return: 分支字典 {'success': {...}, 'failure': {...}}
-        
-        🔧 修正：只搜索緊接著的分支指令，不跳過其他指令
         """
         branches = {}
         
         for line in next_lines[:5]:  # 只看接下來5行
             line_stripped = line.strip()
             
-            # 空行跳過
+            # 空行和僅包含空白字符的行都跳過（強化處理）
             if not line_stripped or line_stripped.isspace():
                 continue
             
-            # 🔧 關鍵修正：遇到任何非分支的 > 指令就停止搜索
-            # 這確保分支指令必須緊接在條件判斷後面
+            # 遇到新指令就停止
             if line_stripped.startswith(">") and not line_stripped.startswith(">>"):
-                # 不是分支指令，停止搜索
                 break
-            
-            # 遇到標籤定義時停止（不是##開頭的標籤引用）
             if line_stripped.startswith("#") and not line_stripped.startswith("##"):
                 break
             
@@ -5296,21 +3758,15 @@ class TextCommandEditor(tk.Toplevel):
         elif action == "jump":
             target = branch.get("target", "")
             repeat_count = branch.get("repeat_count", 1)
-            # 🔧 優化顯示：999999視為無限循環，不顯示次數；其他次數才顯示
-            if repeat_count == 999999:
-                # 無限循環，不顯示次數
-                return f"#{target}"
-            elif repeat_count > 1:
-                # 有限次數循環
+            # 使用簡化格式：直接輸出 '#標籤*N' 或 '#標籤'
+            if repeat_count > 1:
                 return f"#{target}*{repeat_count}"
-            else:
-                # 只跳轉1次
-                return f"#{target}"
+            return f"#{target}"
         
         return ""  # 預設值
     
     def _save_script(self):
-        """儲存文字指令回JSON格式（支持模組引用展開）"""
+        """儲存文字指令回JSON格式（雙向驗證增強版）"""
         if not self.script_path:
             self._show_message("警告", "沒有指定要儲存的腳本檔案", "warning")
             return
@@ -5319,12 +3775,9 @@ class TextCommandEditor(tk.Toplevel):
             # 獲取編輯器內容
             text_content = self.text_editor.get("1.0", "end-1c")
             
-            # ✨ 展開模組引用（將 >>#a 替換為模組內容）
-            expanded_content = self._expand_module_references(text_content)
-            
             # 檢查是否只有註解和空行（避免保存空腳本）
             has_commands = False
-            for line in expanded_content.split("\n"):
+            for line in text_content.split("\n"):
                 line_stripped = line.strip()
                 if line_stripped and not line_stripped.startswith("#"):
                     has_commands = True
@@ -5339,8 +3792,8 @@ class TextCommandEditor(tk.Toplevel):
                 self._update_status("警告: 無法儲存：腳本無指令", "warning")
                 return
             
-            # 轉換為JSON（使用展開後的內容）
-            json_data = self._text_to_json(expanded_content)
+            # 轉換為JSON
+            json_data = self._text_to_json(text_content)
             
             # 二次檢查：確保轉換後的events不為空
             if not json_data.get("events") or len(json_data.get("events", [])) == 0:
@@ -5476,7 +3929,7 @@ class TextCommandEditor(tk.Toplevel):
             self.module_preview.config(state="disabled")
     
     def _save_new_module_inline(self):
-        """儲存新模組（內嵌版，支持標記引用）"""
+        """儲存新模組（內嵌版）"""
         try:
             selected_text = self.text_editor.get(tk.SEL_FIRST, tk.SEL_LAST)
         except:
@@ -5487,20 +3940,11 @@ class TextCommandEditor(tk.Toplevel):
             self._show_message("提示", "選取的內容為空", "warning")
             return
         
-        # 自動檢測模組名稱（如果選取內容以#開頭，提取標記名）
-        lines = selected_text.strip().split('\n')
-        suggested_name = ""
-        
-        if lines[0].startswith('#') and not lines[0].startswith('##'):
-            # 第一行是標記，使用標記名作為預設模組名
-            suggested_name = lines[0].strip()[1:]  # 移除#
-        
         # 詢問模組名稱
         module_name = simpledialog.askstring(
             "模組名稱",
-            "請輸入自訂模組的名稱：\n\n提示：如果儲存標記（例如#a），可以直接用'a'作為模組名",
-            parent=self,
-            initialvalue=suggested_name
+            "請輸入自訂模組的名稱：",
+            parent=self
         )
         
         if not module_name:
@@ -5526,7 +3970,7 @@ class TextCommandEditor(tk.Toplevel):
                     break
             
             self.status_label.config(
-                text=f"模組已儲存：{module_name} (可使用 >>#或>>#{module_name} 引用)",
+                text=f"模組已儲存：{module_name}",
                 bg="#e8f5e9",
                 fg="#2e7d32"
             )
@@ -5591,65 +4035,6 @@ class TextCommandEditor(tk.Toplevel):
             )
         except Exception as e:
             self._show_message("錯誤", f"刪除模組失敗：{e}", "error")
-    
-    def _expand_module_references(self, text_content):
-        """展開模組引用：將 >#a 替換為模組內容
-        
-        用於在保存或執行時，將標記引用替換為實際的模組內容
-        
-        🔧 修正規則：
-        1. 只處理單個>開頭的模組引用（>#a），不處理分支指令（>>#a、>>>#a）
-        2. 模組名只包含英文字母和數字，長度1-10個字符
-        3. 分支指令（>>、>>>）永遠不會被當作模組引用
-        """
-        lines = text_content.split('\n')
-        expanded_lines = []
-        
-        for line in lines:
-            stripped = line.strip()
-            
-            # 🔧 修正：只匹配單個>開頭的模組引用（>#a），排除分支指令（>>#a、>>>#a）
-            # 正則表達式：^>#([a-zA-Z0-9]{1,10})$
-            # 這樣 >#a、>#module1 會匹配（模組引用）
-            # 但 >>#a、>>>#a 不會匹配（分支指令）
-            if re.match(r'^>#([a-zA-Z0-9]{1,10})$', stripped):
-                match = re.match(r'^>#([a-zA-Z0-9]{1,10})$', stripped)
-                module_ref = match.group(1)  # 獲取模組名（a、b等）
-                
-                # 嘗試加載對應的模組
-                module_path = os.path.join(self.modules_dir, f"{module_ref}.txt")
-                
-                if os.path.exists(module_path):
-                    try:
-                        with open(module_path, 'r', encoding='utf-8') as f:
-                            module_content = f.read()
-                        
-                        # 處理模組內容，直接添加（不需要增加縮進，因為模組引用是單個>）
-                        module_lines = module_content.strip().split('\n')
-                        for module_line in module_lines:
-                            expanded_lines.append(module_line)
-                    except Exception as e:
-                        # 加載失敗，保留原始引用並添加註釋
-                        expanded_lines.append(f"{line}  # 模組加載失敗: {e}")
-                else:
-                    # 模組不存在，保留原始引用並添加註釋
-                    expanded_lines.append(f"{line}  # 模組不存在")
-            else:
-                # 非模組引用，直接保留（包括分支指令 >>、>>> 等）
-                expanded_lines.append(line)
-        
-        return '\n'.join(expanded_lines)
-    
-    def _get_module_content(self, module_name):
-        """獲取模組內容（用於預覽和引用）"""
-        module_path = os.path.join(self.modules_dir, f"{module_name}.txt")
-        if os.path.exists(module_path):
-            try:
-                with open(module_path, 'r', encoding='utf-8') as f:
-                    return f.read()
-            except:
-                return None
-        return None
     
     # ==================== 右鍵選單功能 ====================
     
@@ -5718,19 +4103,18 @@ class TextCommandEditor(tk.Toplevel):
     def _apply_syntax_highlighting(self):
         """套用語法高亮 (VS Code Dark+ 配色) - 優化版"""
         try:
-            # ✨ 效能優化：僅處理可見區域前後各100行
+            # ✨ 效能優化：僅處理可見區域前後各50行
             visible_start = self.text_editor.index("@0,0")
             visible_end = self.text_editor.index(f"@0,{self.text_editor.winfo_height()}")
             
             # 擴展範圍以包含上下文
-            start_line = max(1, int(visible_start.split('.')[0]) - 100)
-            end_line = int(visible_end.split('.')[0]) + 100
+            start_line = max(1, int(visible_start.split('.')[0]) - 50)
+            end_line = int(visible_end.split('.')[0]) + 50
             
             # 移除舊標籤（僅在處理範圍內）
             for tag in ["syntax_symbol", "syntax_time", "syntax_label", "syntax_keyboard",
                        "syntax_mouse", "syntax_image", "syntax_condition", "syntax_ocr",
-                       "syntax_delay", "syntax_flow", "syntax_picname", "syntax_comment",
-                       "syntax_module_ref", "label_foldable", "label_end"]:
+                       "syntax_delay", "syntax_flow", "syntax_picname"]:
                 self.text_editor.tag_remove(tag, f"{start_line}.0", f"{end_line}.end")
             
             # 獲取處理範圍的文字內容
@@ -5802,16 +4186,9 @@ class TextCommandEditor(tk.Toplevel):
             
             # 標籤 (青色)
             patterns_label = [
-                (r'^#b\S+', 'label_foldable'),        # 行首的 #b 標籤 (可摺疊)
-                (r'^#/\S+', 'label_end'),             # 行首的 #/ 標籤 (結束標記)
-                (r'^#\S+', 'syntax_label'),           # 行首的其他 # 標籤
-            ]
-            
-            # 模組引用 (金色 - 特殊標記)
-            patterns_module_ref = [
-                (r'>>#\w+', 'syntax_module_ref'),     # >>#a 模組引用
-                (r'>>>#\w+', 'syntax_module_ref'),    # >>>#a 模組引用  
-                (r'>>>>#\w+', 'syntax_module_ref'),   # >>>>#a 模組引用
+                (r'^#\S+', 'syntax_label'),           # 行首的 # 標籤
+                (r'>>#\S+', 'syntax_label'),          # >> 後的 # 標籤
+                (r'>>>#\S+', 'syntax_label'),         # >>> 後的 # 標籤
             ]
             
             # 符號 (淡紫色) - 最後處理
@@ -5826,7 +4203,7 @@ class TextCommandEditor(tk.Toplevel):
             all_patterns = (patterns_flow + patterns_condition + patterns_delay + 
                           patterns_ocr + patterns_keyboard + patterns_mouse + 
                           patterns_image + patterns_picname + patterns_time + 
-                          patterns_module_ref + patterns_label + patterns_symbol)
+                          patterns_label + patterns_symbol)
             
             # 逐行處理（調整行號以配合範圍）
             lines = content.split('\n')
@@ -7127,424 +5504,6 @@ class TextCommandEditor(tk.Toplevel):
         
         # 找不到時返回預設檔名（優先使用 .png）
         return f"{pic_name}.png"
-    
-    # ==================== Workflow 流程圖相關方法 ====================
-    
-    def _parse_and_draw_workflow(self, text_content):
-        """解析文字指令並繪製 Workflow 流程圖"""
-        # 清空畫布
-        self.workflow_canvas.delete("all")
-        self.workflow_nodes = {}
-        self.workflow_connections = []
-        
-        # 解析標籤和指令
-        lines = text_content.split('\n')
-        current_label = None
-        label_commands = {}  # {label: [commands]}
-        
-        for line in lines:
-            line = line.strip()
-            if not line or line.startswith('##'):
-                continue
-            
-            # 識別標籤
-            if line.startswith('#') and not line.startswith('##'):
-                current_label = line
-                label_commands[current_label] = []
-            elif current_label:
-                label_commands[current_label].append(line)
-        
-        # 解析跳轉邏輯
-        for label, commands in label_commands.items():
-            success_target = None
-            fail_target = None
-            
-            for cmd in commands:
-                if cmd.startswith('>>#'):
-                    # 成功跳轉
-                    success_target = '#' + cmd.split('#')[1].split(',')[0].strip()
-                elif cmd.startswith('>>>#'):
-                    # 失敗跳轉
-                    fail_target = '#' + cmd.split('#')[1].split(',')[0].strip()
-            
-            # 儲存連接
-            if success_target:
-                self.workflow_connections.append((label, success_target, 'success'))
-            if fail_target:
-                self.workflow_connections.append((label, fail_target, 'fail'))
-        
-        # 計算節點位置（使用層級佈局）
-        self._calculate_workflow_layout(list(label_commands.keys()))
-        
-        # 繪製連接線
-        self._draw_workflow_connections()
-        
-        # 繪製節點
-        for label, commands in label_commands.items():
-            self._draw_workflow_node(label, commands)
-        
-        # 更新滾動區域
-        self.workflow_canvas.configure(scrollregion=self.workflow_canvas.bbox("all"))
-    
-    def _calculate_workflow_layout(self, labels):
-        """計算節點佈局位置"""
-        if not labels:
-            return
-        
-        # 簡單的層級佈局：從上到下排列
-        start_x = 150
-        start_y = 80
-        x_spacing = 300
-        y_spacing = 120
-        
-        # 建立標籤到層級的映射
-        label_levels = {}
-        visited = set()
-        
-        def get_level(label, level=0):
-            if label in visited or label not in labels:
-                return
-            visited.add(label)
-            label_levels[label] = max(label_levels.get(label, 0), level)
-            
-            # 查找此標籤的子節點
-            for from_label, to_label, conn_type in self.workflow_connections:
-                if from_label == label:
-                    get_level(to_label, level + 1)
-        
-        # 從第一個標籤開始
-        if labels:
-            get_level(labels[0], 0)
-        
-        # 為未訪問的標籤分配層級
-        for i, label in enumerate(labels):
-            if label not in label_levels:
-                label_levels[label] = i
-        
-        # 分配位置
-        level_offsets = {}  # 記錄每層已使用的偏移
-        for label in labels:
-            level = label_levels[label]
-            offset = level_offsets.get(level, 0)
-            level_offsets[level] = offset + 1
-            
-            x = start_x + offset * x_spacing
-            y = start_y + level * y_spacing
-            
-            self.workflow_nodes[label] = {
-                'x': x,
-                'y': y,
-                'level': level,
-                'items': []  # 畫布元件 IDs
-            }
-    
-    def _draw_workflow_node(self, label, commands):
-        """繪製工作流節點（專業流程圖風格）"""
-        if label not in self.workflow_nodes:
-            return
-        
-        node_data = self.workflow_nodes[label]
-        x, y = node_data['x'], node_data['y']
-        
-        # 分析節點類型
-        has_condition = any(c.startswith('>>>') for c in commands)
-        is_start = label == list(self.workflow_nodes.keys())[0] if self.workflow_nodes else False
-        is_end = not any(conn[0] == label for conn in self.workflow_connections)
-        
-        # 根據類型設定顏色和尺寸
-        if is_start:
-            # 開始節點：綠色圓角矩形
-            width, height = 180, 60
-            fill_color = "#2e7d32"
-            outline_color = "#66bb6a"
-            text_color = "#ffffff"
-        elif is_end:
-            # 結束節點：紅色圓角矩形
-            width, height = 180, 60
-            fill_color = "#c62828"
-            outline_color = "#ef5350"
-            text_color = "#ffffff"
-        elif has_condition:
-            # 條件節點：黃色菱形
-            width, height = 180, 80
-            fill_color = "#f57c00"
-            outline_color = "#ffb74d"
-            text_color = "#ffffff"
-        else:
-            # 一般處理節點：藍色矩形
-            width, height = 200, 70
-            fill_color = "#1565c0"
-            outline_color = "#42a5f5"
-            text_color = "#ffffff"
-        
-        # 繪製節點形狀
-        if has_condition:
-            # 菱形
-            points = [
-                x, y - height//2,           # 上
-                x + width//2, y,            # 右
-                x, y + height//2,           # 下
-                x - width//2, y             # 左
-            ]
-            shape_id = self.workflow_canvas.create_polygon(
-                points,
-                fill=fill_color,
-                outline=outline_color,
-                width=3,
-                tags="node_shape"
-            )
-        else:
-            # 圓角矩形
-            shape_id = self._create_rounded_rectangle(
-                x - width//2, y - height//2,
-                x + width//2, y + height//2,
-                radius=15,
-                fill=fill_color,
-                outline=outline_color,
-                width=3
-            )
-        node_data['items'].append(shape_id)
-        
-        # 繪製標籤文字
-        label_text = label.replace('#', '')
-        text_id = self.workflow_canvas.create_text(
-            x, y - 8,
-            text=label_text,
-            fill=text_color,
-            font=("LINE Seed TW", 12, "bold") if LINE_SEED_FONT_LOADED else ("Arial", 12, "bold"),
-            tags="node_text"
-        )
-        node_data['items'].append(text_id)
-        
-        # 顯示指令數量
-        cmd_count = len([c for c in commands if not c.startswith('>>>')])
-        count_text = f"{cmd_count} 個指令"
-        count_id = self.workflow_canvas.create_text(
-            x, y + 12,
-            text=count_text,
-            fill="#e0e0e0",
-            font=("LINE Seed TW", 9) if LINE_SEED_FONT_LOADED else ("Arial", 9),
-            tags="node_count"
-        )
-        node_data['items'].append(count_id)
-        
-        # 綁定點擊事件
-        for item_id in node_data['items']:
-            self.workflow_canvas.tag_bind(item_id, "<Button-1>", 
-                                         lambda e, lbl=label: self._on_workflow_node_click(lbl))
-    
-    def _create_rounded_rectangle(self, x1, y1, x2, y2, radius=25, **kwargs):
-        """創建圓角矩形"""
-        points = [
-            x1+radius, y1,
-            x1+radius, y1,
-            x2-radius, y1,
-            x2-radius, y1,
-            x2, y1,
-            x2, y1+radius,
-            x2, y1+radius,
-            x2, y2-radius,
-            x2, y2-radius,
-            x2, y2,
-            x2-radius, y2,
-            x2-radius, y2,
-            x1+radius, y2,
-            x1+radius, y2,
-            x1, y2,
-            x1, y2-radius,
-            x1, y2-radius,
-            x1, y1+radius,
-            x1, y1+radius,
-            x1, y1
-        ]
-        return self.workflow_canvas.create_polygon(points, **kwargs, smooth=True)
-    
-    def _draw_workflow_connections(self):
-        """繪製工作流連接線（電路板風格：正交路徑）"""
-        # 記錄每個水平位置已使用的通道
-        h_channels = {}  # {y_position: [x_positions]}
-        
-        for idx, (from_label, to_label, conn_type) in enumerate(self.workflow_connections):
-            if from_label not in self.workflow_nodes or to_label not in self.workflow_nodes:
-                continue
-            
-            from_node = self.workflow_nodes[from_label]
-            to_node = self.workflow_nodes[to_label]
-            
-            # 連接線顏色
-            if conn_type == 'success':
-                color = "#4ec9b0"  # 青綠色
-                dash = None
-            else:  # fail
-                color = "#f48771"  # 紅色
-                dash = (5, 5)
-            
-            # 起點和終點
-            start_x = from_node['x']
-            start_y = from_node['y'] + 30  # 節點下方
-            end_x = to_node['x']
-            end_y = to_node['y'] - 30  # 節點上方
-            
-            # 判斷是否為循環
-            is_loop = to_node['level'] <= from_node['level']
-            
-            # 電路板風格：使用正交路徑
-            points = []
-            
-            if is_loop:
-                # 循環：從下方出去，繞到右側，再從上方進入
-                offset = 80 + idx * 20  # 每條循環線偏移不同距離避免重疊
-                
-                points = [
-                    start_x, start_y,           # 起點
-                    start_x, start_y + 30,      # 向下
-                    start_x + offset, start_y + 30,  # 向右
-                    start_x + offset, end_y - 30,    # 向上
-                    end_x, end_y - 30,          # 向左
-                    end_x, end_y                # 終點
-                ]
-            else:
-                # 正常流程：直線或折線
-                if abs(end_x - start_x) < 10:
-                    # 垂直對齊：直線
-                    points = [start_x, start_y, end_x, end_y]
-                else:
-                    # 不對齊：使用正交折線
-                    mid_y = (start_y + end_y) / 2
-                    points = [
-                        start_x, start_y,     # 起點
-                        start_x, mid_y,       # 向下/上到中點
-                        end_x, mid_y,         # 水平移動
-                        end_x, end_y          # 向下/上到終點
-                    ]
-            
-            # 繪製連接線
-            self.workflow_canvas.create_line(
-                *points,
-                fill=color,
-                width=2,
-                arrow=tk.LAST,
-                arrowshape=(10, 12, 5),
-                dash=dash,
-                tags="connection"
-            )
-    
-    def _on_workflow_node_click(self, label):
-        """點擊節點時跳轉到對應的文字行"""
-        # 切換回文字模式
-        self.workflow_mode_var.set(False)
-        self._switch_to_text_mode_from_workflow()
-        
-        # 尋找標籤在文字中的位置
-        text_content = self.text_editor.get("1.0", tk.END)
-        lines = text_content.split('\n')
-        
-        for i, line in enumerate(lines, 1):
-            if line.strip() == label:
-                # 跳轉到該行並高亮
-                self.text_editor.mark_set("insert", f"{i}.0")
-                self.text_editor.see(f"{i}.0")
-                self.text_editor.tag_remove("sel", "1.0", tk.END)
-                self.text_editor.tag_add("sel", f"{i}.0", f"{i}.end")
-                break
-    
-    def _on_workflow_click(self, event):
-        """處理畫布點擊事件"""
-        # 檢查是否點擊到節點
-        clicked_items = self.workflow_canvas.find_overlapping(
-            event.x - 5, event.y - 5,
-            event.x + 5, event.y + 5
-        )
-        
-        # 尋找被點擊的節點
-        clicked_node_label = None
-        for label, node_data in self.workflow_nodes.items():
-            for item_id in node_data.get('items', []):
-                if item_id in clicked_items:
-                    clicked_node_label = label
-                    break
-            if clicked_node_label:
-                break
-        
-        if clicked_node_label:
-            # 點擊到節點：準備拖移
-            self.workflow_dragging_node = clicked_node_label
-            self.workflow_drag_start_x = event.x
-            self.workflow_drag_start_y = event.y
-        else:
-            # 點擊空白：準備拖移畫布
-            self.workflow_is_panning = True
-            self.workflow_pan_start_x = event.x
-            self.workflow_pan_start_y = event.y
-            self.workflow_canvas.config(cursor="fleur")
-    
-    def _on_workflow_drag(self, event):
-        """處理拖移事件"""
-        if self.workflow_dragging_node:
-            # 拖移節點
-            dx = event.x - self.workflow_drag_start_x
-            dy = event.y - self.workflow_drag_start_y
-            
-            node_data = self.workflow_nodes[self.workflow_dragging_node]
-            
-            # 移動節點的所有元件
-            for item_id in node_data.get('items', []):
-                self.workflow_canvas.move(item_id, dx, dy)
-            
-            # 更新節點位置
-            node_data['x'] += dx
-            node_data['y'] += dy
-            
-            # 更新起點
-            self.workflow_drag_start_x = event.x
-            self.workflow_drag_start_y = event.y
-            
-            # 重繪連接線
-            self.workflow_canvas.delete("connection")
-            self._draw_workflow_connections()
-            
-        elif self.workflow_is_panning:
-            # 拖移畫布
-            dx = event.x - self.workflow_pan_start_x
-            dy = event.y - self.workflow_pan_start_y
-            
-            self.workflow_canvas.move("all", dx, dy)
-            
-            self.workflow_pan_start_x = event.x
-            self.workflow_pan_start_y = event.y
-    
-    def _on_workflow_release(self, event):
-        """處理釋放事件"""
-        self.workflow_dragging_node = None
-        self.workflow_is_panning = False
-        self.workflow_canvas.config(cursor="")
-    
-    def _on_workflow_zoom(self, event):
-        """處理滾輪縮放"""
-        if event.delta > 0:
-            scale = 1.1
-        else:
-            scale = 0.9
-        
-        self.workflow_scale *= scale
-        self.workflow_canvas.scale("all", event.x, event.y, scale, scale)
-    
-    def _show_workflow_context_menu(self, event):
-        """顯示右鍵選單"""
-        menu = tk.Menu(self, tearoff=0, bg="#2d2d30", fg="white")
-        menu.add_command(label="🔄 自動排列", command=self._auto_arrange_workflow)
-        
-        try:
-            menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            menu.grab_release()
-    
-    def _auto_arrange_workflow(self):
-        """自動重新排列節點"""
-        # 重新解析和繪製
-        text_content = self.text_editor.get("1.0", tk.END).strip()
-        if text_content:
-            self._parse_and_draw_workflow(text_content)
 
 
 class ScreenCaptureSelector(tk.Toplevel):

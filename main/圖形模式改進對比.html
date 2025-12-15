@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圖形模式改進對比</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: "Microsoft JhengHei", "LINE Seed TW", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .panel {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .panel h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .panel.before h2 {
+            border-bottom-color: #ff5757;
+        }
+        
+        .panel.after h2 {
+            border-bottom-color: #00d084;
+        }
+        
+        .icon {
+            font-size: 1.5em;
+        }
+        
+        .features {
+            list-style: none;
+            margin: 20px 0;
+        }
+        
+        .features li {
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .features li::before {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        
+        .panel.before .features li::before {
+            content: "❌";
+        }
+        
+        .panel.after .features li::before {
+            content: "✅";
+        }
+        
+        .visual-demo {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-bottom: 40px;
+        }
+        
+        .visual-demo h2 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 1.8em;
+        }
+        
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+        
+        .node-example {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+        
+        .node-circle {
+            margin: 0 auto 15px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .small-node {
+            width: 56px;
+            height: 56px;
+            background: #0077be;
+            font-size: 10px;
+        }
+        
+        .medium-node {
+            width: 74px;
+            height: 74px;
+            background: #f77f00;
+            font-size: 12px;
+        }
+        
+        .large-node {
+            width: 98px;
+            height: 98px;
+            background: #e63946;
+            font-size: 14px;
+        }
+        
+        .node-info {
+            font-size: 0.9em;
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .node-info strong {
+            color: #333;
+            display: block;
+            margin-top: 5px;
+        }
+        
+        .path-demo {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .path-demo h2 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 1.8em;
+        }
+        
+        .path-illustration {
+            background: #f5f5f5;
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .path-description {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .path-item {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #00d084;
+        }
+        
+        .path-item h3 {
+            color: #00d084;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        .path-item p {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .highlight-box {
+            background: linear-gradient(135deg, #00d084 0%, #00b870 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .highlight-box h2 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+        }
+        
+        .highlight-box p {
+            font-size: 1.2em;
+            line-height: 1.8;
+            opacity: 0.95;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        
+        .stat-card {
+            background: rgba(255,255,255,0.2);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 ChroLens 圖形模式改進對比</h1>
+        
+        <div class="comparison">
+            <div class="panel before">
+                <h2><span class="icon">❌</span> 改進前</h2>
+                <ul class="features">
+                    <li>所有節點大小完全相同</li>
+                    <li>無法識別重要節點</li>
+                    <li>多條路線可能重疊</li>
+                    <li>路徑規劃較簡單</li>
+                    <li>視覺層次不明顯</li>
+                    <li>複雜流程難以閱讀</li>
+                </ul>
+            </div>
+            
+            <div class="panel after">
+                <h2><span class="icon">✅</span> 改進後</h2>
+                <ul class="features">
+                    <li>節點大小反映連接數量</li>
+                    <li>自動突顯關鍵節點</li>
+                    <li>每條路線獨立通道</li>
+                    <li>智能路徑規劃系統</li>
+                    <li>視覺層次清晰</li>
+                    <li>複雜流程易於理解</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="visual-demo">
+            <h2>📏 動態節點大小示例</h2>
+            <p style="text-align: center; color: #666; margin-bottom: 20px;">
+                節點大小根據連接數量自動調整，讓重要節點更突出
+            </p>
+            
+            <div class="demo-grid">
+                <div class="node-example">
+                    <div class="node-circle small-node">開始</div>
+                    <div class="node-info">
+                        小節點<br>
+                        <strong>1-2個連接</strong><br>
+                        半徑: 28-31px<br>
+                        字體: 10號
+                    </div>
+                </div>
+                
+                <div class="node-example">
+                    <div class="node-circle medium-node">處理</div>
+                    <div class="node-info">
+                        中節點<br>
+                        <strong>3-5個連接</strong><br>
+                        半徑: 34-40px<br>
+                        字體: 12號
+                    </div>
+                </div>
+                
+                <div class="node-example">
+                    <div class="node-circle large-node">核心</div>
+                    <div class="node-info">
+                        大節點<br>
+                        <strong>6-10個連接</strong><br>
+                        半徑: 43-55px<br>
+                        字體: 14號
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="path-demo">
+            <h2>🛤️ 獨立路線系統</h2>
+            
+            <div class="path-illustration">
+                <svg width="100%" height="300" style="max-width: 800px;">
+                    <!-- 節點 A -->
+                    <circle cx="100" cy="50" r="30" fill="#0077be" stroke="white" stroke-width="4"/>
+                    <text x="100" y="55" text-anchor="middle" fill="white" font-weight="bold" font-size="14">A</text>
+                    
+                    <!-- 節點 B (大節點) -->
+                    <circle cx="400" cy="150" r="45" fill="#e63946" stroke="white" stroke-width="4"/>
+                    <text x="400" y="158" text-anchor="middle" fill="white" font-weight="bold" font-size="16">B</text>
+                    
+                    <!-- 路線1: 通道0 (中心) -->
+                    <path d="M 100 80 L 100 120 L 400 120 L 400 105" 
+                          stroke="#00d084" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    
+                    <!-- 路線2: 通道+35 -->
+                    <path d="M 100 80 L 135 80 L 135 140 L 400 140 L 400 105" 
+                          stroke="#00a8ff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    
+                    <!-- 路線3: 通道-35 -->
+                    <path d="M 100 80 L 65 80 L 65 160 L 400 160 L 400 105" 
+                          stroke="#ffa502" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    
+                    <!-- 標註 -->
+                    <text x="135" y="75" text-anchor="start" fill="#666" font-size="12">通道 +35px</text>
+                    <text x="200" y="115" text-anchor="middle" fill="#666" font-size="12">通道 0 (中心)</text>
+                    <text x="65" y="165" text-anchor="end" fill="#666" font-size="12">通道 -35px</text>
+                </svg>
+                
+                <p style="color: #666; margin-top: 20px;">
+                    ✨ 每條路線使用獨立通道，間距35px，確保不重疊
+                </p>
+            </div>
+            
+            <div class="path-description">
+                <div class="path-item">
+                    <h3>📍 獨立通道系統</h3>
+                    <p>
+                        每條連接線分配獨立的垂直通道位置（channel_x = x1 + offset），
+                        確保多條路線平行前進時不會重疊，只在必要的交叉點交叉。
+                    </p>
+                </div>
+                
+                <div class="path-item">
+                    <h3>🎯 智能路徑規劃</h3>
+                    <p>
+                        根據節點位置關係選擇最優路徑類型：垂直對齊使用垂直路徑，
+                        水平對齊使用水平路徑，一般情況使用三段式路徑。
+                    </p>
+                </div>
+                
+                <div class="path-item">
+                    <h3>📏 精確邊界計算</h3>
+                    <p>
+                        連接線從節點實際半徑位置開始和結束，
+                        大節點的連接線自動調整起點終點，確保視覺完美。
+                    </p>
+                </div>
+                
+                <div class="path-item">
+                    <h3>🔄 循環路徑優化</h3>
+                    <p>
+                        循環連接使用外繞路徑，根據通道編號增加繞行距離，
+                        避免與其他路線衝突，保持圖形清晰。
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="highlight-box" style="margin-top: 40px;">
+            <h2>🎉 改進成果總結</h2>
+            <p>
+                圖形模式現在更加智能和美觀！<br>
+                節點大小自動反映重要性，路線完全獨立不重疊，<br>
+                字體大小自動適配，整體視覺效果大幅提升！
+            </p>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number">3</div>
+                    <div class="stat-label">節點大小等級</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">35px</div>
+                    <div class="stat-label">通道間距</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">100%</div>
+                    <div class="stat-label">路線獨立率</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">✨</div>
+                    <div class="stat-label">視覺效果</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

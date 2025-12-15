@@ -465,14 +465,15 @@ class TextCommandEditor(tk.Toplevel):
         self.workflow_pan_start_x = 0  # 畫布拖移起點
         self.workflow_pan_start_y = 0
         self.workflow_is_panning = False
+        self.workflow_tooltip = None  # 💬 浮動提示框
         
         # 畫布事件綁定
-        self.workflow_canvas.bind("<Button-1>", self._on_workflow_click)
-        self.workflow_canvas.bind("<B1-Motion>", self._on_workflow_drag)
-        self.workflow_canvas.bind("<ButtonRelease-1>", self._on_workflow_release)
+        # 👆 啟用畫布拖移，但只能拖移畫布
+        self.workflow_canvas.bind("<Button-1>", self._on_workflow_canvas_click)
+        self.workflow_canvas.bind("<B1-Motion>", self._on_workflow_canvas_drag)
+        self.workflow_canvas.bind("<ButtonRelease-1>", self._on_workflow_canvas_release)
         self.workflow_canvas.bind("<Button-3>", self._show_workflow_context_menu)
         self.workflow_canvas.bind("<MouseWheel>", self._on_workflow_zoom)
-        self.workflow_canvas.bind("<Button-3>", self._show_workflow_context_menu)
         
         # ✅ 設定語法高亮標籤 (VS Code Dark+ 配色方案)
         self.text_editor.tag_config("syntax_symbol", foreground="#d4d4d4")      # 淺灰色 - 符號（,、>等）
@@ -3348,6 +3349,11 @@ class TextCommandEditor(tk.Toplevel):
                     label_name = event.get("name", "")
                     lines.append(f"#{label_name}\n")
                 
+                # 備註事件
+                elif event_type == "comment":
+                    comment_text = event.get("text", "")
+                    lines.append(f"# {comment_text}\n")
+                
                 # 分隔符事件
                 elif event_type == "separator":
                     separator_char = event.get("char", "=")
@@ -3364,7 +3370,8 @@ class TextCommandEditor(tk.Toplevel):
                     if event_name == "down":
                         if is_press:
                             # 獨立的按下指令
-                            lines.append(f">按下{key_name}, 延遲0ms, T={time_str}\n")
+                            press_delay = event.get("_press_delay", 0)  # 讀取保存的延遲
+                            lines.append(f">按下{key_name}, 延遲{press_delay}ms, T={time_str}\n")
                         elif auto_pair:
                             # 自動配對的按下，記錄但不輸出
                             pressed_keys[key_name] = time_offset
@@ -3834,8 +3841,16 @@ class TextCommandEditor(tk.Toplevel):
             line = lines[i].strip()
             line_number = i  # 記錄當前行號
             
-            # 跳過註釋（但保留空行，用於增加可讀性）
+            # 處理備註（# 後有空格）
             if line.startswith("# "):
+                # 保存備註為特殊事件
+                comment_text = line[2:]  # 移除 "# " 前綴
+                events.append({
+                    "type": "comment",
+                    "text": comment_text,
+                    "time": start_time,
+                    "_line_number": line_number
+                })
                 i += 1
                 continue
             
@@ -4155,7 +4170,8 @@ class TextCommandEditor(tk.Toplevel):
                                 "name": key,
                                 "time": abs_time,
                                 "_line_number": line_number,
-                                "_is_press": True  # 標記為按下指令
+                                "_is_press": True,  # 標記為按下指令
+                                "_press_delay": delay_ms  # 保存延遲時間
                             })
                         
                         elif "放開" in action:
@@ -5800,6 +5816,11 @@ class TextCommandEditor(tk.Toplevel):
                 (r'T=\d+[smh]\d*', 'syntax_time'),
             ]
             
+            # 備註 (灰色) - 優先處理
+            patterns_comment = [
+                (r'^# .+', 'syntax_comment'),         # 行首的 # 後接空格的備註
+            ]
+            
             # 標籤 (青色)
             patterns_label = [
                 (r'^#b\S+', 'label_foldable'),        # 行首的 #b 標籤 (可摺疊)
@@ -5823,7 +5844,7 @@ class TextCommandEditor(tk.Toplevel):
             ]
             
             # 按順序合併所有模式 (優先順序從高到低)
-            all_patterns = (patterns_flow + patterns_condition + patterns_delay + 
+            all_patterns = (patterns_comment + patterns_flow + patterns_condition + patterns_delay + 
                           patterns_ocr + patterns_keyboard + patterns_mouse + 
                           patterns_image + patterns_picname + patterns_time + 
                           patterns_module_ref + patterns_label + patterns_symbol)
@@ -7197,6 +7218,14 @@ class TextCommandEditor(tk.Toplevel):
         x_spacing = 300
         y_spacing = 120
         
+        # 統計每個節點的連接數量（入度+出度）
+        connection_count = {label: 0 for label in labels}
+        for from_label, to_label, conn_type in self.workflow_connections:
+            if from_label in connection_count:
+                connection_count[from_label] += 1
+            if to_label in connection_count:
+                connection_count[to_label] += 1
+        
         # 建立標籤到層級的映射
         label_levels = {}
         visited = set()
@@ -7235,11 +7264,12 @@ class TextCommandEditor(tk.Toplevel):
                 'x': x,
                 'y': y,
                 'level': level,
+                'connections': connection_count.get(label, 0),  # 連接數量
                 'items': []  # 畫布元件 IDs
             }
     
     def _draw_workflow_node(self, label, commands):
-        """繪製工作流節點（專業流程圖風格）"""
+        """繪製工作流節點（Mini Metro 風格 - 全部使用圓形）"""
         if label not in self.workflow_nodes:
             return
         
@@ -7251,87 +7281,77 @@ class TextCommandEditor(tk.Toplevel):
         is_start = label == list(self.workflow_nodes.keys())[0] if self.workflow_nodes else False
         is_end = not any(conn[0] == label for conn in self.workflow_connections)
         
-        # 根據類型設定顏色和尺寸
-        if is_start:
-            # 開始節點：綠色圓角矩形
-            width, height = 180, 60
-            fill_color = "#2e7d32"
-            outline_color = "#66bb6a"
-            text_color = "#ffffff"
-        elif is_end:
-            # 結束節點：紅色圓角矩形
-            width, height = 180, 60
-            fill_color = "#c62828"
-            outline_color = "#ef5350"
-            text_color = "#ffffff"
-        elif has_condition:
-            # 條件節點：黃色菱形
-            width, height = 180, 80
-            fill_color = "#f57c00"
-            outline_color = "#ffb74d"
-            text_color = "#ffffff"
-        else:
-            # 一般處理節點：藍色矩形
-            width, height = 200, 70
-            fill_color = "#1565c0"
-            outline_color = "#42a5f5"
-            text_color = "#ffffff"
+        # 🎯 根據連接數量動態調整圓圈大小
+        # 基礎半徑：45px（足夠容納4個中文字），每多一個連接增加3px
+        connections = node_data.get('connections', 0)
+        radius = 45 + min(connections * 3, 30)  # 基礎45px，最大75px
+        node_data['radius'] = radius  # 保存半徑供路徑計算使用
         
-        # 繪製節點形狀
-        if has_condition:
-            # 菱形
-            points = [
-                x, y - height//2,           # 上
-                x + width//2, y,            # 右
-                x, y + height//2,           # 下
-                x - width//2, y             # 左
-            ]
-            shape_id = self.workflow_canvas.create_polygon(
-                points,
-                fill=fill_color,
-                outline=outline_color,
-                width=3,
-                tags="node_shape"
-            )
+        # 根據類型設定顏色（參考 Mini Metro 的配色）
+        if is_start:
+            # 開始節點：鮮綠色
+            fill_color = "#00b300"
+            outline_color = "#ffffff"
+            text_color = "#ffffff"
+            line_width = 4
+        elif is_end:
+            # 結束節點：深紅色
+            fill_color = "#e63946"
+            outline_color = "#ffffff"
+            text_color = "#ffffff"
+            line_width = 4
+        elif has_condition:
+            # 條件節點：橙色
+            fill_color = "#f77f00"
+            outline_color = "#ffffff"
+            text_color = "#ffffff"
+            line_width = 4
         else:
-            # 圓角矩形
-            shape_id = self._create_rounded_rectangle(
-                x - width//2, y - height//2,
-                x + width//2, y + height//2,
-                radius=15,
-                fill=fill_color,
-                outline=outline_color,
-                width=3
-            )
+            # 一般處理節點：藍色
+            fill_color = "#0077be"
+            outline_color = "#ffffff"
+            text_color = "#ffffff"
+            line_width = 4
+        
+        # 繪製正圓形節點（Metro 站點風格）
+        # 🎨 確保圓形足夠圓滑（Tkinter的oval已經是抗鋸齒的）
+        shape_id = self.workflow_canvas.create_oval(
+            x - radius, y - radius,
+            x + radius, y + radius,
+            fill=fill_color,
+            outline=outline_color,
+            width=line_width,
+            tags="node_shape"
+        )
         node_data['items'].append(shape_id)
         
-        # 繪製標籤文字
+        # 📝 繪製標籤文字（完整顯示，不縮短）
         label_text = label.replace('#', '')
+        
+        # 🎯 根據節點大小動態調整字體大小
+        if radius < 55:
+            font_size = 12
+        elif radius < 65:
+            font_size = 14
+        else:
+            font_size = 16
+        
         text_id = self.workflow_canvas.create_text(
-            x, y - 8,
+            x, y,
             text=label_text,
             fill=text_color,
-            font=("LINE Seed TW", 12, "bold") if LINE_SEED_FONT_LOADED else ("Arial", 12, "bold"),
-            tags="node_text"
+            font=("LINE Seed TW", font_size, "bold") if LINE_SEED_FONT_LOADED else ("Arial", font_size, "bold"),
+            tags="node_text",
+            width=radius * 1.8  # 📝 限制文字寬度，讓長文字自動換行
         )
         node_data['items'].append(text_id)
         
-        # 顯示指令數量
-        cmd_count = len([c for c in commands if not c.startswith('>>>')])
-        count_text = f"{cmd_count} 個指令"
-        count_id = self.workflow_canvas.create_text(
-            x, y + 12,
-            text=count_text,
-            fill="#e0e0e0",
-            font=("LINE Seed TW", 9) if LINE_SEED_FONT_LOADED else ("Arial", 9),
-            tags="node_count"
-        )
-        node_data['items'].append(count_id)
-        
-        # 綁定點擊事件
+        # 💬 綁定滑鼠停留事件（顯示浮動提示）
         for item_id in node_data['items']:
-            self.workflow_canvas.tag_bind(item_id, "<Button-1>", 
-                                         lambda e, lbl=label: self._on_workflow_node_click(lbl))
+            self.workflow_canvas.tag_bind(item_id, "<Enter>", 
+                lambda e, lbl=label, cmds=commands: self._show_node_tooltip(e, lbl, cmds))
+            self.workflow_canvas.tag_bind(item_id, "<Leave>", 
+                lambda e: self._hide_node_tooltip())
     
     def _create_rounded_rectangle(self, x1, y1, x2, y2, radius=25, **kwargs):
         """創建圓角矩形"""
@@ -7360,9 +7380,20 @@ class TextCommandEditor(tk.Toplevel):
         return self.workflow_canvas.create_polygon(points, **kwargs, smooth=True)
     
     def _draw_workflow_connections(self):
-        """繪製工作流連接線（電路板風格：正交路徑）"""
-        # 記錄每個水平位置已使用的通道
-        h_channels = {}  # {y_position: [x_positions]}
+        """繪製工作流連接線（Mini Metro 風格：使用直線和45度角）
+        
+        Mini Metro 特點：
+        1. 只使用水平線、垂直線、45度斜線
+        2. 線路粗而明顯
+        3. 顏色鮮艷，易於區分
+        4. 避免重疊，使用偏移
+        """
+        # 通道管理
+        channel_offset = 25  # Metro 風格需要更大的間距
+        occupied_channels = {}
+        
+        # 預處理：分配通道
+        connections_with_channels = []
         
         for idx, (from_label, to_label, conn_type) in enumerate(self.workflow_connections):
             if from_label not in self.workflow_nodes or to_label not in self.workflow_nodes:
@@ -7371,82 +7402,328 @@ class TextCommandEditor(tk.Toplevel):
             from_node = self.workflow_nodes[from_label]
             to_node = self.workflow_nodes[to_label]
             
-            # 連接線顏色
-            if conn_type == 'success':
-                color = "#4ec9b0"  # 青綠色
-                dash = None
-            else:  # fail
-                color = "#f48771"  # 紅色
-                dash = (5, 5)
-            
-            # 起點和終點
-            start_x = from_node['x']
-            start_y = from_node['y'] + 30  # 節點下方
-            end_x = to_node['x']
-            end_y = to_node['y'] - 30  # 節點上方
-            
-            # 判斷是否為循環
             is_loop = to_node['level'] <= from_node['level']
             
-            # 電路板風格：使用正交路徑
-            points = []
-            
             if is_loop:
-                # 循環：從下方出去，繞到右側，再從上方進入
-                offset = 80 + idx * 20  # 每條循環線偏移不同距離避免重疊
-                
-                points = [
-                    start_x, start_y,           # 起點
-                    start_x, start_y + 30,      # 向下
-                    start_x + offset, start_y + 30,  # 向右
-                    start_x + offset, end_y - 30,    # 向上
-                    end_x, end_y - 30,          # 向左
-                    end_x, end_y                # 終點
-                ]
+                channel = self._allocate_channel(from_node, to_node, occupied_channels, positive=True)
             else:
-                # 正常流程：直線或折線
-                if abs(end_x - start_x) < 10:
-                    # 垂直對齊：直線
-                    points = [start_x, start_y, end_x, end_y]
-                else:
-                    # 不對齊：使用正交折線
-                    mid_y = (start_y + end_y) / 2
-                    points = [
-                        start_x, start_y,     # 起點
-                        start_x, mid_y,       # 向下/上到中點
-                        end_x, mid_y,         # 水平移動
-                        end_x, end_y          # 向下/上到終點
-                    ]
+                channel = self._allocate_channel(from_node, to_node, occupied_channels, positive=False)
             
-            # 繪製連接線
+            connections_with_channels.append((from_label, to_label, conn_type, channel, is_loop))
+        
+        # 🎨 多彩顏色系統（不限於紅綠）
+        metro_colors = [
+            "#00d084",  # 翠綠
+            "#0077be",  # 寶藍
+            "#f77f00",  # 橙色
+            "#e63946",  # 紅色
+            "#9d4edd",  # 紫色
+            "#06ffa5",  # 青綠
+            "#ffbe0b",  # 金黃
+            "#fb5607",  # 橘紅
+            "#8338ec",  # 深紫
+            "#3a86ff",  # 亮藍
+        ]
+        
+        # 繪製所有連接線
+        for idx, (from_label, to_label, conn_type, channel, is_loop) in enumerate(connections_with_channels):
+            from_node = self.workflow_nodes[from_label]
+            to_node = self.workflow_nodes[to_label]
+            
+            # 🎨 使用多彩顏色，根據索引循環選擇
+            color = metro_colors[idx % len(metro_colors)]
+            width = 5
+            
+            # 🎯 使用節點的實際半徑
+            from_radius = from_node.get('radius', 45)
+            to_radius = to_node.get('radius', 45)
+            
+            # 🎯 智能計算最佳連接點（最短距離）
+            start_x, start_y, end_x, end_y = self._calculate_optimal_connection_points(
+                from_node['x'], from_node['y'], from_radius,
+                to_node['x'], to_node['y'], to_radius
+            )
+            
+            # 🎯 通道偏移 - 完全並行避免重疊
+            offset = channel * 50  # 增加到50px確保完全分離
+            
+            # 使用 Metro 風格的路徑規劃（只用直線和45度角）
+            points = self._calculate_metro_path(
+                start_x, start_y, 
+                end_x, end_y, 
+                offset, is_loop
+            )
+            
+            # 繪製線路（不使用 smooth，保持銳利的角度）
             self.workflow_canvas.create_line(
                 *points,
                 fill=color,
-                width=2,
-                arrow=tk.LAST,
-                arrowshape=(10, 12, 5),
-                dash=dash,
+                width=width,
+                capstyle=tk.ROUND,  # 圓形端點
+                joinstyle=tk.ROUND,  # 圓形連接
+                tags="connection"
+            )
+            
+            # 在線路末端繪製箭頭（Metro 風格的小圓點）
+            arrow_size = 6
+            self.workflow_canvas.create_oval(
+                end_x - arrow_size, end_y - arrow_size,
+                end_x + arrow_size, end_y + arrow_size,
+                fill=color,
+                outline=color,
                 tags="connection"
             )
     
-    def _on_workflow_node_click(self, label):
-        """點擊節點時跳轉到對應的文字行"""
-        # 切換回文字模式
-        self.workflow_mode_var.set(False)
-        self._switch_to_text_mode_from_workflow()
+    def _calculate_optimal_connection_points(self, x1, y1, r1, x2, y2, r2):
+        """計算最佳連接點（最短距離原則）
         
-        # 尋找標籤在文字中的位置
-        text_content = self.text_editor.get("1.0", tk.END)
-        lines = text_content.split('\n')
+        根據兩個節點的相對位置，選擇最佳的出發點和到達點。
+        例如：如果目標在左上方，則從左上角出發
         
-        for i, line in enumerate(lines, 1):
-            if line.strip() == label:
-                # 跳轉到該行並高亮
-                self.text_editor.mark_set("insert", f"{i}.0")
-                self.text_editor.see(f"{i}.0")
-                self.text_editor.tag_remove("sel", "1.0", tk.END)
-                self.text_editor.tag_add("sel", f"{i}.0", f"{i}.end")
-                break
+        Args:
+            x1, y1: 起始節點中心
+            r1: 起始節點半徑
+            x2, y2: 目標節點中心
+            r2: 目標節點半徑
+        
+        Returns:
+            (start_x, start_y, end_x, end_y): 最佳連接點
+        """
+        import math
+        
+        # 計算方向角度
+        dx = x2 - x1
+        dy = y2 - y1
+        distance = math.sqrt(dx*dx + dy*dy)
+        
+        if distance < 0.001:
+            # 防止除零
+            return (x1, y1 + r1, x2, y2 - r2)
+        
+        # 標準化方向向量
+        nx = dx / distance
+        ny = dy / distance
+        
+        # 起點：從圓心沿方向向量移動半徑距離
+        start_x = x1 + nx * r1
+        start_y = y1 + ny * r1
+        
+        # 終點：從圓心沿反方向移動半徑距離
+        end_x = x2 - nx * r2
+        end_y = y2 - ny * r2
+        
+        return (start_x, start_y, end_x, end_y)
+    
+    def _calculate_metro_path(self, x1, y1, x2, y2, offset, is_loop):
+        """計算 Metro 風格路徑（支持斜線，完全並行）
+        
+        新特點：
+        1. 支持45度斜線，更美觀清晰
+        2. 完全並行，絕不重疊
+        3. 每條線有獨立通道
+        4. 智能選擇最佳路徑類型
+        
+        Returns:
+            路徑點列表 [x1, y1, x2, y2, ...]
+        """
+        if is_loop:
+            # 循環路徑：繞外側
+            loop_offset = 150 + abs(offset)
+            return [
+                x1, y1,
+                x1, y1 + 40,
+                x1 + loop_offset, y1 + 40,
+                x1 + loop_offset, y2 - 40,
+                x2, y2 - 40,
+                x2, y2
+            ]
+        
+        dx = x2 - x1
+        dy = y2 - y1
+        abs_dx = abs(dx)
+        abs_dy = abs(dy)
+        
+        # 🎯 完全並行策略：每條線在獨立通道中運行
+        
+        if offset == 0:
+            # 中心線路：使用最簡潔的路徑
+            if abs_dx < 20:
+                # 垂直
+                return [x1, y1, x2, y2]
+            elif abs_dy < 20:
+                # 水平
+                return [x1, y1, x2, y2]
+            elif abs(abs_dx - abs_dy) < 30:
+                # 🎨 接近45度：使用斜線！
+                return [x1, y1, x2, y2]
+            else:
+                # 正交三段式
+                mid_y = (y1 + y2) / 2
+                return [x1, y1, x1, mid_y, x2, mid_y, x2, y2]
+        else:
+            # 🎯 偏移線路：完全並行，永不重疊
+            # 計算獨立通道位置
+            channel_x = x1 + offset
+            
+            # 判斷路徑類型
+            if abs_dy < 20:
+                # 接近水平：使用上下偏移
+                offset_y = offset * 0.5
+                mid_y = (y1 + y2) / 2 + offset_y
+                return [x1, y1, x1, mid_y, x2, mid_y, x2, y2]
+            elif abs_dx < 20:
+                # 接近垂直：使用左右偏移
+                return [x1, y1, channel_x, y1, channel_x, y2, x2, y2]
+            elif abs(abs_dx - abs_dy) < 50:
+                # 🎨 可以用斜線：創建平行斜線
+                # 偏移方向垂直於主方向
+                angle = abs(dy) / abs_dx if abs_dx > 0 else 1
+                perp_offset_x = offset / (1 + angle)
+                perp_offset_y = offset * angle / (1 + angle)
+                
+                # 起點偏移
+                start_offset_x = perp_offset_x if dy * dx > 0 else -perp_offset_x
+                start_offset_y = -perp_offset_y
+                
+                return [
+                    x1, y1,
+                    x1 + start_offset_x, y1 + start_offset_y,
+                    x2 + start_offset_x, y2 + start_offset_y,
+                    x2, y2
+                ]
+            else:
+                # 一般情況：四段式完全並行
+                first_segment = min(abs_dy * 0.25, 40)
+                mid_y = (y1 + y2) / 2
+                
+                return [
+                    x1, y1,
+                    channel_x, y1,
+                    channel_x, y1 + first_segment,
+                    channel_x, mid_y,
+                    channel_x, y2 - first_segment,
+                    channel_x, y2,
+                    x2, y2
+                ]
+    
+    def _allocate_channel(self, from_node, to_node, occupied, positive=False):
+        """為連接線分配通道，智能避免重疊
+        
+        改進算法：
+        1. 根據連接方向分配不同的通道組
+        2. 優先使用中心通道（offset=0）
+        3. 循環線路使用外側通道
+        4. 考慮節點層級差異
+        
+        Args:
+            from_node: 起始節點
+            to_node: 目標節點
+            occupied: 已占用的通道字典
+            positive: True=使用正通道（外側），False=使用零或負通道（內側）
+        
+        Returns:
+            分配的通道編號
+        """
+        key = (from_node['level'], to_node['level'])
+        
+        if key not in occupied:
+            occupied[key] = set()
+        
+        # 尋找可用通道
+        if positive:
+            # 循環線路：從1開始往外找
+            channel = 1
+            while channel in occupied[key]:
+                channel += 1
+        else:
+            # 正常線路：優先使用0，然後±1, ±2...
+            channel = 0
+            if channel in occupied[key]:
+                for offset in range(1, 10):
+                    if offset not in occupied[key]:
+                        channel = offset
+                        break
+                    elif -offset not in occupied[key]:
+                        channel = -offset
+                        break
+        
+        occupied[key].add(channel)
+        return channel
+    
+    # ❌ 已停用：點擊節點不再回到文字模式
+    # def _on_workflow_node_click(self, label):
+    #     """點擊節點時跳轉到對應的文字行 - 已停用"""
+    #     pass
+    
+    def _on_workflow_canvas_click(self, event):
+        """處理畫布點擊（只能拖移畫布）"""
+        # 👆 不再檢查是否點擊到節點，直接啟動畫布拖移
+        self.workflow_is_panning = True
+        self.workflow_pan_start_x = event.x
+        self.workflow_pan_start_y = event.y
+        self.workflow_canvas.config(cursor="fleur")
+    
+    def _on_workflow_canvas_drag(self, event):
+        """處理畫布拖移（只拖移畫布）"""
+        if self.workflow_is_panning:
+            # 拖移畫布
+            dx = event.x - self.workflow_pan_start_x
+            dy = event.y - self.workflow_pan_start_y
+            
+            self.workflow_canvas.move("all", dx, dy)
+            
+            self.workflow_pan_start_x = event.x
+            self.workflow_pan_start_y = event.y
+    
+    def _on_workflow_canvas_release(self, event):
+        """處理滑鼠釋放"""
+        self.workflow_is_panning = False
+        self.workflow_canvas.config(cursor="")
+    
+    def _show_node_tooltip(self, event, label, commands):
+        """💬 顯示節點浮動提示（顯示對應的程式碼）"""
+        # 移除舊的提示框
+        self._hide_node_tooltip()
+        
+        # 組合程式碼
+        code_lines = [f"{label}"]
+        for cmd in commands:
+            code_lines.append(f"  {cmd}")
+        code_text = "\n".join(code_lines)
+        
+        # 限制最大長度
+        if len(code_text) > 500:
+            code_text = code_text[:500] + "..."
+        
+        # 創建浮動提示框
+        tooltip = tk.Toplevel(self)
+        tooltip.wm_overrideredirect(True)  # 無邊框
+        tooltip.wm_geometry(f"+{event.x_root + 15}+{event.y_root + 15}")
+        
+        # 背景框
+        frame = tk.Frame(tooltip, bg="#2d2d30", relief=tk.SOLID, borderwidth=1)
+        frame.pack()
+        
+        # 文字
+        label_widget = tk.Label(
+            frame,
+            text=code_text,
+            bg="#2d2d30",
+            fg="#d4d4d4",
+            font=("LINE Seed TW", 10) if LINE_SEED_FONT_LOADED else ("Consolas", 10),
+            justify=tk.LEFT,
+            padx=10,
+            pady=8
+        )
+        label_widget.pack()
+        
+        self.workflow_tooltip = tooltip
+    
+    def _hide_node_tooltip(self):
+        """隱藏浮動提示"""
+        if self.workflow_tooltip:
+            self.workflow_tooltip.destroy()
+            self.workflow_tooltip = None
     
     def _on_workflow_click(self, event):
         """處理畫布點擊事件"""

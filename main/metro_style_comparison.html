@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Metro 風格方案對比</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: "Microsoft JhengHei", sans-serif;
+            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+            color: #ffffff;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, #00b300, #0077be, #f77f00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #999;
+            margin-bottom: 50px;
+            font-size: 18px;
+        }
+        
+        .styles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 60px;
+        }
+        
+        .style-card {
+            background: #2d2d2d;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .style-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+        }
+        
+        .style-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        
+        .style-number {
+            font-size: 48px;
+            font-weight: bold;
+            opacity: 0.3;
+        }
+        
+        .style-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .style-description {
+            color: #aaa;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .preview-canvas {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            min-height: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+        }
+        
+        /* 方案1：經典圓形 */
+        .node-style1 {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            border: 4px solid white;
+        }
+        
+        .node-style1.start { background: #00b300; }
+        .node-style1.process { background: #0077be; }
+        .node-style1.condition { background: #f77f00; }
+        .node-style1.end { background: #e63946; }
+        
+        /* 方案2：雙圈 */
+        .node-style2 {
+            width: 76px;
+            height: 76px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .node-style2-inner {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 13px;
+        }
+        
+        .node-style2.start { background: #00b300; }
+        .node-style2.start .node-style2-inner { color: #00b300; }
+        .node-style2.process { background: #0077be; }
+        .node-style2.process .node-style2-inner { color: #0077be; }
+        .node-style2.condition { background: #f77f00; }
+        .node-style2.condition .node-style2-inner { color: #f77f00; }
+        
+        /* 方案3：扁平陰影 */
+        .node-style3 {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 13px;
+            position: relative;
+        }
+        
+        .node-style3::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            top: 3px;
+            left: 3px;
+            z-index: -1;
+        }
+        
+        .node-style3.start { background: #2ecc71; }
+        .node-style3.start::after { background: #27ae60; }
+        .node-style3.process { background: #3498db; }
+        .node-style3.process::after { background: #2980b9; }
+        .node-style3.condition { background: #f39c12; }
+        .node-style3.condition::after { background: #d68910; }
+        
+        /* 方案4：圖標式 */
+        .node-style4 {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: #f0f0f0;
+            border: 2px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .node-style4-icon {
+            font-size: 24px;
+        }
+        
+        .node-style4.start .node-style4-icon { color: #00b300; }
+        .node-style4.process .node-style4-icon { color: #0077be; }
+        .node-style4.condition .node-style4-icon { color: #f77f00; }
+        
+        /* 方案5：霓虹 */
+        .node-style5 {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid white;
+            position: relative;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        .node-style5::before {
+            content: '';
+            position: absolute;
+            width: 120%;
+            height: 120%;
+            border-radius: 50%;
+            opacity: 0.3;
+            z-index: -1;
+        }
+        
+        .node-style5-core {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: white;
+        }
+        
+        .node-style5.start { 
+            background: #00ff88;
+            color: #00ff88;
+            box-shadow: 0 0 20px #00ff88, 0 0 40px #00ff88;
+        }
+        .node-style5.start::before { background: #00ff88; }
+        
+        .node-style5.process { 
+            background: #00aaff;
+            color: #00aaff;
+            box-shadow: 0 0 20px #00aaff, 0 0 40px #00aaff;
+        }
+        .node-style5.process::before { background: #00aaff; }
+        
+        .node-style5.condition { 
+            background: #ffaa00;
+            color: #ffaa00;
+            box-shadow: 0 0 20px #ffaa00, 0 0 40px #ffaa00;
+        }
+        .node-style5.condition::before { background: #ffaa00; }
+        
+        /* 連接線示例 */
+        .connection-line {
+            height: 5px;
+            background: #00d084;
+            border-radius: 3px;
+            flex: 0 0 80px;
+        }
+        
+        .features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .feature-tag {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        .recommendation {
+            background: linear-gradient(90deg, rgba(0, 179, 0, 0.2), transparent);
+            border-left: 3px solid #00b300;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #aaa;
+        }
+        
+        .comparison-table {
+            background: #2d2d2d;
+            border-radius: 16px;
+            padding: 30px;
+            margin-top: 40px;
+        }
+        
+        .comparison-table h2 {
+            margin-bottom: 20px;
+            color: #fff;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        th {
+            color: #00b300;
+            font-weight: bold;
+        }
+        
+        td {
+            color: #ccc;
+        }
+        
+        .rating {
+            color: #ffd700;
+        }
+        
+        .best-match {
+            background: rgba(0, 179, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚇 Mini Metro 風格方案對比</h1>
+        <p class="subtitle">5種不同的視覺設計方案，選擇最適合你的風格</p>
+        
+        <div class="styles-grid">
+            <!-- 方案 1 -->
+            <div class="style-card">
+                <div class="style-header">
+                    <div>
+                        <div class="style-title">方案 1：經典 Metro</div>
+                        <div class="features">
+                            <span class="feature-tag">✓ 當前已應用</span>
+                            <span class="feature-tag">簡潔</span>
+                            <span class="feature-tag">鮮豔</span>
+                        </div>
+                    </div>
+                    <div class="style-number">1</div>
+                </div>
+                
+                <div class="style-description">
+                    圓形站點 + 鮮豔配色 + 粗線條<br>
+                    最接近原版 Mini Metro 的設計風格
+                </div>
+                
+                <div class="preview-canvas">
+                    <div class="node-style1 start">開始</div>
+                    <div class="connection-line"></div>
+                    <div class="node-style1 process">處理</div>
+                    <div class="connection-line"></div>
+                    <div class="node-style1 condition">條件</div>
+                </div>
+                
+                <div class="recommendation">
+                    👍 推薦：追求經典 Metro 風格的用戶
+                </div>
+            </div>
+            
+            <!-- 方案 2 -->
+            <div class="style-card">
+                <div class="style-header">
+                    <div>
+                        <div class="style-title">方案 2：雙圈站點</div>
+                        <div class="features">
+                            <span class="feature-tag">立體</span>
+                            <span class="feature-tag">層次感</span>
+                            <span class="feature-tag">優雅</span>
+                        </div>
+                    </div>
+                    <div class="style-number">2</div>
+                </div>
+                
+                <div class="style-description">
+                    內外雙圈設計 + 白色內核<br>
+                    更有層次感，視覺上更精緻
+                </div>
+                
+                <div class="preview-canvas">
+                    <div class="node-style2 start">
+                        <div class="node-style2-inner">開始</div>
+                    </div>
+                    <div class="connection-line"></div>
+                    <div class="node-style2 process">
+                        <div class="node-style2-inner">處理</div>
+                    </div>
+                    <div class="connection-line"></div>
+                    <div class="node-style2 condition">
+                        <div class="node-style2-inner">條件</div>
+                    </div>
+                </div>
+                
+                <div class="recommendation">
+                    👍 推薦：喜歡精緻設計的用戶
+                </div>
+            </div>
+            
+            <!-- 方案 3 -->
+            <div class="style-card">
+                <div class="style-header">
+                    <div>
+                        <div class="style-title">方案 3：扁平陰影</div>
+                        <div class="features">
+                            <span class="feature-tag">現代</span>
+                            <span class="feature-tag">扁平化</span>
+                            <span class="feature-tag">柔和</span>
+                        </div>
+                    </div>
+                    <div class="style-number">3</div>
+                </div>
+                
+                <div class="style-description">
+                    扁平圓形 + 柔和陰影<br>
+                    現代扁平化設計，視覺更舒適
+                </div>
+                
+                <div class="preview-canvas">
+                    <div class="node-style3 start">開始</div>
+                    <div class="connection-line"></div>
+                    <div class="node-style3 process">處理</div>
+                    <div class="connection-line"></div>
+                    <div class="node-style3 condition">條件</div>
+                </div>
+                
+                <div class="recommendation">
+                    👍 推薦：追求現代感的用戶
+                </div>
+            </div>
+            
+            <!-- 方案 4 -->
+            <div class="style-card">
+                <div class="style-header">
+                    <div>
+                        <div class="style-title">方案 4：圖標式</div>
+                        <div class="features">
+                            <span class="feature-tag">直觀</span>
+                            <span class="feature-tag">易識別</span>
+                            <span class="feature-tag">實用</span>
+                        </div>
+                    </div>
+                    <div class="style-number">4</div>
+                </div>
+                
+                <div class="style-description">
+                    淺色底 + 彩色圖標<br>
+                    用不同圖案區分節點類型，最直觀
+                </div>
+                
+                <div class="preview-canvas">
+                    <div class="node-style4 start">
+                        <div class="node-style4-icon">▶</div>
+                    </div>
+                    <div class="connection-line"></div>
+                    <div class="node-style4 process">
+                        <div class="node-style4-icon">●</div>
+                    </div>
+                    <div class="connection-line"></div>
+                    <div class="node-style4 condition">
+                        <div class="node-style4-icon">◆</div>
+                    </div>
+                </div>
+                
+                <div class="recommendation">
+                    👍 推薦：注重易用性和可讀性的用戶
+                </div>
+            </div>
+            
+            <!-- 方案 5 -->
+            <div class="style-card">
+                <div class="style-header">
+                    <div>
+                        <div class="style-title">方案 5：霓虹燈管</div>
+                        <div class="features">
+                            <span class="feature-tag">炫酷</span>
+                            <span class="feature-tag">賽博風</span>
+                            <span class="feature-tag">未來感</span>
+                        </div>
+                    </div>
+                    <div class="style-number">5</div>
+                </div>
+                
+                <div class="style-description">
+                    發光效果 + 高對比<br>
+                    賽博朋克風格，視覺衝擊力強
+                </div>
+                
+                <div class="preview-canvas" style="background: #000;">
+                    <div class="node-style5 start">
+                        <div class="node-style5-core"></div>
+                    </div>
+                    <div class="connection-line" style="box-shadow: 0 0 10px #00d084;"></div>
+                    <div class="node-style5 process">
+                        <div class="node-style5-core"></div>
+                    </div>
+                    <div class="connection-line" style="box-shadow: 0 0 10px #00d084;"></div>
+                    <div class="node-style5 condition">
+                        <div class="node-style5-core"></div>
+                    </div>
+                </div>
+                
+                <div class="recommendation">
+                    👍 推薦：喜歡酷炫視覺效果的用戶
+                </div>
+            </div>
+        </div>
+        
+        <!-- 對比表格 -->
+        <div class="comparison-table">
+            <h2>📊 詳細對比</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>方案</th>
+                        <th>視覺風格</th>
+                        <th>可讀性</th>
+                        <th>美觀度</th>
+                        <th>效能</th>
+                        <th>適用場景</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="best-match">
+                        <td><strong>方案 1</strong></td>
+                        <td>經典簡潔</td>
+                        <td><span class="rating">★★★★★</span></td>
+                        <td><span class="rating">★★★★☆</span></td>
+                        <td><span class="rating">★★★★★</span></td>
+                        <td>日常使用、演示</td>
+                    </tr>
+                    <tr>
+                        <td><strong>方案 2</strong></td>
+                        <td>精緻優雅</td>
+                        <td><span class="rating">★★★★☆</span></td>
+                        <td><span class="rating">★★★★★</span></td>
+                        <td><span class="rating">★★★★☆</span></td>
+                        <td>專業報告、展示</td>
+                    </tr>
+                    <tr>
+                        <td><strong>方案 3</strong></td>
+                        <td>現代扁平</td>
+                        <td><span class="rating">★★★★★</span></td>
+                        <td><span class="rating">★★★★☆</span></td>
+                        <td><span class="rating">★★★★☆</span></td>
+                        <td>現代化應用</td>
+                    </tr>
+                    <tr>
+                        <td><strong>方案 4</strong></td>
+                        <td>實用直觀</td>
+                        <td><span class="rating">★★★★★</span></td>
+                        <td><span class="rating">★★★☆☆</span></td>
+                        <td><span class="rating">★★★★☆</span></td>
+                        <td>教學、文檔</td>
+                    </tr>
+                    <tr>
+                        <td><strong>方案 5</strong></td>
+                        <td>賽博炫酷</td>
+                        <td><span class="rating">★★★☆☆</span></td>
+                        <td><span class="rating">★★★★★</span></td>
+                        <td><span class="rating">★★★☆☆</span></td>
+                        <td>創意展示、遊戲化</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="comparison-table" style="margin-top: 30px;">
+            <h2>🎨 使用建議</h2>
+            <div style="color: #ccc; line-height: 2;">
+                <p><strong style="color: #00b300;">→ 如果你追求經典 Metro 風格：</strong> 選擇方案1（當前已應用）</p>
+                <p><strong style="color: #0077be;">→ 如果你需要專業展示：</strong> 選擇方案2（雙圈）</p>
+                <p><strong style="color: #f77f00;">→ 如果你喜歡現代設計：</strong> 選擇方案3（扁平陰影）</p>
+                <p><strong style="color: #e63946;">→ 如果你注重實用性：</strong> 選擇方案4（圖標式）</p>
+                <p><strong style="color: #00ff88;">→ 如果你想要炫酷效果：</strong> 選擇方案5（霓虹）</p>
+                <br>
+                <p style="background: rgba(0, 179, 0, 0.1); padding: 15px; border-radius: 8px; border-left: 3px solid #00b300;">
+                    💡 <strong>快速切換：</strong> 打開 metro_style_variants.py 文件，複製你喜歡的風格代碼，替換 text_script_editor.py 中的 _draw_workflow_node 方法即可！
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

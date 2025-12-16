@@ -1332,18 +1332,18 @@ class TextCommandEditor(tk.Toplevel):
         return self.canvas.create_polygon(points, smooth=True, **kwargs)
     
     def _connect_nodes(self, idx1, idx2, label=None):
-        """連接兩個節點 - 使用流暢的貝茲曲線"""
+        """連接兩個節點 - 使用電路板風格的正交路徑，避免重疊"""
         if idx1 < 0 or idx1 >= len(self.canvas_nodes) or idx2 < 0 or idx2 >= len(self.canvas_nodes):
             return
         
         node1 = self.canvas_nodes[idx1]
         node2 = self.canvas_nodes[idx2]
         
-        # 計算連接點
-        x1 = node1["x"] + 90
-        y1 = node1["y"] + 60
+        # 計算起點和終點（從節點底部中心到頂部中心）
+        x1 = node1["x"] + 90  # 節點寬度180，中心在90
+        y1 = node1["y"] + 60  # 節點高度60，底部
         x2 = node2["x"] + 90
-        y2 = node2["y"]
+        y2 = node2["y"]  # 頂部
         
         # 根據標籤選擇顏色
         if label == "成功" or label == "True":
@@ -1356,48 +1356,63 @@ class TextCommandEditor(tk.Toplevel):
             line_color = "#60a5fa"  # 藍色表示普通連接
             glow_color = "#93C5FD"
         
-        # 計算貝茲曲線控制點
-        dx = x2 - x1
-        dy = y2 - y1
+        # 計算路徑偏移量（根據從該節點出發的連線數量）
+        # 統計從 node1 出發的所有連線
+        existing_connections = [c for c in self.canvas_connections if c["from"] == idx1]
+        connection_index = len(existing_connections)
         
-        # 根據節點相對位置調整控制點
-        if abs(dx) < 50:  # 垂直連接
-            ctrl_offset = abs(dy) / 3
+        # 電路板風格的正交路徑
+        # 每條線使用不同的水平偏移，避免重疊
+        horizontal_offset = 30 + (connection_index * 40)  # 每條線間隔40像素
+        
+        # 路徑規劃：
+        # 1. 從起點向下延伸一小段
+        # 2. 向右（或向左）移動到專屬通道
+        # 3. 在專屬通道中垂直移動到目標高度附近
+        # 4. 向左（或向右）移動到目標X座標
+        # 5. 向下連接到目標
+        
+        points = []
+        
+        # 判斷目標在左邊還是右邊
+        if x2 >= x1:  # 目標在右邊或同位置
+            # 路徑：向下 -> 向右 -> 向下/向上 -> 向左 -> 到達目標
             points = [
-                x1, y1,
-                x1, y1 + ctrl_offset,
-                x2, y2 - ctrl_offset,
-                x2, y2
+                x1, y1,  # 起點
+                x1, y1 + 20,  # 向下延伸
+                x1 + horizontal_offset, y1 + 20,  # 向右到專屬通道
+                x1 + horizontal_offset, y2 - 20,  # 在通道中垂直移動
+                x2, y2 - 20,  # 向左到目標X
+                x2, y2  # 到達目標
             ]
-        else:  # 有水平偏移
-            ctrl_offset_x = dx / 2
-            ctrl_offset_y = dy / 3
+        else:  # 目標在左邊
+            # 路徑：向下 -> 向左 -> 向下/向上 -> 向右 -> 到達目標
             points = [
-                x1, y1,
-                x1 + ctrl_offset_x, y1 + ctrl_offset_y,
-                x2 - ctrl_offset_x, y2 - ctrl_offset_y,
-                x2, y2
+                x1, y1,  # 起點
+                x1, y1 + 20,  # 向下延伸
+                x1 - horizontal_offset, y1 + 20,  # 向左到專屬通道
+                x1 - horizontal_offset, y2 - 20,  # 在通道中垂直移動
+                x2, y2 - 20,  # 向右到目標X
+                x2, y2  # 到達目標
             ]
         
-        # 繪製發光效果（外層粗線）
+        # 繪製發光效果（外層粗線）- 使用直線段
         glow_line = self.canvas.create_line(
             *points,
             fill=glow_color,
             width=6,
-            smooth=True,
-            splinesteps=36,
+            smooth=False,  # 不平滑，保持直角
             tags="connection_glow"
         )
         
-        # 繪製主連接線（帶箭頭）
+        # 繪製主連接線（帶箭頭）- 使用直線段
         line = self.canvas.create_line(
             *points,
             fill=line_color,
             width=3,
             arrow=tk.LAST,
-            arrowshape=(14, 18, 6),  # 更大更明顯的箭頭
-            smooth=True,
-            splinesteps=36,
+            arrowshape=(14, 18, 6),
+            smooth=False,  # 不平滑，保持直角
             tags="connection"
         )
         
@@ -1405,14 +1420,17 @@ class TextCommandEditor(tk.Toplevel):
         label_text = None
         label_bg = None
         if label:
-            # 計算標籤位置（曲線中點）
-            mid_x = (x1 + x2) / 2
-            mid_y = (y1 + y2) / 2 + (dy / 6)  # 稍微偏移以適應曲線
+            # 將標籤放在水平段的中間
+            if x2 >= x1:
+                label_x = x1 + horizontal_offset
+            else:
+                label_x = x1 - horizontal_offset
+            label_y = (y1 + y2) / 2
             
             # 創建標籤背景
             label_bg = self.canvas.create_rectangle(
-                mid_x - 28, mid_y - 12,
-                mid_x + 28, mid_y + 12,
+                label_x - 28, label_y - 12,
+                label_x + 28, label_y + 12,
                 fill="#2d2d30",
                 outline=line_color,
                 width=2,
@@ -1421,7 +1439,7 @@ class TextCommandEditor(tk.Toplevel):
             
             # 創建標籤文字
             label_text = self.canvas.create_text(
-                mid_x, mid_y,
+                label_x, label_y,
                 text=label,
                 fill=line_color,
                 font=font_tuple(9, "bold"),
@@ -1434,7 +1452,8 @@ class TextCommandEditor(tk.Toplevel):
             "label_text": label_text,
             "label_bg": label_bg,
             "from": idx1,
-            "to": idx2
+            "to": idx2,
+            "connection_index": connection_index
         })
         
         # 將連接線移到節點下層
@@ -1576,24 +1595,61 @@ class TextCommandEditor(tk.Toplevel):
             self.canvas.config(cursor="crosshair")
     
     def _update_node_connections(self, node_idx):
-        """更新與指定節點相關的所有連接線"""
+        """更新與指定節點相關的所有連接線 - 使用電路板風格路徑"""
         for conn in self.canvas_connections:
             if conn["from"] == node_idx or conn["to"] == node_idx:
                 from_node = self.canvas_nodes[conn["from"]]
                 to_node = self.canvas_nodes[conn["to"]]
                 
+                # 計算起點和終點
                 x1 = from_node["x"] + 90
                 y1 = from_node["y"] + 60
                 x2 = to_node["x"] + 90
                 y2 = to_node["y"]
                 
-                self.canvas.coords(conn["line"], x1, y1, x2, y2)
+                # 獲取連線索引（用於計算偏移）
+                connection_index = conn.get("connection_index", 0)
+                horizontal_offset = 30 + (connection_index * 40)
+                
+                # 重新計算路徑
+                points = []
+                if x2 >= x1:  # 目標在右邊或同位置
+                    points = [
+                        x1, y1,
+                        x1, y1 + 20,
+                        x1 + horizontal_offset, y1 + 20,
+                        x1 + horizontal_offset, y2 - 20,
+                        x2, y2 - 20,
+                        x2, y2
+                    ]
+                else:  # 目標在左邊
+                    points = [
+                        x1, y1,
+                        x1, y1 + 20,
+                        x1 - horizontal_offset, y1 + 20,
+                        x1 - horizontal_offset, y2 - 20,
+                        x2, y2 - 20,
+                        x2, y2
+                    ]
+                
+                # 更新連線座標
+                self.canvas.coords(conn["line"], *points)
+                if conn.get("glow_line"):
+                    self.canvas.coords(conn["glow_line"], *points)
                 
                 # 更新標籤位置
                 if conn.get("label_text"):
-                    mid_x = (x1 + x2) / 2
-                    mid_y = (y1 + y2) / 2
-                    self.canvas.coords(conn["label_text"], mid_x, mid_y)
+                    if x2 >= x1:
+                        label_x = x1 + horizontal_offset
+                    else:
+                        label_x = x1 - horizontal_offset
+                    label_y = (y1 + y2) / 2
+                    
+                    self.canvas.coords(conn["label_text"], label_x, label_y)
+                    if conn.get("label_bg"):
+                        self.canvas.coords(conn["label_bg"],
+                                         label_x - 28, label_y - 12,
+                                         label_x + 28, label_y + 12)
     
     def _on_canvas_zoom(self, event):
         """畫布縮放事件（滾輪）- 同步縮放文字和圖形"""
@@ -2112,6 +2168,8 @@ class TextCommandEditor(tk.Toplevel):
                 ("計時器觸發", "#F57C00", None, ">計時器>等待載入, 60秒後, T=0s000\n>>#超時處理"),
                 ("重置計數器", "#FF6F00", None, ">重置計數器>找圖失敗, T=0s000"),
                 ("重置計時器", "#FF9800", None, ">重置計時器>等待載入, T=0s000"),
+                ("開始", "#4CAF50", None, ">開始>10秒後, T=0s000"),
+                ("結束", "#F44336", None, ">結束>60秒後, T=0s000"),
             ]
         }
         
@@ -3763,6 +3821,16 @@ class TextCommandEditor(tk.Toplevel):
                 elif event_type == "reset_timer":
                     action_id = event.get("action_id", "")
                     lines.append(f">重置計時器>{action_id}, T={time_str}\n")
+                
+                # 開始（延遲開始）
+                elif event_type == "delayed_start":
+                    delay_seconds = event.get("delay_seconds", 10)
+                    lines.append(f">開始>{delay_seconds}秒後, T={time_str}\n")
+                
+                # 結束（延遲結束）
+                elif event_type == "delayed_end":
+                    delay_seconds = event.get("delay_seconds", 60)
+                    lines.append(f">結束>{delay_seconds}秒後, T={time_str}\n")
             
             except Exception as event_error:
                 # 異常事件跳過，記錄錯誤
@@ -4053,7 +4121,8 @@ class TextCommandEditor(tk.Toplevel):
                         "重複>", "當圖片存在>", "循環結束", "重複結束",
                         "if全部存在>", "if任一存在>",
                         "隨機延遲>", "隨機執行>",
-                        "計數器>", "計時器>", "重置計數器>", "重置計時器>"
+                        "計數器>", "計時器>", "重置計數器>", "重置計時器>",
+                        "開始>", "結束>"
                     ]):
                         # 進階指令處理
                         event = self._parse_advanced_command_to_json(line, lines[i+1:i+6], start_time)
@@ -5198,6 +5267,36 @@ class TextCommandEditor(tk.Toplevel):
             return {
                 "type": "reset_timer",
                 "action_id": action_id,
+                "time": abs_time
+            }
+        
+        # 開始：>開始>10秒後, T=0s000
+        pattern = r'>開始>(\d+)秒後(?:,\s*T=(\d+)s(\d+))'
+        match = re.match(pattern, command_line)
+        if match:
+            delay_seconds = int(match.group(1))
+            seconds = int(match.group(2))
+            millis = int(match.group(3))
+            abs_time = start_time + seconds + millis / 1000.0
+            
+            return {
+                "type": "delayed_start",
+                "delay_seconds": delay_seconds,
+                "time": abs_time
+            }
+        
+        # 結束：>結束>60秒後, T=0s000
+        pattern = r'>結束>(\d+)秒後(?:,\s*T=(\d+)s(\d+))'
+        match = re.match(pattern, command_line)
+        if match:
+            delay_seconds = int(match.group(1))
+            seconds = int(match.group(2))
+            millis = int(match.group(3))
+            abs_time = start_time + seconds + millis / 1000.0
+            
+            return {
+                "type": "delayed_end",
+                "delay_seconds": delay_seconds,
                 "time": abs_time
             }
         

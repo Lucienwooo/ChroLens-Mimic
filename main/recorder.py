@@ -1996,6 +1996,38 @@ class CoreRecorder:
             action_id = event.get('action_id', '')
             self._reset_action_timer(action_id)
             self.logger(f"[重置計時器] {action_id}")
+        
+        # ✅ 新增：延遲開始
+        elif event['type'] == 'delayed_start':
+            delay_seconds = event.get('delay_seconds', 10)
+            self.logger(f"[開始] 等待 {delay_seconds} 秒後開始...")
+            
+            # 顯示倒數計時
+            for remaining in range(delay_seconds, 0, -1):
+                if not self.playing:  # 檢查是否被停止
+                    self.logger("[開始] 已取消")
+                    return 'stop'
+                self.logger(f"[開始] 倒數 {remaining} 秒")
+                time.sleep(1)
+            
+            self.logger(f"[開始] 延遲完成，開始執行腳本")
+        
+        # ✅ 新增：延遲結束
+        elif event['type'] == 'delayed_end':
+            delay_seconds = event.get('delay_seconds', 60)
+            self.logger(f"[結束] 將在 {delay_seconds} 秒後結束腳本")
+            
+            # 顯示倒數計時
+            for remaining in range(delay_seconds, 0, -1):
+                if not self.playing:  # 檢查是否被停止
+                    self.logger("[結束] 已提前停止")
+                    return 'stop'
+                self.logger(f"[結束] 倒數 {remaining} 秒後結束")
+                time.sleep(1)
+            
+            self.logger(f"[結束] 時間到，停止執行")
+            self.playing = False
+            return 'stop'
 
     def _handle_branch_action(self, action_config):
         """處理分支動作（繼續/停止/跳轉）

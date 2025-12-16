@@ -1,0 +1,126 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* 深色主題顏色 */
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2b2b2b;
+  --bg-tertiary: #1a1a1a;
+  --border-color: #3a3a3a;
+  --text-primary: #dce4ee;
+  --text-secondary: #b8c5d6;
+  --text-muted: #8996a6;
+  --accent-primary: #46DDC3;
+  --accent-blue: #1f6aa5;
+  --accent-blue-light: #52a8ec;
+  --accent-orange: #ff9500;
+  --hover-bg: #343638;
+  --table-even: #232323;
+  --table-hover: #2d2d2d;
+}
+
+[data-theme="light"] {
+  --bg-primary: #f5f5f5;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #ffffff;
+  --border-color: #e0e0e0;
+  --text-primary: #333333;
+  --text-secondary: #555555;
+  --text-muted: #666666;
+  --accent-primary: #46DDC3;
+  --accent-blue: #1f6aa5;
+  --accent-blue-light: #52a8ec;
+  --accent-orange: #ff9500;
+  --hover-bg: #f0f0f0;
+  --table-even: #f9f9f9;
+  --table-hover: #f0f0f0;
+}
+
+body {
+  font-family: "Segoe UI", "Microsoft JhengHei", Arial, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+code {
+  background: var(--bg-tertiary);
+  color: var(--accent-blue-light);
+  padding: 3px 7px;
+  border-radius: 4px;
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 13px;
+  border: 1px solid var(--border-color);
+}
+
+pre {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  padding: 18px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 20px 0;
+  line-height: 1.6;
+  border: 1px solid var(--border-color);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+}
+
+table th {
+  background: var(--accent-blue);
+  color: #ffffff;
+  padding: 14px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid var(--border-color);
+}
+
+table td {
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+table td code {
+  background: var(--bg-secondary);
+  color: var(--accent-blue-light);
+}
+
+table tr:nth-child(even) {
+  background: var(--table-even);
+}
+
+table tr:hover {
+  background: var(--table-hover);
+}
+
+/* 語法高亮 */
+.syntax-operator {
+  color: var(--accent-orange);
+  font-weight: bold;
+}
+
+.syntax-keyword {
+  color: var(--accent-blue-light);
+  font-weight: bold;
+}
+
+.syntax-comment {
+  color: #6c757d;
+  font-style: italic;
+}

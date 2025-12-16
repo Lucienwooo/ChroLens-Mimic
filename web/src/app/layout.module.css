@@ -1,0 +1,12 @@
+.container {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.mainContent {
+    flex: 1;
+    padding: 30px;
+    overflow-y: auto;
+    background: var(--bg-primary);
+}

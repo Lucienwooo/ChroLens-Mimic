@@ -1,0 +1,55 @@
+.themeToggle {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.toggleButton {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 50px;
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    position: relative;
+    width: 70px;
+    height: 36px;
+}
+
+.toggleButton:hover {
+    border-color: var(--accent-primary);
+    background: var(--hover-bg);
+}
+
+.icon {
+    font-size: 18px;
+    transition: all 0.3s ease;
+    position: absolute;
+    left: 8px;
+    z-index: 1;
+}
+
+.toggleButton.lightMode .icon {
+    left: auto;
+    right: 8px;
+}
+
+.slider {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    background: var(--accent-primary);
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    left: 4px;
+}
+
+.toggleButton.lightMode .slider {
+    left: 38px;
+}

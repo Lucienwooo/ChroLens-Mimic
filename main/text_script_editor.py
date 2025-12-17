@@ -57,6 +57,239 @@ def font_tuple(size, weight=None, monospace=False):
     return (fam, size)
 
 
+# ========== PCB 風格布線器 (v11) ==========
+# 用於圖形模式的線路碰撞偵測和路徑計算
+
+PCB_COLORS = {
+    "main": "#8B8B8B",
+    "success": "#3fb950",
+    "failure": "#f85149",
+    "loop": "#58a6ff",
+}
+
+PCB_LINE_WIDTH = 4
+PCB_GRID_SIZE = 10
+PCB_GRAY_COLOR = "#4a4a4a"
+
+
+class GlobalRouter:
+    """全域碰撞偵測布線器 - PCB 風格"""
+    
+    def __init__(self, nodes):
+        self.nodes = nodes
+        self.h_segments = {}
+        self.v_segments = {}
+        self.label_rects = []
+        self.line_count = 0
+        self._mark_nodes_as_blocked()
+    
+    def _mark_nodes_as_blocked(self):
+        self.node_rects = []
+        padding = 4
+        for node in self.nodes:
+            self.node_rects.append({
+                "x1": node["x"] - padding,
+                "y1": node["y"] - padding,
+                "x2": node["x"] + node["width"] + padding,
+                "y2": node["y"] + node["height"] + padding,
+            })
+    
+    def _snap(self, val):
+        return round(val / PCB_GRID_SIZE) * PCB_GRID_SIZE
+    
+    def _is_h_free(self, y, x1, x2, check_nodes=True, from_node_idx=None, to_node_idx=None):
+        y_key = self._snap(y)
+        x1, x2 = min(x1, x2), max(x1, x2)
+        
+        if y_key in self.h_segments:
+            for sx1, sx2, _ in self.h_segments[y_key]:
+                if not (x2 <= sx1 - 5 or x1 >= sx2 + 5):
+                    return False
+        
+        if check_nodes:
+            for i, rect in enumerate(self.node_rects):
+                if from_node_idx is not None and i == from_node_idx:
+                    continue
+                if to_node_idx is not None and i == to_node_idx:
+                    continue
+                if rect["y1"] <= y <= rect["y2"]:
+                    if not (x2 <= rect["x1"] or x1 >= rect["x2"]):
+                        return False
+        return True
+    
+    def _is_v_free(self, x, y1, y2, check_nodes=True, from_node_idx=None, to_node_idx=None):
+        x_key = self._snap(x)
+        y1, y2 = min(y1, y2), max(y1, y2)
+        
+        if x_key in self.v_segments:
+            for sy1, sy2, _ in self.v_segments[x_key]:
+                if not (y2 <= sy1 - 5 or y1 >= sy2 + 5):
+                    return False
+        
+        if check_nodes:
+            for i, rect in enumerate(self.node_rects):
+                if from_node_idx is not None and i == from_node_idx:
+                    continue
+                if to_node_idx is not None and i == to_node_idx:
+                    continue
+                if rect["x1"] <= x <= rect["x2"]:
+                    if not (y2 <= rect["y1"] or y1 >= rect["y2"]):
+                        return False
+        return True
+    
+    def _can_direct_connect(self, x1, y1, x2, y2, from_idx, to_idx):
+        min_x, max_x = min(x1, x2), max(x1, x2)
+        for i, rect in enumerate(self.node_rects):
+            if i == from_idx or i == to_idx:
+                continue
+            if rect["x1"] < max_x and rect["x2"] > min_x:
+                if rect["y1"] <= y1 <= rect["y2"]:
+                    return False
+        return True
+    
+    def _is_label_pos_free(self, x, y, w=30, h=16):
+        for rect in self.label_rects:
+            if not (x + w < rect["x1"] or x - w > rect["x2"] or
+                    y + h < rect["y1"] or y - h > rect["y2"]):
+                return False
+        for rect in self.node_rects:
+            if not (x + w < rect["x1"] or x - w > rect["x2"] or
+                    y + h < rect["y1"] or y - h > rect["y2"]):
+                return False
+        return True
+    
+    def find_label_position(self, path):
+        for i in range(len(path)):
+            x, y = path[i]
+            for offset_y in [0, -20, 20, -40, 40]:
+                test_y = y + offset_y
+                if self._is_label_pos_free(x, test_y):
+                    self.label_rects.append({
+                        "x1": x - 20, "y1": test_y - 10,
+                        "x2": x + 20, "y2": test_y + 10,
+                    })
+                    return (x, test_y)
+        
+        mid = len(path) // 2
+        if mid < len(path):
+            x, y = path[mid]
+            for offset_x in [-30, 30, -60, 60]:
+                for offset_y in [0, -15, 15]:
+                    test_x, test_y = x + offset_x, y + offset_y
+                    if self._is_label_pos_free(test_x, test_y):
+                        self.label_rects.append({
+                            "x1": test_x - 20, "y1": test_y - 10,
+                            "x2": test_x + 20, "y2": test_y + 10,
+                        })
+                        return (test_x, test_y)
+        
+        if len(path) >= 2:
+            return (path[-2][0], path[-2][1] - 20)
+        return path[len(path) // 2] if path else (0, 0)
+    
+    def _mark_used(self, path, line_id):
+        for i in range(len(path) - 1):
+            x1, y1 = path[i]
+            x2, y2 = path[i + 1]
+            if abs(y2 - y1) < 3:
+                y_key = self._snap(y1)
+                if y_key not in self.h_segments:
+                    self.h_segments[y_key] = []
+                self.h_segments[y_key].append((min(x1, x2), max(x1, x2), line_id))
+            elif abs(x2 - x1) < 3:
+                x_key = self._snap(x1)
+                if x_key not in self.v_segments:
+                    self.v_segments[x_key] = []
+                self.v_segments[x_key].append((min(y1, y2), max(y1, y2), line_id))
+    
+    def _find_h_channel(self, base_y, x1, x2, direction=1):
+        for offset in range(0, 400, PCB_GRID_SIZE):
+            test_y = base_y + offset * direction
+            if self._is_h_free(test_y, x1, x2):
+                return test_y
+        return base_y + 250 * direction
+    
+    def _find_v_channel(self, base_x, y1, y2, direction=1):
+        for offset in range(0, 400, PCB_GRID_SIZE):
+            test_x = base_x + offset * direction
+            if self._is_v_free(test_x, y1, y2):
+                return test_x
+        return base_x + 250 * direction
+    
+    def route(self, from_node, to_node, path_type, from_idx=None, to_idx=None):
+        self.line_count += 1
+        line_id = self.line_count
+        
+        x1 = from_node["x"] + from_node["width"]
+        y1 = from_node["y"] + from_node["height"] // 2
+        x2 = to_node["x"]
+        y2 = to_node["y"] + to_node["height"] // 2
+        
+        path = [(x1, y1)]
+        
+        dx = x2 - x1
+        going_right = dx > 0
+        going_left = dx < 0
+        same_row = from_node.get("row") == to_node.get("row")
+        
+        if going_right and same_row:
+            can_direct = self._can_direct_connect(x1, y1, x2, y2, from_idx, to_idx)
+            line_free = self._is_h_free(y1, x1, x2, check_nodes=False)
+            
+            if can_direct and line_free:
+                path.append((x2, y1))
+            else:
+                channel_y = self._find_h_channel(y1 - 20, x1, x2, -1)
+                path.append((x1 + 15, y1))
+                path.append((x1 + 15, channel_y))
+                path.append((x2 - 15, channel_y))
+                path.append((x2 - 15, y2))
+        
+        elif going_right:
+            mid_x = (x1 + x2) // 2
+            if self._is_v_free(mid_x, min(y1, y2), max(y1, y2), from_node_idx=from_idx, to_node_idx=to_idx):
+                path.append((mid_x, y1))
+                path.append((mid_x, y2))
+            else:
+                mid_x = self._find_v_channel(mid_x, min(y1, y2), max(y1, y2), 1)
+                path.append((mid_x, y1))
+                path.append((mid_x, y2))
+        
+        elif going_left:
+            if path_type == "loop":
+                top_y = min(n["y"] for n in self.nodes) - 50
+                channel_y = self._find_h_channel(top_y, min(x1, x2) - 30, max(x1, x2) + 30, -1)
+            elif path_type == "failure":
+                bottom_y = max(n["y"] + n["height"] for n in self.nodes) + 50
+                channel_y = self._find_h_channel(bottom_y, min(x1, x2) - 30, max(x1, x2) + 30, 1)
+            else:
+                channel_y = self._find_h_channel(
+                    min(n["y"] for n in self.nodes) - 40,
+                    min(x1, x2) - 30, max(x1, x2) + 30, -1
+                )
+            
+            exit_x = self._find_v_channel(x1 + 20, min(y1, channel_y), max(y1, channel_y), 1)
+            entry_x = self._find_v_channel(x2 - 20, min(y2, channel_y), max(y2, channel_y), -1)
+            
+            path.append((exit_x, y1))
+            path.append((exit_x, channel_y))
+            path.append((entry_x, channel_y))
+            path.append((entry_x, y2))
+        
+        else:
+            test_x = x1 + 15
+            if self._is_v_free(test_x, min(y1, y2), max(y1, y2), from_node_idx=from_idx, to_node_idx=to_idx):
+                path.append((test_x, y2))
+            else:
+                mid_x = self._find_v_channel(x1 + 15, min(y1, y2), max(y1, y2), 1)
+                path.append((mid_x, y1))
+                path.append((mid_x, y2))
+        
+        path.append((x2, y2))
+        self._mark_used(path, line_id)
+        return path
+
+
 class TextCommandEditor(tk.Toplevel):
     """文字指令式腳本編輯器"""
     
@@ -896,7 +1129,7 @@ class TextCommandEditor(tk.Toplevel):
         self._draw_grid()
     
     def _convert_text_to_canvas(self, text_content):
-        """將文字指令轉換為畫布節點（Workflow層次化布局）"""
+        """將文字指令轉換為畫布節點（n8n 風格左到右布局）"""
         # 清空現有節點
         self.canvas.delete("all")
         self.canvas_nodes = []
@@ -907,51 +1140,78 @@ class TextCommandEditor(tk.Toplevel):
         # 解析層級結構
         parsed_structure = self._parse_marker_structure(lines)
         
-        # 使用層次化布局算法
-        x, y = 150, 80  # 起始位置（更大的邊距）
-        max_width = 0
-        row_height = 0
+        # === n8n 風格左到右布局 ===
+        # 節點尺寸
+        node_width = 200
+        node_height = 70
         
-        # 第一遍：計算所有節點
+        # 間距設定
+        horizontal_gap = 80   # 節點之間的水平間距
+        vertical_gap = 100    # 分支之間的垂直間距
+        start_x = 80          # 起始 X 位置
+        start_y = 120         # 起始 Y 位置（為分支留出空間）
+        
+        # 追蹤當前位置
+        current_x = start_x
+        current_y = start_y
+        
+        # 追蹤分支結構
+        branch_stack = []  # 用於追蹤分支點
+        max_y = start_y    # 追蹤最大 Y 值，用於新分支
+        
+        # 解析並繪製節點
         for item in parsed_structure:
             if item['type'] == 'marker':
-                # 標記容器需要更多空間
-                row_height = max(row_height, 200)
-                max_width = max(max_width, 250)
-            else:
-                row_height = max(row_height, 90)
-                max_width = max(max_width, 200)
-        
-        # 第二遍：繪製節點
-        col = 0
-        max_cols = 4  # 每行最多4個節點
-        
-        for item in parsed_structure:
-            if item['type'] == 'marker':
+                # 標記容器 - 作為一個大節點處理
+                marker_name = item['name']
+                children = item['children']
+                
                 # 繪製標記容器
-                container_height = self._draw_marker_container(item, x, y)
-                y += container_height + 50  # 標記後增加間距
-                col = 0  # 標記後重新開始
+                container_height = self._draw_marker_container(item, current_x, current_y)
+                
+                # 更新位置（向右移動）
+                current_x += node_width + horizontal_gap + 50
+                max_y = max(max_y, current_y + container_height)
+                
             else:
                 # 單獨的指令
                 line = item['line'].strip()
                 if not line:
                     continue
                 
+                # 跳過分支跳轉指令（>>#label 或 >>>#label），它們只用於連線
+                if line.startswith('>>'):
+                    continue
+                
                 color = self._get_command_color(line)
                 display_text = self._get_command_display_text(line)
-                self._create_canvas_node(display_text, color, x + (col * 280), y, original_command=line)
                 
-                col += 1
-                if col >= max_cols:
-                    col = 0
-                    y += 100  # 換行
+                # 創建節點
+                self._create_canvas_node(display_text, color, current_x, current_y, original_command=line)
+                
+                # 更新位置（向右移動）
+                current_x += node_width + horizontal_gap
+                
+                # 如果超過某個寬度，換行（防止無限寬）
+                if current_x > 1200:
+                    current_x = start_x
+                    current_y = max_y + vertical_gap
+                    max_y = current_y
         
         # 建立分支連接（在所有節點繪製完成後）
         self._create_branch_connections()
         
         # 調整畫布滾動區域
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        bbox = self.canvas.bbox("all")
+        if bbox:
+            # 增加一些邊距
+            padding = 100
+            self.canvas.configure(scrollregion=(
+                bbox[0] - padding,
+                bbox[1] - padding,
+                bbox[2] + padding,
+                bbox[3] + padding
+            ))
     
     def _parse_marker_structure(self, lines):
         """解析標記層級結構
@@ -1071,70 +1331,134 @@ class TextCommandEditor(tk.Toplevel):
                 self._connect_nodes(i, i + 1)
     
     def _draw_marker_container(self, marker_item, x, y):
-        """繪製標記容器，包含標記名和子元素
+        """繪製標記容器（n8n 風格）
+        包含標記名和子元素，支援左到右布局
         返回: 容器高度
         """
         marker_name = marker_item['name']
         children = marker_item['children']
         
+        # n8n 風格尺寸
+        header_height = 35  # 標記名標題高度
+        child_height = 40   # 每個子元素高度
+        padding = 10        # 內邊距
+        spacing = 5         # 子元素間距
+        icon_size = 28      # 圖示大小
+        port_radius = 6     # 連接點半徑
+        
         # 計算容器尺寸
-        marker_height = 40  # 標記名高度
-        child_height = 60  # 每個子元素高度
-        padding = 15  # 內邊距
-        spacing = 10  # 子元素間距
+        total_child_height = len(children) * (child_height + spacing) if children else 20
+        container_height = header_height + total_child_height + padding * 2
+        container_width = 200
         
-        total_child_height = len(children) * (child_height + spacing) if children else 0
-        container_height = marker_height + total_child_height + padding * 2
-        container_width = 220
+        # 繪製陰影
+        shadow = self.canvas.create_rectangle(
+            x + 3, y + 3,
+            x + container_width + 3, y + container_height + 3,
+            fill="#0a0a0a",
+            outline="",
+            tags=("shadow", "marker_shadow")
+        )
         
-        # 繪製容器外框（大框）
-        container_rect = self.canvas.create_rectangle(
+        # 繪製容器外框（圓角矩形）
+        container_rect = self._create_rounded_rectangle(
             x, y,
             x + container_width, y + container_height,
-            outline="#4ec9b0",  # 青綠色邊框
+            radius=8,
+            fill="#2d2d30",
+            outline="#00bcd4",  # 青色邊框
             width=2,
-            fill="#2d2d30",  # 深灰背景
             tags=("marker_container",)
         )
         
-        # 繪製標記名（在頂部）
-        marker_text = self.canvas.create_text(
-            x + container_width // 2,
-            y + marker_height // 2,
-            text=marker_name,
+        # 繪製標題區域背景
+        header_bg = self.canvas.create_rectangle(
+            x + 2, y + 2,
+            x + container_width - 2, y + header_height,
+            fill="#1e1e1e",
+            outline="",
+            tags=("marker_header",)
+        )
+        
+        # 繪製圖示圓形
+        icon_x = x + padding + icon_size // 2
+        icon_y = y + header_height // 2
+        
+        icon_bg = self.canvas.create_oval(
+            icon_x - icon_size // 2, icon_y - icon_size // 2,
+            icon_x + icon_size // 2, icon_y + icon_size // 2,
             fill="#4ec9b0",  # 青綠色
-            font=font_tuple(10, "bold"),  # 固定大小10
+            outline="",
+            tags=("marker_icon",)
+        )
+        
+        # 繪製圖示符號
+        icon_text = self.canvas.create_text(
+            icon_x, icon_y,
+            text="#",
+            fill="white",
+            font=font_tuple(12, "bold"),
+            tags=("marker_icon_text",)
+        )
+        
+        # 繪製標記名（在圖示右側）
+        marker_text = self.canvas.create_text(
+            x + padding + icon_size + 10,
+            y + header_height // 2,
+            text=marker_name,
+            fill="#4ec9b0",
+            font=font_tuple(10, "bold"),
+            anchor="w",
             tags=("marker_name",)
         )
         
-        # 繪製分隔線
-        separator = self.canvas.create_line(
-            x + 5, y + marker_height,
-            x + container_width - 5, y + marker_height,
-            fill="#4ec9b0",
-            width=1,
-            tags=("marker_separator",)
+        # 繪製輸入連接點（左側）
+        input_port_y = y + container_height // 2
+        input_port = self.canvas.create_oval(
+            x - port_radius, input_port_y - port_radius,
+            x + port_radius, input_port_y + port_radius,
+            fill="#1e1e1e",
+            outline="#00bcd4",
+            width=2,
+            tags=("marker_input_port",)
         )
         
-        # 保存標記容器作為一個特殊節點（包含所有子元素）
+        # 繪製輸出連接點（右側）
+        output_port = self.canvas.create_oval(
+            x + container_width - port_radius, input_port_y - port_radius,
+            x + container_width + port_radius, input_port_y + port_radius,
+            fill="#1e1e1e",
+            outline="#00bcd4",
+            width=2,
+            tags=("marker_output_port",)
+        )
+        
+        # 保存標記容器作為一個特殊節點
         marker_node = {
             "rect": container_rect,
             "text": marker_text,
+            "shadow": shadow,
             "container_rect": container_rect,
+            "header_bg": header_bg,
+            "icon_bg": icon_bg,
+            "icon_text": icon_text,
             "marker_text": marker_text,
-            "separator": separator,
+            "input_port": input_port,
+            "output_port": output_port,
             "command": marker_name,
             "original_command": marker_name,
             "color": "#4ec9b0",
             "x": x,
             "y": y,
+            "width": container_width,
+            "height": container_height,
             "is_marker": True,
-            "marker_children": [],  # 保存所有子元素的原始指令
-            "child_elements": []  # 保存子元素的canvas元素
+            "marker_children": [],
+            "child_elements": []
         }
         
         # 繪製子元素
-        child_y = y + marker_height + padding
+        child_y = y + header_height + padding
         for i, child in enumerate(children):
             color = self._get_command_color(child)
             display_text = self._get_command_display_text(child)
@@ -1147,26 +1471,26 @@ class TextCommandEditor(tk.Toplevel):
                 child_x, child_y,
                 child_x + child_width, child_y + child_height,
                 fill=color,
-                outline="#aaaaaa",
+                outline="#555555",
                 width=1,
                 tags=("marker_child",)
             )
             
-            child_text = self.canvas.create_text(
-                child_x + child_width // 2,
+            child_text_elem = self.canvas.create_text(
+                child_x + 8,
                 child_y + child_height // 2,
-                text=display_text,
+                text=display_text[:25] + "..." if len(display_text) > 25 else display_text,
                 fill="white",
-                font=font_tuple(10),  # 固定大小10
-                tags=("marker_child_text",),
-                width=child_width - 10
+                font=font_tuple(8),
+                anchor="w",
+                tags=("marker_child_text",)
             )
             
             # 保存到標記節點的子元素列表
-            marker_node["marker_children"].append(child)  # 原始指令
+            marker_node["marker_children"].append(child)
             marker_node["child_elements"].append({
                 "rect": child_rect,
-                "text": child_text,
+                "text": child_text_elem,
                 "x": child_x,
                 "y": child_y
             })
@@ -1234,82 +1558,207 @@ class TextCommandEditor(tk.Toplevel):
         return command
     
     def _create_canvas_node(self, text, color, x, y, original_command=None):
-        """在畫布上創建節點（Workflow工作流程圖風格）"""
+        """在畫布上創建節點（n8n 工作流程圖風格）
+        
+        n8n 風格特點：
+        - 左側圓形圖示區域
+        - 右側卡片顯示標題和描述
+        - 左側輸入連接點
+        - 右側輸出連接點
+        - 深色背景配淺色文字
+        """
         node_idx = len(self.canvas_nodes)
         node_tag = f"node_{node_idx}"
         
-        # 判斷節點類型，決定形狀
-        is_condition = '條件判斷' in text or '如果' in text
-        is_label = text.startswith('標籤:')
+        # === n8n 風格節點尺寸 ===
+        node_width = 200
+        node_height = 70
+        icon_size = 40  # 圖示圓形直徑
+        icon_margin = 10  # 圖示左邊距
+        border_radius = 8
         
-        # 創建陰影效果（增加立體感）
+        # 判斷節點類型
+        is_condition = '條件判斷' in text or '如果' in text or '辨識' in text or 'if' in text.lower()
+        is_label = text.startswith('標籤:') or text.startswith('#')
+        is_mouse = '移動' in text or '點擊' in text or '拖曳' in text or '滾輪' in text
+        is_keyboard = text.startswith('@') or '按鍵' in text
+        is_wait = '等待' in text or '延遲' in text
+        is_loop = '迴圈' in text or '重複' in text
+        
+        # 根據類型選擇圖示顏色和符號
+        if is_condition:
+            icon_color = "#c586c0"  # 紫色 - 條件判斷
+            icon_symbol = "?"
+            border_color = "#9c27b0"
+        elif is_label:
+            icon_color = "#4ec9b0"  # 青綠色 - 標籤
+            icon_symbol = "#"
+            border_color = "#00bcd4"
+        elif is_mouse:
+            icon_color = "#569cd6"  # 藍色 - 滑鼠
+            icon_symbol = "🖱"
+            border_color = "#2196f3"
+        elif is_keyboard:
+            icon_color = "#9cdcfe"  # 淺藍色 - 鍵盤
+            icon_symbol = "⌨"
+            border_color = "#03a9f4"
+        elif is_wait:
+            icon_color = "#dcdcaa"  # 黃色 - 等待
+            icon_symbol = "⏱"
+            border_color = "#ffc107"
+        elif is_loop:
+            icon_color = "#ce9178"  # 橘色 - 迴圈
+            icon_symbol = "↻"
+            border_color = "#ff9800"
+        else:
+            icon_color = color
+            icon_symbol = "▶"
+            border_color = "#666666"
+        
+        # === 創建節點元素 ===
+        
+        # 1. 陰影效果（輕微偏移）
         shadow = self.canvas.create_rectangle(
-            x + 4, y + 4, x + 184, y + 64,
-            fill="#1a1a1a",
+            x + 3, y + 3,
+            x + node_width + 3, y + node_height + 3,
+            fill="#0a0a0a",
             outline="",
             tags=("shadow", node_tag)
         )
         
-        if is_condition:
-            # 條件判斷用菱形（Workflow風格）
-            node_shape = self.canvas.create_polygon(
-                x + 90, y,           # 上
-                x + 180, y + 30,     # 右
-                x + 90, y + 60,      # 下
-                x, y + 30,           # 左
-                fill=color,
-                outline="#66ccff",   # 亮藍色邊框
-                width=2,
-                smooth=True,
-                tags=("node", node_tag)
-            )
-        elif is_label:
-            # 標籤用橢圓（更柔和）
-            node_shape = self.canvas.create_oval(
-                x, y, x + 180, y + 60,
-                fill=color,
-                outline="#99ff99",   # 亮綠色邊框
-                width=2,
-                tags=("node", node_tag)
-            )
-        else:
-            # 一般指令用圓角矩形（通過多邊形模擬）
-            radius = 10
-            node_shape = self._create_rounded_rectangle(
-                x, y, x + 180, y + 60,
-                radius=radius,
-                fill=color,
-                outline="#aaaaaa",
-                width=2,
-                tags=("node", node_tag)
-            )
-        
-        # 創建節點文字
-        node_text = self.canvas.create_text(
-            x + 90, y + 30,
-            text=text,
-            fill="white",
-            font=font_tuple(10, "bold"),  # 固定大小10
-            tags=("node", node_tag),
-            width=170
+        # 2. 主卡片背景（深灰色圓角矩形）
+        card_bg = self._create_rounded_rectangle(
+            x, y,
+            x + node_width, y + node_height,
+            radius=border_radius,
+            fill="#2d2d30",
+            outline=border_color,
+            width=2,
+            tags=("node", "card_bg", node_tag)
         )
         
-        # 儲存節點資料（包含完整原始指令和陰影）
+        # 3. 左側圖示背景圓形
+        icon_x = x + icon_margin + icon_size // 2
+        icon_y = y + node_height // 2
+        
+        icon_bg = self.canvas.create_oval(
+            icon_x - icon_size // 2, icon_y - icon_size // 2,
+            icon_x + icon_size // 2, icon_y + icon_size // 2,
+            fill=icon_color,
+            outline="",
+            tags=("node", "icon_bg", node_tag)
+        )
+        
+        # 4. 圖示符號
+        icon_text = self.canvas.create_text(
+            icon_x, icon_y,
+            text=icon_symbol,
+            fill="white",
+            font=font_tuple(14, "bold"),
+            tags=("node", "icon_text", node_tag)
+        )
+        
+        # 5. 標題文字（在圖示右側）
+        text_x = x + icon_margin + icon_size + 12
+        text_y = y + node_height // 2 - 8
+        
+        # 標題（主要顯示文字，限制長度）
+        display_title = text[:20] + "..." if len(text) > 20 else text
+        
+        title_text = self.canvas.create_text(
+            text_x, text_y,
+            text=display_title,
+            fill="white",
+            font=font_tuple(10, "bold"),
+            anchor="w",  # 左對齊
+            tags=("node", "title_text", node_tag)
+        )
+        
+        # 6. 副標題/描述（較小的灰色文字）
+        subtitle_y = y + node_height // 2 + 10
+        
+        # 從原始指令提取類型描述
+        if is_condition:
+            subtitle = "條件判斷"
+        elif is_label:
+            subtitle = "標籤節點"
+        elif is_mouse:
+            subtitle = "滑鼠動作"
+        elif is_keyboard:
+            subtitle = "鍵盤輸入"
+        elif is_wait:
+            subtitle = "等待延遲"
+        elif is_loop:
+            subtitle = "迴圈控制"
+        else:
+            subtitle = "動作指令"
+        
+        subtitle_text = self.canvas.create_text(
+            text_x, subtitle_y,
+            text=subtitle,
+            fill="#888888",
+            font=font_tuple(8),
+            anchor="w",
+            tags=("node", "subtitle_text", node_tag)
+        )
+        
+        # 7. 輸入連接點（左側小圓形）
+        port_radius = 6
+        input_port = self.canvas.create_oval(
+            x - port_radius, icon_y - port_radius,
+            x + port_radius, icon_y + port_radius,
+            fill="#1e1e1e",
+            outline=border_color,
+            width=2,
+            tags=("node", "input_port", node_tag)
+        )
+        
+        # 8. 輸出連接點（右側小圓形）
+        output_port = self.canvas.create_oval(
+            x + node_width - port_radius, icon_y - port_radius,
+            x + node_width + port_radius, icon_y + port_radius,
+            fill="#1e1e1e",
+            outline=border_color,
+            width=2,
+            tags=("node", "output_port", node_tag)
+        )
+        
+        # 如果是條件判斷，添加第二個輸出連接點（用於失敗分支）
+        output_port_2 = None
+        if is_condition:
+            output_port_2 = self.canvas.create_oval(
+                x + node_width - port_radius, icon_y + 15 - port_radius,
+                x + node_width + port_radius, icon_y + 15 + port_radius,
+                fill="#1e1e1e",
+                outline="#F44336",  # 紅色表示失敗分支
+                width=2,
+                tags=("node", "output_port_2", node_tag)
+            )
+        
+        # 儲存節點資料
         node_data = {
-            "rect": node_shape,
-            "text": node_text,
-            "shadow": shadow,  # 陰影元素
+            "rect": card_bg,
+            "text": title_text,
+            "shadow": shadow,
+            "icon_bg": icon_bg,
+            "icon_text": icon_text,
+            "subtitle_text": subtitle_text,
+            "input_port": input_port,
+            "output_port": output_port,
+            "output_port_2": output_port_2,
             "command": text,
-            "original_command": original_command if original_command else text,  # 保存原始指令
+            "original_command": original_command if original_command else text,
             "color": color,
+            "icon_color": icon_color,
+            "border_color": border_color,
             "x": x,
             "y": y,
-            "is_condition": is_condition
+            "width": node_width,
+            "height": node_height,
+            "is_condition": is_condition,
+            "is_label": is_label
         }
         self.canvas_nodes.append(node_data)
-        
-        # 不再自動連接節點，改由 _create_branch_connections() 統一處理
-        # 這樣可以更好地處理分支邏輯
         
         return node_idx
     
@@ -1332,18 +1781,23 @@ class TextCommandEditor(tk.Toplevel):
         return self.canvas.create_polygon(points, smooth=True, **kwargs)
     
     def _connect_nodes(self, idx1, idx2, label=None):
-        """連接兩個節點 - 使用電路板風格的正交路徑，避免重疊"""
+        """連接兩個節點 - 使用 n8n 風格的 Bezier 曲線（左到右流向）"""
         if idx1 < 0 or idx1 >= len(self.canvas_nodes) or idx2 < 0 or idx2 >= len(self.canvas_nodes):
             return
         
         node1 = self.canvas_nodes[idx1]
         node2 = self.canvas_nodes[idx2]
         
-        # 計算起點和終點（從節點底部中心到頂部中心）
-        x1 = node1["x"] + 90  # 節點寬度180，中心在90
-        y1 = node1["y"] + 60  # 節點高度60，底部
-        x2 = node2["x"] + 90
-        y2 = node2["y"]  # 頂部
+        # 獲取節點尺寸（n8n 風格節點）
+        node_width = node1.get("width", 200)
+        node_height = node1.get("height", 70)
+        
+        # 計算起點（從節點右側中心）和終點（到節點左側中心）
+        # n8n 風格是左到右流向
+        x1 = node1["x"] + node_width  # 節點右側
+        y1 = node1["y"] + node_height // 2  # 節點中心高度
+        x2 = node2["x"]  # 節點左側
+        y2 = node2["y"] + node2.get("height", 70) // 2  # 節點中心高度
         
         # 根據標籤選擇顏色
         if label == "成功" or label == "True":
@@ -1353,87 +1807,133 @@ class TextCommandEditor(tk.Toplevel):
             line_color = "#F44336"  # 紅色表示失敗
             glow_color = "#E57373"
         else:
-            line_color = "#60a5fa"  # 藍色表示普通連接
-            glow_color = "#93C5FD"
+            line_color = "#8B8B8B"  # 灰色表示普通連接（更接近 n8n 風格）
+            glow_color = "#666666"
         
-        # 計算路徑偏移量（根據從該節點出發的連線數量）
-        # 統計從 node1 出發的所有連線
+        # 計算連線索引（用於多輸出時的垂直偏移）
         existing_connections = [c for c in self.canvas_connections if c["from"] == idx1]
         connection_index = len(existing_connections)
         
-        # 電路板風格的正交路徑
-        # 每條線使用不同的水平偏移，避免重疊
-        horizontal_offset = 30 + (connection_index * 40)  # 每條線間隔40像素
+        # 計算來自同一目標節點的連線數（用於輸入端偏移）
+        incoming_connections = [c for c in self.canvas_connections if c["to"] == idx2]
+        incoming_index = len(incoming_connections)
         
-        # 路徑規劃：
-        # 1. 從起點向下延伸一小段
-        # 2. 向右（或向左）移動到專屬通道
-        # 3. 在專屬通道中垂直移動到目標高度附近
-        # 4. 向左（或向右）移動到目標X座標
-        # 5. 向下連接到目標
+        # 輸出端垂直偏移（每條線間隔 15 像素）
+        output_offset = (connection_index - 0.5) * 15 if connection_index > 0 else 0
+        y1 += output_offset
         
-        points = []
+        # 輸入端垂直偏移
+        input_offset = (incoming_index - 0.5) * 15 if incoming_index > 0 else 0
+        y2 += input_offset
         
-        # 判斷目標在左邊還是右邊
-        if x2 >= x1:  # 目標在右邊或同位置
-            # 路徑：向下 -> 向右 -> 向下/向上 -> 向左 -> 到達目標
-            points = [
-                x1, y1,  # 起點
-                x1, y1 + 20,  # 向下延伸
-                x1 + horizontal_offset, y1 + 20,  # 向右到專屬通道
-                x1 + horizontal_offset, y2 - 20,  # 在通道中垂直移動
-                x2, y2 - 20,  # 向左到目標X
-                x2, y2  # 到達目標
-            ]
-        else:  # 目標在左邊
-            # 路徑：向下 -> 向左 -> 向下/向上 -> 向右 -> 到達目標
-            points = [
-                x1, y1,  # 起點
-                x1, y1 + 20,  # 向下延伸
-                x1 - horizontal_offset, y1 + 20,  # 向左到專屬通道
-                x1 - horizontal_offset, y2 - 20,  # 在通道中垂直移動
-                x2, y2 - 20,  # 向右到目標X
-                x2, y2  # 到達目標
-            ]
+        # === Bezier 曲線計算 ===
+        # 計算水平距離和控制點偏移
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
         
-        # 繪製發光效果（外層粗線）- 使用直線段
+        # 控制點偏移量（根據距離動態調整，創建平滑曲線）
+        # 較長的距離需要更大的控制點偏移
+        control_offset = max(50, min(dx * 0.4, 150))
+        
+        # 處理特殊情況：目標在左邊（需要繞回）
+        if x2 < x1:
+            # 需要先向右再繞回左邊
+            control_offset = max(80, dy * 0.5 + 50)
+            
+            # 使用更複雜的路徑：右出 -> 下/上繞 -> 左入
+            mid_y = (y1 + y2) / 2
+            
+            # 創建 S 形曲線的控制點
+            cp1_x = x1 + control_offset
+            cp1_y = y1
+            cp2_x = x2 - control_offset
+            cp2_y = y2
+            
+            # 如果垂直差距大，調整控制點
+            if dy > 100:
+                cp1_y = y1 + (y2 - y1) * 0.3
+                cp2_y = y2 - (y2 - y1) * 0.3
+        else:
+            # 正常左到右流向
+            cp1_x = x1 + control_offset
+            cp1_y = y1
+            cp2_x = x2 - control_offset
+            cp2_y = y2
+        
+        # 使用多點近似 Bezier 曲線（tkinter 的 smooth=True 會自動平滑）
+        # 計算貝塞爾曲線上的多個點
+        bezier_points = []
+        num_segments = 20  # 分段數量，越多越平滑
+        
+        for i in range(num_segments + 1):
+            t = i / num_segments
+            # 三次貝塞爾曲線公式
+            # B(t) = (1-t)³P0 + 3(1-t)²tP1 + 3(1-t)t²P2 + t³P3
+            t2 = t * t
+            t3 = t2 * t
+            mt = 1 - t
+            mt2 = mt * mt
+            mt3 = mt2 * mt
+            
+            px = mt3 * x1 + 3 * mt2 * t * cp1_x + 3 * mt * t2 * cp2_x + t3 * x2
+            py = mt3 * y1 + 3 * mt2 * t * cp1_y + 3 * mt * t2 * cp2_y + t3 * y2
+            
+            bezier_points.extend([px, py])
+        
+        # 繪製發光效果（外層粗線）
         glow_line = self.canvas.create_line(
-            *points,
+            *bezier_points,
             fill=glow_color,
-            width=6,
-            smooth=False,  # 不平滑，保持直角
+            width=5,
+            smooth=True,
+            splinesteps=36,
             tags="connection_glow"
         )
         
-        # 繪製主連接線（帶箭頭）- 使用直線段
+        # 繪製主連接線
         line = self.canvas.create_line(
-            *points,
+            *bezier_points,
             fill=line_color,
-            width=3,
-            arrow=tk.LAST,
-            arrowshape=(14, 18, 6),
-            smooth=False,  # 不平滑，保持直角
+            width=2,
+            smooth=True,
+            splinesteps=36,
             tags="connection"
+        )
+        
+        # 繪製終點箭頭（小圓形端點，n8n 風格）
+        arrow_radius = 4
+        arrow_end = self.canvas.create_oval(
+            x2 - arrow_radius, y2 - arrow_radius,
+            x2 + arrow_radius, y2 + arrow_radius,
+            fill=line_color,
+            outline="",
+            tags="connection_arrow"
+        )
+        
+        # 繪製起點連接點（小圓形）
+        start_dot = self.canvas.create_oval(
+            x1 - 3, y1 - 3,
+            x1 + 3, y1 + 3,
+            fill=line_color,
+            outline="",
+            tags="connection_start"
         )
         
         # 如果有標籤，添加帶背景的文字
         label_text = None
         label_bg = None
         if label:
-            # 將標籤放在水平段的中間
-            if x2 >= x1:
-                label_x = x1 + horizontal_offset
-            else:
-                label_x = x1 - horizontal_offset
-            label_y = (y1 + y2) / 2
+            # 將標籤放在曲線中間位置
+            label_x = (x1 + x2) / 2
+            label_y = (y1 + y2) / 2 - 15  # 稍微往上偏移避免與線重疊
             
-            # 創建標籤背景
+            # 創建標籤背景（圓角矩形效果）
             label_bg = self.canvas.create_rectangle(
-                label_x - 28, label_y - 12,
-                label_x + 28, label_y + 12,
-                fill="#2d2d30",
+                label_x - 25, label_y - 10,
+                label_x + 25, label_y + 10,
+                fill="#1e1e1e",
                 outline=line_color,
-                width=2,
+                width=1,
                 tags="connection_label_bg"
             )
             
@@ -1442,22 +1942,29 @@ class TextCommandEditor(tk.Toplevel):
                 label_x, label_y,
                 text=label,
                 fill=line_color,
-                font=font_tuple(9, "bold"),
+                font=font_tuple(8, "bold"),
                 tags="connection_label"
             )
         
         self.canvas_connections.append({
             "line": line,
             "glow_line": glow_line,
+            "arrow_end": arrow_end,
+            "start_dot": start_dot,
             "label_text": label_text,
             "label_bg": label_bg,
             "from": idx1,
             "to": idx2,
-            "connection_index": connection_index
+            "connection_index": connection_index,
+            "bezier_points": bezier_points,
+            "control_points": (cp1_x, cp1_y, cp2_x, cp2_y)
         })
         
         # 將連接線移到節點下層
         self.canvas.tag_lower("connection_label_bg")
+        self.canvas.tag_lower("connection_label")
+        self.canvas.tag_lower("connection_arrow")
+        self.canvas.tag_lower("connection_start")
         self.canvas.tag_lower("connection")
         self.canvas.tag_lower("connection_glow")
         self.canvas.tag_lower("grid")
@@ -1554,11 +2061,32 @@ class TextCommandEditor(tk.Toplevel):
                     child_elem["x"] += dx
                     child_elem["y"] += dy
             else:
-                # 移動普通節點（包含陰影、形狀、文字）
+                # 移動普通節點（n8n 風格，包含多個元素）
+                # 陰影
                 if "shadow" in node:
                     self.canvas.move(node["shadow"], dx, dy)
+                # 主卡片
                 self.canvas.move(node["rect"], dx, dy)
+                # 標題文字
                 self.canvas.move(node["text"], dx, dy)
+                # 圖示背景
+                if "icon_bg" in node:
+                    self.canvas.move(node["icon_bg"], dx, dy)
+                # 圖示文字
+                if "icon_text" in node:
+                    self.canvas.move(node["icon_text"], dx, dy)
+                # 副標題
+                if "subtitle_text" in node:
+                    self.canvas.move(node["subtitle_text"], dx, dy)
+                # 輸入連接點
+                if "input_port" in node:
+                    self.canvas.move(node["input_port"], dx, dy)
+                # 輸出連接點
+                if "output_port" in node:
+                    self.canvas.move(node["output_port"], dx, dy)
+                # 第二輸出連接點（條件判斷）
+                if node.get("output_port_2"):
+                    self.canvas.move(node["output_port_2"], dx, dy)
             
             # 更新節點位置
             node["x"] += dx
@@ -1595,61 +2123,92 @@ class TextCommandEditor(tk.Toplevel):
             self.canvas.config(cursor="crosshair")
     
     def _update_node_connections(self, node_idx):
-        """更新與指定節點相關的所有連接線 - 使用電路板風格路徑"""
+        """更新與指定節點相關的所有連接線 - 使用 Bezier 曲線"""
         for conn in self.canvas_connections:
             if conn["from"] == node_idx or conn["to"] == node_idx:
                 from_node = self.canvas_nodes[conn["from"]]
                 to_node = self.canvas_nodes[conn["to"]]
                 
-                # 計算起點和終點
-                x1 = from_node["x"] + 90
-                y1 = from_node["y"] + 60
-                x2 = to_node["x"] + 90
-                y2 = to_node["y"]
+                # 獲取節點尺寸
+                node_width = from_node.get("width", 200)
+                node_height = from_node.get("height", 70)
                 
-                # 獲取連線索引（用於計算偏移）
+                # 計算起點（從節點右側）和終點（到節點左側）
+                x1 = from_node["x"] + node_width
+                y1 = from_node["y"] + node_height // 2
+                x2 = to_node["x"]
+                y2 = to_node["y"] + to_node.get("height", 70) // 2
+                
+                # 獲取連線索引
                 connection_index = conn.get("connection_index", 0)
-                horizontal_offset = 30 + (connection_index * 40)
                 
-                # 重新計算路徑
-                points = []
-                if x2 >= x1:  # 目標在右邊或同位置
-                    points = [
-                        x1, y1,
-                        x1, y1 + 20,
-                        x1 + horizontal_offset, y1 + 20,
-                        x1 + horizontal_offset, y2 - 20,
-                        x2, y2 - 20,
-                        x2, y2
-                    ]
-                else:  # 目標在左邊
-                    points = [
-                        x1, y1,
-                        x1, y1 + 20,
-                        x1 - horizontal_offset, y1 + 20,
-                        x1 - horizontal_offset, y2 - 20,
-                        x2, y2 - 20,
-                        x2, y2
-                    ]
+                # 計算偏移
+                output_offset = (connection_index - 0.5) * 15 if connection_index > 0 else 0
+                y1 += output_offset
+                
+                # 計算控制點
+                dx = abs(x2 - x1)
+                dy = abs(y2 - y1)
+                control_offset = max(50, min(dx * 0.4, 150))
+                
+                if x2 < x1:
+                    control_offset = max(80, dy * 0.5 + 50)
+                    cp1_x = x1 + control_offset
+                    cp1_y = y1
+                    cp2_x = x2 - control_offset
+                    cp2_y = y2
+                    if dy > 100:
+                        cp1_y = y1 + (y2 - y1) * 0.3
+                        cp2_y = y2 - (y2 - y1) * 0.3
+                else:
+                    cp1_x = x1 + control_offset
+                    cp1_y = y1
+                    cp2_x = x2 - control_offset
+                    cp2_y = y2
+                
+                # 計算 Bezier 曲線點
+                bezier_points = []
+                num_segments = 20
+                
+                for i in range(num_segments + 1):
+                    t = i / num_segments
+                    t2 = t * t
+                    t3 = t2 * t
+                    mt = 1 - t
+                    mt2 = mt * mt
+                    mt3 = mt2 * mt
+                    
+                    px = mt3 * x1 + 3 * mt2 * t * cp1_x + 3 * mt * t2 * cp2_x + t3 * x2
+                    py = mt3 * y1 + 3 * mt2 * t * cp1_y + 3 * mt * t2 * cp2_y + t3 * y2
+                    
+                    bezier_points.extend([px, py])
                 
                 # 更新連線座標
-                self.canvas.coords(conn["line"], *points)
+                self.canvas.coords(conn["line"], *bezier_points)
                 if conn.get("glow_line"):
-                    self.canvas.coords(conn["glow_line"], *points)
+                    self.canvas.coords(conn["glow_line"], *bezier_points)
+                
+                # 更新箭頭和起點圓形位置
+                arrow_radius = 4
+                if conn.get("arrow_end"):
+                    self.canvas.coords(conn["arrow_end"],
+                                       x2 - arrow_radius, y2 - arrow_radius,
+                                       x2 + arrow_radius, y2 + arrow_radius)
+                if conn.get("start_dot"):
+                    self.canvas.coords(conn["start_dot"],
+                                       x1 - 3, y1 - 3,
+                                       x1 + 3, y1 + 3)
                 
                 # 更新標籤位置
                 if conn.get("label_text"):
-                    if x2 >= x1:
-                        label_x = x1 + horizontal_offset
-                    else:
-                        label_x = x1 - horizontal_offset
-                    label_y = (y1 + y2) / 2
+                    label_x = (x1 + x2) / 2
+                    label_y = (y1 + y2) / 2 - 15
                     
                     self.canvas.coords(conn["label_text"], label_x, label_y)
                     if conn.get("label_bg"):
                         self.canvas.coords(conn["label_bg"],
-                                         label_x - 28, label_y - 12,
-                                         label_x + 28, label_y + 12)
+                                         label_x - 25, label_y - 10,
+                                         label_x + 25, label_y + 10)
     
     def _on_canvas_zoom(self, event):
         """畫布縮放事件（滾輪）- 同步縮放文字和圖形"""
@@ -7251,16 +7810,31 @@ class TextCommandEditor(tk.Toplevel):
     # ==================== Workflow 流程圖相關方法 ====================
     
     def _parse_and_draw_workflow(self, text_content):
-        """解析文字指令並繪製 Workflow 流程圖"""
+        """解析文字指令並繪製 Workflow 流程圖（PCB v11 風格）"""
         # 清空畫布
         self.workflow_canvas.delete("all")
         self.workflow_nodes = {}
         self.workflow_connections = []
         
+        # ★ 新增：PCB 風格資料結構 ★
+        self.pcb_nodes = []  # [{x, y, width, height, name, row, col, type, tag}]
+        self.pcb_connections = []  # [(from_idx, to_idx, path_type)]
+        self.pcb_groups = []  # [{nodes: [...], color, name}]
+        self.pcb_router = None
+        
+        # PCB 佈局參數
+        start_x = 120
+        start_y = 120
+        h_gap = 200
+        v_gap = 100
+        node_width = 140
+        node_height = 40
+        
         # 解析標籤和指令
         lines = text_content.split('\n')
         current_label = None
         label_commands = {}  # {label: [commands]}
+        label_order = []  # 保持標籤順序
         
         for line in lines:
             line = line.strip()
@@ -7268,43 +7842,333 @@ class TextCommandEditor(tk.Toplevel):
                 continue
             
             # 識別標籤
-            if line.startswith('#') and not line.startswith('##'):
+            if line.startswith('#') and not line.startswith('##') and not line.startswith('# ['):
                 current_label = line
                 label_commands[current_label] = []
+                label_order.append(current_label)
             elif current_label:
                 label_commands[current_label].append(line)
         
-        # 解析跳轉邏輯
+        if not label_order:
+            return
+        
+        # 將標籤分配到行 (row) - 根據跳轉關係
+        label_to_row = {}
+        label_to_col = {}
+        current_row = 0
+        current_col = 0
+        
+        # 計算每個標籤的類型
+        label_types = {}
         for label, commands in label_commands.items():
+            has_condition = any(c.startswith('>>>') for c in commands)
+            label_types[label] = "condition" if has_condition else "label"
+        
+        # 簡單佈局：根據依賴關係排列
+        visited = set()
+        
+        def assign_position(label, row, col):
+            if label in visited:
+                return col
+            visited.add(label)
+            label_to_row[label] = row
+            label_to_col[label] = col
+            
+            commands = label_commands.get(label, [])
+            next_col = col + 1
+            
+            # 找出跳轉目標
+            for cmd in commands:
+                if cmd.startswith('>>#'):
+                    target = '#' + cmd.split('#')[1].split(',')[0].strip()
+                    if target in label_order and target not in visited:
+                        next_col = assign_position(target, row, next_col)
+                elif cmd.startswith('>>>#'):
+                    target = '#' + cmd.split('#')[1].split(',')[0].strip()
+                    if target in label_order and target not in visited:
+                        # 失敗跳轉放在下一行
+                        assign_position(target, row + 1, 0)
+            
+            return next_col
+        
+        # 從第一個標籤開始佈局
+        if label_order:
+            assign_position(label_order[0], 0, 0)
+        
+        # 填充未分配的標籤
+        for i, label in enumerate(label_order):
+            if label not in label_to_row:
+                label_to_row[label] = (i // 4) + 2
+                label_to_col[label] = i % 4
+        
+        # 創建 PCB 節點
+        label_to_idx = {}
+        for label in label_order:
+            row = label_to_row.get(label, 0)
+            col = label_to_col.get(label, 0)
+            
+            x = start_x + col * h_gap
+            y = start_y + row * v_gap
+            
+            idx = len(self.pcb_nodes)
+            label_to_idx[label] = idx
+            
+            # 判斷節點類型
+            node_type = label_types.get(label, "label")
+            
+            self.pcb_nodes.append({
+                "x": x, "y": y,
+                "width": node_width, "height": node_height,
+                "name": label, "row": row, "col": col,
+                "type": node_type, "tag": f"pcb_node_{idx}",
+                "commands": label_commands.get(label, []),
+            })
+            
+            # 同時建立舊格式 (兼容)
+            self.workflow_nodes[label] = {
+                'x': x, 'y': y, 'level': row, 'items': [],
+                'connections': 0,
+            }
+        
+        # 解析連線
+        for label, commands in label_commands.items():
+            from_idx = label_to_idx.get(label)
+            if from_idx is None:
+                continue
+            
             success_target = None
             fail_target = None
             
             for cmd in commands:
                 if cmd.startswith('>>#'):
-                    # 成功跳轉
                     success_target = '#' + cmd.split('#')[1].split(',')[0].strip()
                 elif cmd.startswith('>>>#'):
-                    # 失敗跳轉
                     fail_target = '#' + cmd.split('#')[1].split(',')[0].strip()
             
-            # 儲存連接
-            if success_target:
+            # 找下一個順序標籤（main 連線）
+            label_idx_in_order = label_order.index(label) if label in label_order else -1
+            if label_idx_in_order >= 0 and label_idx_in_order < len(label_order) - 1:
+                next_label = label_order[label_idx_in_order + 1]
+                next_idx = label_to_idx.get(next_label)
+                
+                # 如果已經有 success/fail 跳轉，不添加 main
+                if next_idx is not None and success_target != next_label and fail_target != next_label:
+                    # 判斷是否為迴圈（向左回頭）
+                    if self.pcb_nodes[next_idx]["col"] < self.pcb_nodes[from_idx]["col"]:
+                        self.pcb_connections.append((from_idx, next_idx, "loop"))
+                    else:
+                        self.pcb_connections.append((from_idx, next_idx, "main"))
+            
+            # 添加 success 連線
+            if success_target and success_target in label_to_idx:
+                to_idx = label_to_idx[success_target]
+                path_type = "loop" if self.pcb_nodes[to_idx]["col"] < self.pcb_nodes[from_idx]["col"] else "success"
+                self.pcb_connections.append((from_idx, to_idx, path_type))
                 self.workflow_connections.append((label, success_target, 'success'))
-            if fail_target:
+            
+            # 添加 failure 連線
+            if fail_target and fail_target in label_to_idx:
+                to_idx = label_to_idx[fail_target]
+                path_type = "loop" if self.pcb_nodes[to_idx]["col"] < self.pcb_nodes[from_idx]["col"] else "failure"
+                self.pcb_connections.append((from_idx, to_idx, path_type))
                 self.workflow_connections.append((label, fail_target, 'fail'))
         
-        # 計算節點位置（使用層級佈局）
-        self._calculate_workflow_layout(list(label_commands.keys()))
+        # 自動生成群組（根據類型分組）
+        condition_nodes = [i for i, n in enumerate(self.pcb_nodes) if n["type"] == "condition"]
+        if condition_nodes:
+            self.pcb_groups.append({
+                "nodes": condition_nodes,
+                "color": "#8957e5",
+                "name": "條件判斷區"
+            })
         
-        # 繪製連接線
-        self._draw_workflow_connections()
+        # 繪製
+        self._draw_pcb_graph()
+    
+    def _draw_pcb_graph(self):
+        """繪製 PCB 風格圖形"""
+        self.workflow_canvas.configure(bg="#010409")
         
-        # 繪製節點
-        for label, commands in label_commands.items():
-            self._draw_workflow_node(label, commands)
+        # 1. 創建路由器
+        self.pcb_router = GlobalRouter(self.pcb_nodes)
         
-        # 更新滾動區域
-        self.workflow_canvas.configure(scrollregion=self.workflow_canvas.bbox("all"))
+        # 2. 繪製連線
+        self._draw_pcb_connections()
+        
+        # 3. 繪製節點
+        for idx, node in enumerate(self.pcb_nodes):
+            self._draw_pcb_node(idx, node)
+        
+        # 4. 繪製群組框
+        self._draw_pcb_groups()
+        
+        # 5. 調整層級
+        self.workflow_canvas.tag_lower("pcb_connection")
+        
+        # 6. 更新滾動區域
+        bbox = self.workflow_canvas.bbox("all")
+        if bbox:
+            padding = 100
+            self.workflow_canvas.configure(scrollregion=(
+                bbox[0] - padding,
+                bbox[1] - padding,
+                bbox[2] + padding,
+                bbox[3] + padding
+            ))
+    
+    def _draw_pcb_node(self, idx, node):
+        """繪製單個 PCB 風格節點"""
+        x, y = node["x"], node["y"]
+        w, h = node["width"], node["height"]
+        name = node["name"]
+        node_type = node.get("type", "label")
+        tag = node["tag"]
+        
+        # 根據類型設定樣式
+        style = self._get_pcb_node_style(name, node_type)
+        
+        # 陰影
+        self.workflow_canvas.create_rectangle(
+            x + 2, y + 2, x + w + 2, y + h + 2,
+            fill="#010409", outline="",
+            tags=(tag, "pcb_node")
+        )
+        
+        # 卡片背景
+        self.workflow_canvas.create_rectangle(
+            x, y, x + w, y + h,
+            fill="#161b22", outline=style["border"], width=2,
+            tags=(tag, "pcb_node", "pcb_card")
+        )
+        
+        # 圖示背景
+        icon_x, icon_y = x + 18, y + h // 2
+        self.workflow_canvas.create_oval(
+            icon_x - 10, icon_y - 10, icon_x + 10, icon_y + 10,
+            fill=style["icon_color"], outline="",
+            tags=(tag, "pcb_node")
+        )
+        
+        # 圖示文字
+        self.workflow_canvas.create_text(
+            icon_x, icon_y, text=style["icon"],
+            fill="white", font=("Microsoft JhengHei", 8, "bold"),
+            tags=(tag, "pcb_node")
+        )
+        
+        # 標題文字
+        display_name = name.replace("#", "")
+        if len(display_name) > 8:
+            display_name = display_name[:7] + ".."
+        
+        self.workflow_canvas.create_text(
+            x + 32, y + h // 2, text=display_name,
+            fill="#c9d1d9", font=("Microsoft JhengHei", 9),
+            anchor="w", tags=(tag, "pcb_node", "pcb_text")
+        )
+        
+        # 輸入連接埠
+        self.workflow_canvas.create_oval(
+            x - 4, icon_y - 4, x + 4, icon_y + 4,
+            fill="#161b22", outline=style["border"], width=2,
+            tags=(tag, "pcb_node", "pcb_port")
+        )
+        
+        # 輸出連接埠
+        self.workflow_canvas.create_oval(
+            x + w - 4, icon_y - 4, x + w + 4, icon_y + 4,
+            fill="#161b22", outline=style["border"], width=2,
+            tags=(tag, "pcb_node", "pcb_port")
+        )
+        
+        # 綁定事件
+        self.workflow_canvas.tag_bind(tag, "<Enter>",
+            lambda e, n=node: self._show_node_tooltip(e, n["name"], n.get("commands", [])))
+        self.workflow_canvas.tag_bind(tag, "<Leave>",
+            lambda e: self._hide_node_tooltip())
+    
+    def _get_pcb_node_style(self, name, node_type):
+        """取得節點樣式"""
+        if node_type == "condition" or "檢查" in name or "驗證" in name:
+            return {"icon": "?", "icon_color": "#8957e5", "border": "#8957e5"}
+        elif "開始" in name:
+            return {"icon": "▶", "icon_color": "#3fb950", "border": "#3fb950"}
+        elif "結束" in name or "失敗" in name:
+            return {"icon": "■", "icon_color": "#f85149", "border": "#f85149"}
+        elif "成功" in name:
+            return {"icon": "✓", "icon_color": "#3fb950", "border": "#3fb950"}
+        elif name.startswith("#"):
+            return {"icon": "#", "icon_color": "#58a6ff", "border": "#58a6ff"}
+        return {"icon": "●", "icon_color": "#6e7681", "border": "#6e7681"}
+    
+    def _draw_pcb_connections(self):
+        """繪製 PCB 風格連線"""
+        for from_idx, to_idx, path_type in self.pcb_connections:
+            if from_idx >= len(self.pcb_nodes) or to_idx >= len(self.pcb_nodes):
+                continue
+            
+            from_node = self.pcb_nodes[from_idx]
+            to_node = self.pcb_nodes[to_idx]
+            
+            # 計算路徑
+            path = self.pcb_router.route(from_node, to_node, path_type, from_idx, to_idx)
+            
+            # 繪製線路
+            color = PCB_COLORS.get(path_type, PCB_COLORS["main"])
+            
+            if len(path) >= 2:
+                points = []
+                for px, py in path:
+                    points.extend([px, py])
+                
+                self.workflow_canvas.create_line(
+                    *points, fill=color, width=PCB_LINE_WIDTH,
+                    capstyle="round", joinstyle="round",
+                    tags=("pcb_connection",)
+                )
+            
+            # 繪製標籤
+            if path_type in ("success", "failure", "loop"):
+                labels = {"success": "成功", "failure": "失敗", "loop": "重試"}
+                lx, ly = self.pcb_router.find_label_position(path)
+                
+                self.workflow_canvas.create_rectangle(
+                    lx - 16, ly - 8, lx + 16, ly + 8,
+                    fill="#161b22", outline=color, width=1,
+                    tags=("pcb_connection", "pcb_label")
+                )
+                self.workflow_canvas.create_text(
+                    lx, ly, text=labels.get(path_type, ""),
+                    fill=color, font=("Microsoft JhengHei", 7, "bold"),
+                    tags=("pcb_connection", "pcb_label")
+                )
+    
+    def _draw_pcb_groups(self):
+        """繪製 PCB 風格群組框"""
+        padding = 15
+        for group in self.pcb_groups:
+            if not group.get("nodes"):
+                continue
+            
+            group_nodes = [self.pcb_nodes[i] for i in group["nodes"] if i < len(self.pcb_nodes)]
+            if not group_nodes:
+                continue
+            
+            min_x = min(n["x"] for n in group_nodes) - padding
+            min_y = min(n["y"] for n in group_nodes) - padding
+            max_x = max(n["x"] + n["width"] for n in group_nodes) + padding
+            max_y = max(n["y"] + n["height"] for n in group_nodes) + padding
+            
+            self.workflow_canvas.create_rectangle(
+                min_x, min_y, max_x, max_y,
+                outline=group["color"], width=2, fill="", dash=(4, 2),
+                tags=("pcb_group",)
+            )
+            self.workflow_canvas.create_text(
+                min_x + 4, min_y - 8, text=group.get("name", ""),
+                fill=group["color"], font=("Microsoft JhengHei", 8),
+                anchor="w", tags=("pcb_group_label",)
+            )
     
     def _calculate_workflow_layout(self, labels):
         """計算節點佈局位置"""

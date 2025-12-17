@@ -9,7 +9,7 @@
 # 該檔案包含所有開發規範、流程說明、版本管理規則和重要備註
 # ═══════════════════════════════════════════════════════════════════════════
 
-VERSION = "2.7.2"
+VERSION = "2.7.3"
 
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *

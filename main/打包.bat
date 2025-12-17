@@ -1,11 +1,11 @@
 @echo off
 chcp 65001 >nul
-title ChroLens_Mimic 打包工具 v2.7.2
+title ChroLens_Mimic 打包工具 v2.7.3
 color 0A
 
 echo.
 echo ═══════════════════════════════════════════════════════════════════════════
-echo    ChroLens_Mimic 自動打包工具 v2.7.2
+echo    ChroLens_Mimic 自動打包工具 v2.7.3
 echo    更新機制: GitHub Releases + 批次腳本更新
 echo ═══════════════════════════════════════════════════════════════════════════
 echo.

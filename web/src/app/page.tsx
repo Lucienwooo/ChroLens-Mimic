@@ -1,38 +1,169 @@
+import React from 'react';
 import styles from './page.module.css';
 
 export default function Home() {
-    return (
-        <div className={styles.page}>
-            <h2>📌 基本介紹</h2>
-
-            <h3>🎯 ChroLens Mimic 是什麼？</h3>
-            <p>ChroLens Mimic 是一款功能強大的 Windows 自動化工具，專為需要重複執行操作的使用者設計。透過精確的錄製與回放功能，結合圖片辨識和條件判斷，讓您輕鬆實現任何重複性工作的自動化。</p>
-
-            <h3>✨ 核心特色</h3>
+  return (
+    <main className={styles.main}>
+      <h1>ChroLens Mimic</h1>
+      <p className={styles.subtitle}>輕量級 Windows 巨集錄製與回放工具</p>
+      
+      <section className={styles.features}>
+        <h2>核心功能</h2>
+        
+        <div className={styles.featureGrid}>
+          <div className={styles.featureCard}>
+            <h3>🎮 錄製與回放</h3>
             <ul>
-                <li><strong>🎯 精確錄製與回放</strong> - 記錄每一個鍵盤、滑鼠操作，並以可調速度精確重現</li>
-                <li><strong>📝 腳本編輯器</strong> - 使用簡潔的文字指令語法，輕鬆編輯和管理自動化腳本</li>
-                <li><strong>🖼️ 強化圖片辨識</strong> - 多算法融合、高精度匹配，支援多尺度搜尋</li>
-                <li><strong>🔀 條件判斷與流程控制</strong> - if/else 分支、標籤跳轉、循環控制</li>
+              <li>錄製滑鼠和鍵盤操作</li>
+              <li>支援暫停/繼續功能</li>
+              <li>多種回放速度設定（1x-10x）</li>
+              <li>智能視窗定位</li>
+              <li>滑鼠模式與視窗模式切換</li>
             </ul>
+          </div>
 
-            <h3>🎮 適用場景</h3>
+          <div className={styles.featureCard}>
+            <h3>📝 腳本編輯器</h3>
             <ul>
-                <li><strong>遊戲自動化</strong> - 自動掛機、技能循環、任務重複</li>
-                <li><strong>辦公自動化</strong> - 批次處理文件、表單填寫、數據錄入</li>
-                <li><strong>測試與驗證</strong> - UI 自動化測試、重複性操作驗證</li>
+              <li>文字指令式編輯器</li>
+              <li>圖片辨識功能（支援pic命名）</li>
+              <li>OCR文字辨識</li>
+              <li>條件判斷與迴圈</li>
+              <li>變數系統（v2.7.1+）</li>
+              <li>語法高亮與自動完成</li>
             </ul>
+          </div>
 
-            <h3>🎬 錄製與回放功能</h3>
-            <p>錄製與回放是 ChroLens Mimic 的核心功能，可以精確記錄並重現您的鍵盤、滑鼠操作。類似於市面上的 <strong>按鍵精靈</strong>、<strong>MacroRecorder</strong>、<strong>Pulover's Macro Creator</strong> 等工具，但更專注於穩定性和圖片辨識功能。</p>
-
-            <h4>⚡ 快捷鍵</h4>
+          <div className={styles.featureCard}>
+            <h3>⚙️ 進階功能</h3>
             <ul>
-                <li><code>F10</code> - 開始錄製</li>
-                <li><code>F9</code> - 停止錄製</li>
-                <li><code>F12</code> - 開始/暫停回放</li>
-                <li><code>Esc</code> - 緊急停止</li>
+              <li>多腳本管理</li>
+              <li>快捷鍵設定</li>
+              <li>排程執行</li>
+              <li>MiniMode簡化介面</li>
+              <li>腳本合併功能</li>
+              <li>自動備份機制</li>
             </ul>
+          </div>
+
+          <div className={styles.featureCard}>
+            <h3>🌍 國際化支援</h3>
+            <ul>
+              <li>繁體中文（預設）</li>
+              <li>English（v2.7.3+完整支援）</li>
+              <li>日本語（語言套件）</li>
+              <li>可擴展語言系統</li>
+            </ul>
+          </div>
+
+          <div className={styles.featureCard}>
+            <h3>🖼️ 圖片辨識（v2.6.7+）</h3>
+            <ul>
+              <li>支援任意pic開頭命名</li>
+              <li>辨識時顯示邊框</li>
+              <li>範圍辨識（限定搜尋區域）</li>
+              <li>組合參數使用</li>
+            </ul>
+          </div>
+
+          <div className={styles.featureCard}>
+            <h3>📋 剪貼簿操作（v2.7.3+）</h3>
+            <ul>
+              <li>複製到剪貼簿</li>
+              <li>從剪貼簿讀取</li>
+              <li>清空剪貼簿</li>
+              <li>支援文字和圖片</li>
+            </ul>
+          </div>
+
+          <div className={styles.featureCard}>
+            <h3>🖥️ 視窗操作（v2.7.3+）</h3>
+            <ul>
+              <li>取得視窗標題</li>
+              <li>設定視窗大小</li>
+              <li>最小化/最大化/還原</li>
+              <li>切換視窗</li>
+              <li>取得視窗位置</li>
+            </ul>
+          </div>
+
+          <div className={styles.featureCard}>
+            <h3>📸 螢幕擷取（v2.7.3+）</h3>
+            <ul>
+              <li>截圖全螢幕</li>
+              <li>截圖指定區域</li>
+              <li>截圖指定視窗</li>
+              <li>支援自動儲存</li>
+            </ul>
+          </div>
         </div>
-    );
+      </section>
+
+      <section className={styles.quickStart}>
+        <h2>快速開始</h2>
+        <ol>
+          <li>下載並解壓縮 ChroLens_Mimic</li>
+          <li>執行 ChroLens_Mimic.exe</li>
+          <li>點擊「開始錄製」(F10) 開始錄製操作</li>
+          <li>完成後點擊「停止」(F9)</li>
+          <li>點擊「回放」(F12) 重播動作</li>
+        </ol>
+      </section>
+
+      <section className={styles.useCases}>
+        <h2>使用情境</h2>
+        <div className={styles.caseGrid}>
+          <div className={styles.caseCard}>
+            <h3>💼 辦公自動化</h3>
+            <p>Excel表格批次複製貼上、重複性表單填寫、檔案批次處理</p>
+          </div>
+          <div className={styles.caseCard}>
+            <h3>🎮 遊戲輔助</h3>
+            <p>定點採集、重複技能施放、自動尋路、簡單戰鬥輔助</p>
+          </div>
+          <div className={styles.caseCard}>
+            <h3>🔧 系統維護</h3>
+            <p>防止電腦進入待機、定時任務執行、自動備份</p>
+          </div>
+          <div className={styles.caseCard}>
+            <h3>🧪 軟體測試</h3>
+            <p>重複測試流程、UI自動化測試、迴歸測試</p>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.download}>
+        <h2>下載與支援</h2>
+        <p>
+          <a href="https://github.com/Lucienwooo/ChroLens-Mimic/releases" target="_blank" rel="noopener noreferrer">
+            📥 GitHub Releases - 下載最新版本
+          </a>
+        </p>
+        <p>
+          <a href="https://discord.gg/72Kbs4WPPn" target="_blank" rel="noopener noreferrer">
+            💬 Discord 社群 - 問題討論與建議
+          </a>
+        </p>
+        <p>
+          <a href="https://ko-fi.com/B0B51FBVA8" target="_blank" rel="noopener noreferrer">
+            ☕ Ko-fi - 支持作者
+          </a>
+        </p>
+      </section>
+
+      <section className={styles.version}>
+        <h2>最新版本</h2>
+        <h3>v2.7.3 - 完整英文支援與功能擴展</h3>
+        <ul>
+          <li>🌍 完整英文版支援，所有UI和編輯器全面英文化</li>
+          <li>📚 整合完整功能文檔到官方網站</li>
+          <li>🖥️ 新增視窗操作進階指令</li>
+          <li>📋 新增剪貼簿操作指令</li>
+          <li>📸 新增螢幕擷取指令</li>
+          <li>🧹 專案清理，移除測試檔案和舊版說明</li>
+          <li>📦 優化打包流程，統一使用單一打包腳本</li>
+        </ul>
+      </section>
+    </main>
+  );
 }

@@ -4390,6 +4390,83 @@ class TextCommandEditor(tk.Toplevel):
                 elif event_type == "delayed_end":
                     delay_seconds = event.get("delay_seconds", 60)
                     lines.append(f">結束>{delay_seconds}秒後, T={time_str}\n")
+                
+                # ==================== 觸發器系統輸出 ====================
+                
+                # 定時觸發器
+                elif event_type == "interval_trigger":
+                    interval_ms = event.get("interval_ms", 30000)
+                    actions = event.get("actions", [])
+                    
+                    # 轉換為最佳單位
+                    if interval_ms >= 60000 and interval_ms % 60000 == 0:
+                        lines.append(f">每隔>{interval_ms // 60000}分鐘\n")
+                    elif interval_ms >= 1000 and interval_ms % 1000 == 0:
+                        lines.append(f">每隔>{interval_ms // 1000}秒\n")
+                    else:
+                        lines.append(f">每隔>{interval_ms}ms\n")
+                    
+                    for action in actions:
+                        lines.append(f"{action}\n")
+                    lines.append(">每隔結束\n")
+                
+                # 條件觸發器
+                elif event_type == "condition_trigger":
+                    target = event.get("target", "")
+                    cooldown_ms = event.get("cooldown_ms", 5000)
+                    actions = event.get("actions", [])
+                    
+                    cooldown_str = f"{cooldown_ms // 1000}秒" if cooldown_ms >= 1000 else f"{cooldown_ms}ms"
+                    lines.append(f">當偵測到>{target}, 冷卻{cooldown_str}\n")
+                    
+                    for action in actions:
+                        lines.append(f"{action}\n")
+                    lines.append(">當偵測結束\n")
+                
+                # 優先觸發器
+                elif event_type == "priority_trigger":
+                    target = event.get("target", "")
+                    actions = event.get("actions", [])
+                    
+                    lines.append(f">優先偵測>{target}\n")
+                    
+                    for action in actions:
+                        lines.append(f"{action}\n")
+                    lines.append(">優先偵測結束\n")
+                
+                # 並行區塊
+                elif event_type == "parallel_block":
+                    threads = event.get("threads", [])
+                    
+                    lines.append(">並行開始\n")
+                    
+                    for thread in threads:
+                        thread_name = thread.get("name", "")
+                        actions = thread.get("actions", [])
+                        lines.append(f">線程>{thread_name}\n")
+                        for action in actions:
+                            lines.append(f"  {action}\n")
+                        lines.append(">線程結束\n")
+                    
+                    lines.append(">並行結束\n")
+                
+                # 狀態機
+                elif event_type == "state_machine":
+                    machine_name = event.get("name", "")
+                    states = event.get("states", {})
+                    initial_state = event.get("initial_state", "")
+                    
+                    lines.append(f">狀態機>{machine_name}\n")
+                    
+                    for state_name, state_data in states.items():
+                        is_initial = (state_name == initial_state)
+                        initial_flag = ", 初始" if is_initial else ""
+                        lines.append(f">狀態>{state_name}{initial_flag}\n")
+                        
+                        for action in state_data.get("actions", []):
+                            lines.append(f"  {action}\n")
+                    
+                    lines.append(">狀態機結束\n")
             
             except Exception as event_error:
                 # 異常事件跳過，記錄錯誤
@@ -4529,7 +4606,7 @@ class TextCommandEditor(tk.Toplevel):
                                 continue
                             
                             # 遇到條件判斷指令
-                            if any(kw in prev_line for kw in ['>if>', '>辨識>', '>if文字>', '>if變數>', '>if全部存在>', '>if任一存在>', '>隨機執行>']):
+                            if any(kw in prev_line for kw in ['>if>', '>辨識>', '>if文字>', '>if變數>', '>if全部存在>', '>if任一存在>', '>隨機執行>', '>計數器>', '>計時器>']):
                                 has_preceding_condition = True
                                 break
                             
@@ -4579,7 +4656,7 @@ class TextCommandEditor(tk.Toplevel):
                                 continue
                             
                             # 遇到條件判斷指令
-                            if any(kw in prev_line for kw in ['>if>', '>辨識>', '>if文字>', '>if變數>', '>if全部存在>', '>if任一存在>', '>隨機執行>']):
+                            if any(kw in prev_line for kw in ['>if>', '>辨識>', '>if文字>', '>if變數>', '>if全部存在>', '>if任一存在>', '>隨機執行>', '>計數器>', '>計時器>']):
                                 has_preceding_condition = True
                                 break
                             
@@ -4675,16 +4752,27 @@ class TextCommandEditor(tk.Toplevel):
                         # ✅ 修正：如果解析失敗（event為None），不跳過，繼續執行下方的標準解析邏輯
                     
                     # ✅ v2.7.1+ 新增：進階指令解析
+                    # ✅ v2.8.0+ 新增：觸發器、並行區塊、狀態機
                     if any(keyword in line for keyword in [
                         "設定變數>", "變數加1>", "變數減1>", "if變數>",
                         "重複>", "當圖片存在>", "循環結束", "重複結束",
                         "if全部存在>", "if任一存在>",
                         "隨機延遲>", "隨機執行>",
                         "計數器>", "計時器>", "重置計數器>", "重置計時器>",
-                        "開始>", "結束>"
+                        "開始>", "結束>",
+                        # v2.8.0 觸發器
+                        "每隔>", "每隔結束",
+                        "當偵測到>", "當偵測結束",
+                        "優先偵測>", "優先偵測結束",
+                        # v2.8.0 並行區塊
+                        "並行開始", "並行結束",
+                        "線程>", "線程結束",
+                        # v2.8.0 狀態機
+                        "狀態機>", "狀態機結束",
+                        "狀態>", "切換>"
                     ]):
-                        # 進階指令處理
-                        event = self._parse_advanced_command_to_json(line, lines[i+1:i+6], start_time)
+                        # 進階指令處理（傳遞所有剩餘行，支援區塊指令）
+                        event = self._parse_advanced_command_to_json(line, lines[i+1:], start_time)
                         if event:
                             event["_line_number"] = line_number
                             if pending_label:
@@ -4696,7 +4784,12 @@ class TextCommandEditor(tk.Toplevel):
                                 })
                                 pending_label = None
                             events.append(event)
-                            i += 1
+                            # ✅ v2.8.0 修復：區塊指令需要跳過多行
+                            lines_consumed = event.get("lines_consumed", 0)
+                            if lines_consumed > 0:
+                                i += lines_consumed + 1  # +1 是當前行
+                            else:
+                                i += 1
                             continue
                     
                     # 移除 ">" 並智能分割（保護括號內的逗號）
@@ -5859,6 +5952,222 @@ class TextCommandEditor(tk.Toplevel):
                 "time": abs_time
             }
         
+        # ==================== 觸發器系統 (Trigger System) ====================
+        
+        # 定時觸發器開始：>每隔>30秒
+        pattern = r'>每隔>(\d+)(秒|分鐘|ms)'
+        match = re.match(pattern, command_line)
+        if match:
+            interval_value = int(match.group(1))
+            interval_unit = match.group(2)
+            
+            # 轉換為毫秒
+            if interval_unit == '秒':
+                interval_ms = interval_value * 1000
+            elif interval_unit == '分鐘':
+                interval_ms = interval_value * 60 * 1000
+            else:  # ms
+                interval_ms = interval_value
+            
+            # 收集觸發器內的動作（直到 >每隔結束）
+            trigger_actions = []
+            lines_consumed = 0
+            for next_line in next_lines:
+                stripped = next_line.strip()
+                lines_consumed += 1
+                if stripped == '>每隔結束':
+                    break
+                if stripped and not stripped.startswith('#'):
+                    trigger_actions.append(stripped)
+            
+            return {
+                "type": "interval_trigger",
+                "interval_ms": interval_ms,
+                "actions": trigger_actions,
+                "lines_consumed": lines_consumed,
+                "time": start_time
+            }
+        
+        # 條件觸發器：>當偵測到>圖片名稱, 冷卻N秒
+        pattern = r'>當偵測到>(.+?)(?:,\s*冷卻(\d+)(秒|ms))?$'
+        match = re.match(pattern, command_line)
+        if match:
+            target = match.group(1).strip()
+            cooldown_value = int(match.group(2)) if match.group(2) else 5
+            cooldown_unit = match.group(3) if match.group(3) else '秒'
+            
+            # 轉換為毫秒
+            if cooldown_unit == '秒':
+                cooldown_ms = cooldown_value * 1000
+            else:
+                cooldown_ms = cooldown_value
+            
+            # 收集觸發器內的動作（直到 >當偵測結束）
+            trigger_actions = []
+            lines_consumed = 0
+            for next_line in next_lines:
+                stripped = next_line.strip()
+                lines_consumed += 1
+                if stripped == '>當偵測結束':
+                    break
+                if stripped and not stripped.startswith('#'):
+                    trigger_actions.append(stripped)
+            
+            return {
+                "type": "condition_trigger",
+                "target": target,
+                "cooldown_ms": cooldown_ms,
+                "actions": trigger_actions,
+                "lines_consumed": lines_consumed,
+                "time": start_time
+            }
+        
+        # 優先觸發器：>優先偵測>圖片名稱
+        pattern = r'>優先偵測>(.+?)$'
+        match = re.match(pattern, command_line)
+        if match:
+            target = match.group(1).strip()
+            
+            # 收集觸發器內的動作（直到 >優先偵測結束）
+            trigger_actions = []
+            lines_consumed = 0
+            for next_line in next_lines:
+                stripped = next_line.strip()
+                lines_consumed += 1
+                if stripped == '>優先偵測結束':
+                    break
+                if stripped and not stripped.startswith('#'):
+                    trigger_actions.append(stripped)
+            
+            return {
+                "type": "priority_trigger",
+                "target": target,
+                "actions": trigger_actions,
+                "lines_consumed": lines_consumed,
+                "time": start_time
+            }
+        
+        # ==================== 並行區塊 (Parallel Blocks) ====================
+        
+        # 並行開始：>並行開始
+        if command_line == '>並行開始':
+            # 收集所有線程（直到 >並行結束）
+            threads = []
+            current_thread = None
+            lines_consumed = 0
+            
+            for next_line in next_lines:
+                stripped = next_line.strip()
+                lines_consumed += 1
+                
+                if stripped == '>並行結束':
+                    # 儲存最後一個線程
+                    if current_thread:
+                        threads.append(current_thread)
+                    break
+                elif stripped.startswith('>線程>'):
+                    # 儲存前一個線程
+                    if current_thread:
+                        threads.append(current_thread)
+                    # 開始新線程
+                    thread_name = stripped[4:].strip()
+                    current_thread = {
+                        "name": thread_name,
+                        "actions": []
+                    }
+                elif stripped == '>線程結束':
+                    # 儲存當前線程
+                    if current_thread:
+                        threads.append(current_thread)
+                        current_thread = None
+                elif stripped and current_thread is not None:
+                    # 添加動作到當前線程
+                    current_thread["actions"].append(stripped)
+            
+            return {
+                "type": "parallel_block",
+                "threads": threads,
+                "lines_consumed": lines_consumed,
+                "time": start_time
+            }
+        
+        # ==================== 狀態機模式 (State Machine) ====================
+        
+        # 狀態機開始：>狀態機>戰鬥AI
+        if command_line.startswith('>狀態機>'):
+            machine_name = command_line[5:].strip()
+            
+            # 收集所有狀態（直到 >狀態機結束）
+            states = {}
+            current_state = None
+            initial_state = None
+            lines_consumed = 0
+            
+            for next_line in next_lines:
+                stripped = next_line.strip()
+                lines_consumed += 1
+                
+                if stripped == '>狀態機結束':
+                    # 儲存最後一個狀態
+                    if current_state:
+                        states[current_state["name"]] = current_state
+                    break
+                elif stripped.startswith('>狀態>'):
+                    # 儲存前一個狀態
+                    if current_state:
+                        states[current_state["name"]] = current_state
+                    
+                    # 解析狀態名稱和屬性
+                    state_def = stripped[4:].strip()
+                    is_initial = False
+                    
+                    # 檢查是否為初始狀態
+                    if ', 初始' in state_def or ',初始' in state_def:
+                        is_initial = True
+                        state_def = state_def.replace(', 初始', '').replace(',初始', '').strip()
+                    
+                    state_name = state_def
+                    current_state = {
+                        "name": state_name,
+                        "actions": [],
+                        "transitions": {}
+                    }
+                    
+                    if is_initial:
+                        initial_state = state_name
+                        
+                elif stripped.startswith('>切換>') and current_state:
+                    # 狀態切換指令
+                    target_state = stripped[4:].strip()
+                    current_state["transitions"]["default"] = target_state
+                    current_state["actions"].append(stripped)
+                elif stripped.startswith('>>切換>') and current_state:
+                    # 成功時切換
+                    target_state = stripped[5:].strip()
+                    current_state["transitions"]["success"] = target_state
+                    current_state["actions"].append(stripped)
+                elif stripped.startswith('>>>切換>') and current_state:
+                    # 失敗時切換
+                    target_state = stripped[6:].strip()
+                    current_state["transitions"]["failure"] = target_state
+                    current_state["actions"].append(stripped)
+                elif stripped and current_state is not None:
+                    # 添加動作到當前狀態
+                    current_state["actions"].append(stripped)
+            
+            # 如果沒有指定初始狀態，使用第一個定義的狀態
+            if not initial_state and states:
+                initial_state = list(states.keys())[0]
+            
+            return {
+                "type": "state_machine",
+                "name": machine_name,
+                "states": states,
+                "initial_state": initial_state,
+                "lines_consumed": lines_consumed,
+                "time": start_time
+            }
+        
         return None
     
     def _parse_combat_command_to_json(self, command_line: str, start_time: float) -> dict:
@@ -6180,8 +6489,8 @@ class TextCommandEditor(tk.Toplevel):
         if not module_name:
             return
         
-        # 儲存模組
-        module_path = os.path.join(self.modules_dir, f"{module_name}.txt")
+        # 儲存模組（檔案名為 mod_模組名.txt）
+        module_path = os.path.join(self.modules_dir, f"mod_{module_name}.txt")
         
         try:
             with open(module_path, 'w', encoding='utf-8') as f:
@@ -6200,7 +6509,7 @@ class TextCommandEditor(tk.Toplevel):
                     break
             
             self.status_label.config(
-                text=f"模組已儲存：{module_name} (可使用 >>#或>>#{module_name} 引用)",
+                text=f"模組已儲存：mod_{module_name}.txt (可使用 >#mod_{module_name} 引用)",
                 bg="#e8f5e9",
                 fg="#2e7d32"
             )
@@ -6267,14 +6576,15 @@ class TextCommandEditor(tk.Toplevel):
             self._show_message("錯誤", f"刪除模組失敗：{e}", "error")
     
     def _expand_module_references(self, text_content):
-        """展開模組引用：將 >#a 替換為模組內容
+        """展開模組引用：將 >#mod_a 替換為模組內容
         
         用於在保存或執行時，將標記引用替換為實際的模組內容
         
-        🔧 修正規則：
-        1. 只處理單個>開頭的模組引用（>#a），不處理分支指令（>>#a、>>>#a）
-        2. 模組名只包含英文字母和數字，長度1-10個字符
-        3. 分支指令（>>、>>>）永遠不會被當作模組引用
+        🔧 新格式規則：
+        1. 模組引用格式：>#mod_模組名 (例如：>#mod_a, >#mod_click01)
+        2. 模組名只包含英文字母、數字和底線，長度1-30個字符
+        3. 模組檔案儲存為 mod_模組名.txt (例如：mod_a.txt, mod_click01.txt)
+        4. 分支指令（>>、>>>）永遠不會被當作模組引用
         """
         lines = text_content.split('\n')
         expanded_lines = []
@@ -6282,23 +6592,22 @@ class TextCommandEditor(tk.Toplevel):
         for line in lines:
             stripped = line.strip()
             
-            # 🔧 修正：只匹配單個>開頭的模組引用（>#a），排除分支指令（>>#a、>>>#a）
-            # 正則表達式：^>#([a-zA-Z0-9]{1,10})$
-            # 這樣 >#a、>#module1 會匹配（模組引用）
-            # 但 >>#a、>>>#a 不會匹配（分支指令）
-            if re.match(r'^>#([a-zA-Z0-9]{1,10})$', stripped):
-                match = re.match(r'^>#([a-zA-Z0-9]{1,10})$', stripped)
-                module_ref = match.group(1)  # 獲取模組名（a、b等）
+            # 🔧 新格式：匹配 >#mod_模組名
+            # 正則表達式：^>#mod_([a-zA-Z0-9_]{1,30})$
+            # 例如：>#mod_a, >#mod_click01, >#mod_戰鬥循環
+            if re.match(r'^>#mod_([a-zA-Z0-9_\u4e00-\u9fa5]{1,30})$', stripped):
+                match = re.match(r'^>#mod_([a-zA-Z0-9_\u4e00-\u9fa5]{1,30})$', stripped)
+                module_ref = match.group(1)  # 獲取模組名（a、click01等）
                 
-                # 嘗試加載對應的模組
-                module_path = os.path.join(self.modules_dir, f"{module_ref}.txt")
+                # 嘗試加載對應的模組（檔案名為 mod_模組名.txt）
+                module_path = os.path.join(self.modules_dir, f"mod_{module_ref}.txt")
                 
                 if os.path.exists(module_path):
                     try:
                         with open(module_path, 'r', encoding='utf-8') as f:
                             module_content = f.read()
                         
-                        # 處理模組內容，直接添加（不需要增加縮進，因為模組引用是單個>）
+                        # 處理模組內容，直接添加
                         module_lines = module_content.strip().split('\n')
                         for module_line in module_lines:
                             expanded_lines.append(module_line)
@@ -6307,7 +6616,7 @@ class TextCommandEditor(tk.Toplevel):
                         expanded_lines.append(f"{line}  # 模組加載失敗: {e}")
                 else:
                     # 模組不存在，保留原始引用並添加註釋
-                    expanded_lines.append(f"{line}  # 模組不存在")
+                    expanded_lines.append(f"{line}  # 模組不存在: mod_{module_ref}.txt")
             else:
                 # 非模組引用，直接保留（包括分支指令 >>、>>> 等）
                 expanded_lines.append(line)
@@ -6392,25 +6701,48 @@ class TextCommandEditor(tk.Toplevel):
     def _apply_syntax_highlighting(self):
         """套用語法高亮 (VS Code Dark+ 配色) - 優化版"""
         try:
-            # ✨ 效能優化：僅處理可見區域前後各100行
-            visible_start = self.text_editor.index("@0,0")
-            visible_end = self.text_editor.index(f"@0,{self.text_editor.winfo_height()}")
+            # ✨ 修正：處理所有行而非僅可見區域，確保長腳本完整著色
+            # 取得整份文件的總行數
+            total_lines = int(self.text_editor.index("end-1c").split('.')[0])
             
-            # 擴展範圍以包含上下文
-            start_line = max(1, int(visible_start.split('.')[0]) - 100)
-            end_line = int(visible_end.split('.')[0]) + 100
+            # 處理整份文件
+            start_line = 1
+            end_line = total_lines
             
-            # 移除舊標籤（僅在處理範圍內）
+            # 移除舊標籤（全域）
             for tag in ["syntax_symbol", "syntax_time", "syntax_label", "syntax_keyboard",
                        "syntax_mouse", "syntax_image", "syntax_condition", "syntax_ocr",
                        "syntax_delay", "syntax_flow", "syntax_picname", "syntax_comment",
                        "syntax_module_ref", "label_foldable", "label_end"]:
-                self.text_editor.tag_remove(tag, f"{start_line}.0", f"{end_line}.end")
+                self.text_editor.tag_remove(tag, "1.0", "end")
             
-            # 獲取處理範圍的文字內容
+            # 獲取全部文字內容
             content = self.text_editor.get(f"{start_line}.0", f"{end_line}.end")
             
             # 定義需要高亮的模式 (Dracula 配色方案)
+            
+            # 觸發器系統 (紫色) - 優先順序最高
+            patterns_trigger = [
+                (r'>每隔>\d+(秒|分鐘|ms)', 'syntax_condition'),
+                (r'>每隔結束', 'syntax_condition'),
+                (r'>當偵測到>.+', 'syntax_condition'),
+                (r'>當偵測結束', 'syntax_condition'),
+                (r'>優先偵測>.+', 'syntax_flow'),
+                (r'>優先偵測結束', 'syntax_flow'),
+                # 並行區塊
+                (r'>並行開始', 'syntax_flow'),
+                (r'>線程>.+', 'syntax_flow'),
+                (r'>線程結束', 'syntax_flow'),
+                (r'>並行結束', 'syntax_flow'),
+                # 狀態機
+                (r'>狀態機>.+', 'syntax_flow'),
+                (r'>狀態>.+', 'syntax_flow'),
+                (r'>切換>.+', 'syntax_flow'),
+                (r'>>切換>.+', 'syntax_flow'),
+                (r'>>>切換>.+', 'syntax_flow'),
+                (r'>狀態機結束', 'syntax_flow'),
+            ]
+            
             # 流程控制 (紅色) - 優先順序最高
             patterns_flow = [
                 (r'跳到#\S+', 'syntax_flow'),
@@ -6488,9 +6820,9 @@ class TextCommandEditor(tk.Toplevel):
             
             # 模組引用 (金色 - 特殊標記)
             patterns_module_ref = [
-                (r'>>#\w+', 'syntax_module_ref'),     # >>#a 模組引用
-                (r'>>>#\w+', 'syntax_module_ref'),    # >>>#a 模組引用  
-                (r'>>>>#\w+', 'syntax_module_ref'),   # >>>>#a 模組引用
+                (r'>#mod_[\w\u4e00-\u9fa5]+', 'syntax_module_ref'),  # >#mod_a 模組引用
+                (r'>>#[\w\u4e00-\u9fa5]+', 'syntax_module_ref'),     # >>#標籤 分支跳轉
+                (r'>>>#[\w\u4e00-\u9fa5]+', 'syntax_module_ref'),    # >>>#標籤 分支跳轉
             ]
             
             # 符號 (淡紫色) - 最後處理
@@ -6502,7 +6834,7 @@ class TextCommandEditor(tk.Toplevel):
             ]
             
             # 按順序合併所有模式 (優先順序從高到低)
-            all_patterns = (patterns_comment + patterns_flow + patterns_condition + patterns_delay + 
+            all_patterns = (patterns_trigger + patterns_comment + patterns_flow + patterns_condition + patterns_delay + 
                           patterns_ocr + patterns_keyboard + patterns_mouse + 
                           patterns_image + patterns_picname + patterns_time + 
                           patterns_module_ref + patterns_label + patterns_symbol)
@@ -6590,8 +6922,8 @@ class TextCommandEditor(tk.Toplevel):
         if not module_name:
             return
         
-        # 儲存模組
-        module_path = os.path.join(self.modules_dir, f"{module_name}.txt")
+        # 儲存模組（檔案名為 mod_模組名.txt）
+        module_path = os.path.join(self.modules_dir, f"mod_{module_name}.txt")
         
         try:
             with open(module_path, 'w', encoding='utf-8') as f:
@@ -6610,7 +6942,7 @@ class TextCommandEditor(tk.Toplevel):
                     break
             
             self.status_label.config(
-                text=f"模組已儲存：{module_name}",
+                text=f"模組已儲存：mod_{module_name}.txt (可使用 >#mod_{module_name} 引用)",
                 bg="#e8f5e9",
                 fg="#2e7d32"
             )
@@ -7836,18 +8168,119 @@ class TextCommandEditor(tk.Toplevel):
         label_commands = {}  # {label: [commands]}
         label_order = []  # 保持標籤順序
         
+        # ✅ v2.8.0: 追蹤區塊結構
+        block_stack = []  # 追蹤區塊嵌套
+        
+        # ✅ v2.8.0: 追蹤背景任務（觸發器、並行區塊等）
+        background_labels = []  # 背景線程的標籤
+        main_labels = []  # 主線程的標籤
+        
+        # ✅ 自動添加起點
+        start_label = '#[起點]'
+        label_commands[start_label] = []
+        label_order.append(start_label)
+        
         for line in lines:
             line = line.strip()
             if not line or line.startswith('##'):
                 continue
             
-            # 識別標籤
+            # ✅ v2.8.0: 識別新的區塊結構（視為特殊標籤）
+            # 並行區塊
+            if line == '>並行開始':
+                block_label = '#[並行區塊]'
+                label_commands[block_label] = []
+                label_order.append(block_label)
+                current_label = block_label
+                block_stack.append('parallel')
+                continue
+            elif line == '>並行結束':
+                if block_stack and block_stack[-1] == 'parallel':
+                    block_stack.pop()
+                current_label = None
+                continue
+            elif line.startswith('>線程>'):
+                thread_name = line[4:].strip()
+                thread_label = f'#[線程:{thread_name}]'
+                label_commands[thread_label] = []
+                label_order.append(thread_label)
+                current_label = thread_label
+                continue
+            elif line == '>線程結束':
+                current_label = None
+                continue
+            
+            # 觸發器（視為背景線程）
+            if line.startswith('>每隔>'):
+                interval = line[4:].strip()
+                trigger_label = f'#[定時:{interval}]'
+                label_commands[trigger_label] = []
+                label_order.append(trigger_label)
+                background_labels.append(trigger_label)  # 標記為背景
+                current_label = trigger_label
+                continue
+            elif line == '>每隔結束':
+                current_label = None
+                continue
+            elif line.startswith('>當偵測到>'):
+                target = line[6:].split(',')[0].strip()
+                trigger_label = f'#[監聽:{target}]'
+                label_commands[trigger_label] = []
+                label_order.append(trigger_label)
+                background_labels.append(trigger_label)  # 標記為背景
+                current_label = trigger_label
+                continue
+            elif line == '>當偵測結束':
+                current_label = None
+                continue
+            elif line.startswith('>優先偵測>'):
+                target = line[6:].strip()
+                trigger_label = f'#[優先:{target}]'
+                label_commands[trigger_label] = []
+                label_order.append(trigger_label)
+                current_label = trigger_label
+                continue
+            elif line == '>優先偵測結束':
+                current_label = None
+                continue
+            
+            # 狀態機
+            if line.startswith('>狀態機>'):
+                machine_name = line[5:].strip()
+                sm_label = f'#[狀態機:{machine_name}]'
+                label_commands[sm_label] = []
+                label_order.append(sm_label)
+                current_label = sm_label
+                block_stack.append('state_machine')
+                continue
+            elif line == '>狀態機結束':
+                if block_stack and block_stack[-1] == 'state_machine':
+                    block_stack.pop()
+                current_label = None
+                continue
+            elif line.startswith('>狀態>'):
+                state_def = line[4:].strip()
+                state_name = state_def.replace(', 初始', '').replace(',初始', '').strip()
+                is_initial = '初始' in state_def
+                state_label = f'#[狀態:{state_name}]{"(初始)" if is_initial else ""}'
+                label_commands[state_label] = []
+                label_order.append(state_label)
+                current_label = state_label
+                continue
+            
+            # 識別一般標籤（視為主線程）
             if line.startswith('#') and not line.startswith('##') and not line.startswith('# ['):
                 current_label = line
                 label_commands[current_label] = []
                 label_order.append(current_label)
+                main_labels.append(current_label)  # 標記為主線程
             elif current_label:
                 label_commands[current_label].append(line)
+        
+        # ✅ 自動添加終點
+        end_label = '#[終點]'
+        label_commands[end_label] = []
+        label_order.append(end_label)
         
         if not label_order:
             return
@@ -7861,8 +8294,25 @@ class TextCommandEditor(tk.Toplevel):
         # 計算每個標籤的類型
         label_types = {}
         for label, commands in label_commands.items():
-            has_condition = any(c.startswith('>>>') for c in commands)
-            label_types[label] = "condition" if has_condition else "label"
+            # ✅ v2.8.0: 識別特殊區塊類型
+            if '[起點]' in label:
+                label_types[label] = "start"
+            elif '[終點]' in label:
+                label_types[label] = "end"
+            elif '[並行區塊]' in label:
+                label_types[label] = "parallel"
+            elif '[線程:' in label:
+                label_types[label] = "thread"
+            elif '[定時:' in label or '[監聽:' in label or '[優先:' in label:
+                label_types[label] = "trigger"
+            elif '[狀態機:' in label:
+                label_types[label] = "state_machine"
+            elif '[狀態:' in label:
+                label_types[label] = "state"
+            elif any(c.startswith('>>>') for c in commands):
+                label_types[label] = "condition"
+            else:
+                label_types[label] = "label"
         
         # 簡單佈局：根據依賴關係排列
         visited = set()
@@ -7931,6 +8381,21 @@ class TextCommandEditor(tk.Toplevel):
             }
         
         # 解析連線
+        # ✅ v2.8.0: 首先從起點連接到所有背景任務和主線程第一個標籤
+        start_idx = label_to_idx.get('#[起點]')
+        if start_idx is not None:
+            # 連接到所有背景任務
+            for bg_label in background_labels:
+                bg_idx = label_to_idx.get(bg_label)
+                if bg_idx is not None:
+                    self.pcb_connections.append((start_idx, bg_idx, "parallel"))
+            
+            # 連接到主線程第一個標籤
+            if main_labels:
+                first_main_idx = label_to_idx.get(main_labels[0])
+                if first_main_idx is not None:
+                    self.pcb_connections.append((start_idx, first_main_idx, "main"))
+        
         for label, commands in label_commands.items():
             from_idx = label_to_idx.get(label)
             if from_idx is None:
@@ -8086,20 +8551,70 @@ class TextCommandEditor(tk.Toplevel):
             lambda e, n=node: self._show_node_tooltip(e, n["name"], n.get("commands", [])))
         self.workflow_canvas.tag_bind(tag, "<Leave>",
             lambda e: self._hide_node_tooltip())
+        
+        # ✅ v2.8.0: 綁定拖曳事件
+        self.workflow_canvas.tag_bind(tag, "<ButtonPress-1>",
+            lambda e, t=tag, n=node: self._on_node_press(e, t, n))
+        self.workflow_canvas.tag_bind(tag, "<B1-Motion>",
+            lambda e, t=tag, n=node: self._on_node_drag(e, t, n))
     
     def _get_pcb_node_style(self, name, node_type):
         """取得節點樣式"""
-        if node_type == "condition" or "檢查" in name or "驗證" in name:
-            return {"icon": "?", "icon_color": "#8957e5", "border": "#8957e5"}
-        elif "開始" in name:
+        # ✅ v2.8.0: 新增特殊節點類型樣式
+        if node_type == "start" or '[起點]' in name:
             return {"icon": "▶", "icon_color": "#3fb950", "border": "#3fb950"}
-        elif "結束" in name or "失敗" in name:
-            return {"icon": "■", "icon_color": "#f85149", "border": "#f85149"}
+        elif node_type == "end" or '[終點]' in name:
+            return {"icon": "■", "icon_color": "#6e7681", "border": "#6e7681"}  # 灰色，因為可能未連接
+        elif node_type == "trigger" or '[監聽:' in name or '[定時:' in name or '[優先:' in name:
+            return {"icon": "⚡", "icon_color": "#f0883e", "border": "#f0883e"}  # 橘色
+        elif node_type == "parallel" or '[並行區塊]' in name:
+            return {"icon": "⫛", "icon_color": "#a371f7", "border": "#a371f7"}  # 紫色
+        elif node_type == "thread" or '[線程:' in name:
+            return {"icon": "∥", "icon_color": "#a371f7", "border": "#a371f7"}  # 紫色
+        elif node_type == "state_machine" or '[狀態機:' in name:
+            return {"icon": "⊚", "icon_color": "#ec6547", "border": "#ec6547"}  # 紅橘色
+        elif node_type == "state" or '[狀態:' in name:
+            return {"icon": "◉", "icon_color": "#ec6547", "border": "#ec6547"}  # 紅橘色
+        elif node_type == "condition" or "檢查" in name or "驗證" in name:
+            return {"icon": "?", "icon_color": "#8957e5", "border": "#8957e5"}
         elif "成功" in name:
             return {"icon": "✓", "icon_color": "#3fb950", "border": "#3fb950"}
+        elif "失敗" in name:
+            return {"icon": "✗", "icon_color": "#f85149", "border": "#f85149"}
         elif name.startswith("#"):
             return {"icon": "#", "icon_color": "#58a6ff", "border": "#58a6ff"}
         return {"icon": "●", "icon_color": "#6e7681", "border": "#6e7681"}
+    
+    def _on_node_press(self, event, tag, node):
+        """節點按下事件"""
+        self._drag_data = {
+            "tag": tag,
+            "node": node,
+            "x": event.x,
+            "y": event.y
+        }
+    
+    def _on_node_drag(self, event, tag, node):
+        """節點拖曳事件"""
+        if not hasattr(self, '_drag_data') or self._drag_data is None:
+            return
+        
+        dx = event.x - self._drag_data["x"]
+        dy = event.y - self._drag_data["y"]
+        
+        self.workflow_canvas.move(tag, dx, dy)
+        
+        # 更新節點座標
+        node["x"] += dx
+        node["y"] += dy
+        
+        self._drag_data["x"] = event.x
+        self._drag_data["y"] = event.y
+        
+        # ✅ 重新繪製所有連線
+        self.workflow_canvas.delete("pcb_connection")
+        self.pcb_router = GlobalRouter(self.pcb_nodes)
+        self._draw_pcb_connections()
     
     def _draw_pcb_connections(self):
         """繪製 PCB 風格連線"""

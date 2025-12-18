@@ -602,6 +602,16 @@ class RecorderApp(tb.Window):
         )
         self.mouse_mode_check.grid(row=0, column=5, padx=4)
         Tooltip(self.mouse_mode_check, lang_map["勾選時以控制真實滑鼠的模式回放"])
+        
+        # 添加滑鼠模式變更監聽 - 取消勾選時顯示警告
+        def on_mouse_mode_change(*args):
+            if not self.mouse_mode_var.get():
+                # 取消勾選時顯示警告
+                current_lang = self.language_var.get()
+                lang_m = LANG_MAP.get(current_lang, LANG_MAP["繁體中文"])
+                warning_msg = lang_m.get("滑鼠模式警告", "⚠️ 注意！\n\n取消勾選滑鼠模式將使用後台操作。\n遊戲可能會偵測外掛，請謹慎使用，後果自負！")
+                messagebox.showwarning("警告", warning_msg)
+        self.mouse_mode_var.trace_add("write", on_mouse_mode_change)
 
         self.script_combo.bind("<<ComboboxSelected>>", self.on_script_selected)
         # 綁定點擊事件，在展開下拉選單前自動刷新列表
@@ -690,8 +700,9 @@ class RecorderApp(tb.Window):
         lang_map = LANG_MAP.get(saved_lang, LANG_MAP["繁體中文"])
         self.page_menu = tk.Listbox(frm_page, width=18, font=("Microsoft JhengHei", 11), height=5)
         self.page_menu.insert(0, lang_map["1.日誌顯示"])
-        self.page_menu.insert(1, lang_map["2.腳本設定"])
-        self.page_menu.insert(2, lang_map["3.整體設定"])
+        self.page_menu.insert(1, lang_map["2.腳本編輯器"])
+        self.page_menu.insert(2, lang_map["3.腳本設定"])
+        self.page_menu.insert(3, lang_map["4.整體設定"])
         self.page_menu.grid(row=0, column=0, sticky="ns", padx=(0, 8), pady=4)
         self.page_menu.bind("<<ListboxSelect>>", self.on_page_selected)
 
@@ -775,15 +786,11 @@ class RecorderApp(tb.Window):
         self.del_script_btn = tb.Button(self.script_right_frame, text="刪除腳本", width=16, bootstyle=DANGER, command=self.delete_selected_script)
         self.del_script_btn.pack(anchor="w", pady=4)
         
-        # d) 視覺化編輯器按鈕：開啟拖放式編輯器（主要編輯器）
-        self.visual_editor_btn = tb.Button(self.script_right_frame, text="腳本編輯器", width=16, bootstyle=SUCCESS, command=self.open_visual_editor)
-        self.visual_editor_btn.pack(anchor="w", pady=4)
-        
-        # e) 排程按鈕：設定腳本定時執行
+        # d) 排程按鈕：設定腳本定時執行
         self.schedule_btn = tb.Button(self.script_right_frame, text="排程", width=16, bootstyle=INFO, command=self.open_schedule_settings)
         self.schedule_btn.pack(anchor="w", pady=4)
         
-        # f) 合併腳本按鈕：將多個腳本合併為一個
+        # e) 合併腳本按鈕：將多個腳本合併為一個
         self.merge_btn = tb.Button(self.script_right_frame, text=lang_map["合併腳本"], width=16, bootstyle=SUCCESS, command=self.merge_scripts)
         self.merge_btn.pack(anchor="w", pady=4)
 
@@ -3679,14 +3686,24 @@ class RecorderApp(tb.Window):
             widget.grid_forget()
             widget.place_forget()
         if idx == 0:
+            # 日誌顯示
             self.log_text.grid(row=0, column=0, sticky="nsew")
             for child in self.page_content_frame.winfo_children():
                 if isinstance(child, tb.Scrollbar):
                     child.grid(row=0, column=1, sticky="ns")
         elif idx == 1:
+            # 腳本編輯器 - 直接開啟編輯器視窗
+            self.open_visual_editor()
+            # 回到日誌顯示頁面
+            self.page_menu.selection_clear(0, "end")
+            self.page_menu.selection_set(0)
+            self.show_page(0)
+        elif idx == 2:
+            # 腳本設定
             self.script_setting_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
             self.refresh_script_listbox()
-        elif idx == 2:
+        elif idx == 3:
+            # 整體設定
             self.global_setting_frame.place(x=0, y=0, anchor="nw")
 
     def on_script_treeview_select(self, event=None):

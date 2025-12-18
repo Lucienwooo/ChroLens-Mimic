@@ -74,8 +74,7 @@ export default function Changelog() {
                 <h3>💬 開發者的話</h3>
                 <p>感謝各位使用 ChroLens Mimic！這裡會記錄每個版本的更新內容。</p>
                 <p>如果您有任何建議、問題或發現 Bug，歡迎透過 <strong><a href="https://discord.gg/your-discord-link" target="_blank" rel="noopener noreferrer" style={{ color: '#5865F2' }}>🎮 Discord 社群</a></strong> 反饋給我們。您的每一個意見都是我們進步的動力！</p>
-                <p>如果這個工具對您有幫助，歡迎 <strong><a href="https://your-sponsor-link.com" target="_blank" rel="noopener noreferrer" style={{ color: '#ff6b6b' }}>☕ 贊助支持開發</a></strong>，讓我們能持續為您帶來更好的功能！</p>
-                <p><strong>🎉 最新消息：</strong>v2.7.2 版本發布！圖片命名超強化，現在 pic 開頭隨便取名都可以（pic血條、pic王01、pic怪物...），編輯器不用寫副檔名超方便！</p>
+                <p>如果這個工具對您有幫助，歡迎 <strong><a href="https://ko-fi.com/lucienwooo" target="_blank" rel="noopener noreferrer" style={{ color: '#ff6b6b' }}>☕ 贊助支持開發</a></strong>，讓我們能持續為您帶來更好的功能！</p>
             </div>
 
             {/* 版本列表 */}

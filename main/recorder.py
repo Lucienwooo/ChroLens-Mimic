@@ -29,6 +29,380 @@ except ImportError:
     BEZIER_AVAILABLE = False
     print("⚠️ BezierMouseMover 未載入，將使用傳統直線移動")
 
+
+# ==================== 觸發器管理器 (v2.8.0+) ====================
+class TriggerManager:
+    """管理觸發器的並行執行
+    
+    支援三種觸發器類型：
+    1. interval_trigger: 定時觸發（每 N 秒執行）
+    2. condition_trigger: 條件觸發（偵測到目標時執行）
+    3. priority_trigger: 優先觸發（中斷當前執行）
+    """
+    
+    def __init__(self, recorder, logger=None):
+        self.recorder = recorder
+        self.logger = logger or (lambda s: None)
+        self._triggers = []  # List of trigger configs
+        self._threads = []  # Running trigger threads
+        self._running = False
+        self._lock = threading.Lock()
+        self._last_trigger_time = {}  # Cooldown tracking
+    
+    def add_trigger(self, trigger_config):
+        """添加觸發器配置"""
+        self._triggers.append(trigger_config)
+    
+    def clear_triggers(self):
+        """清空所有觸發器"""
+        self._triggers.clear()
+        self._last_trigger_time.clear()
+    
+    def start(self):
+        """啟動所有觸發器"""
+        if self._running:
+            return
+        self._running = True
+        
+        for trigger in self._triggers:
+            trigger_type = trigger.get('type')
+            if trigger_type == 'interval_trigger':
+                t = threading.Thread(
+                    target=self._run_interval_trigger,
+                    args=(trigger,),
+                    daemon=True
+                )
+                t.start()
+                self._threads.append(t)
+            elif trigger_type == 'condition_trigger':
+                t = threading.Thread(
+                    target=self._run_condition_trigger,
+                    args=(trigger,),
+                    daemon=True
+                )
+                t.start()
+                self._threads.append(t)
+            elif trigger_type == 'priority_trigger':
+                t = threading.Thread(
+                    target=self._run_priority_trigger,
+                    args=(trigger,),
+                    daemon=True
+                )
+                t.start()
+                self._threads.append(t)
+    
+    def stop(self):
+        """停止所有觸發器"""
+        self._running = False
+        # 等待所有線程結束
+        for t in self._threads:
+            t.join(timeout=1.0)
+        self._threads.clear()
+    
+    def _run_interval_trigger(self, trigger):
+        """執行定時觸發器"""
+        interval_ms = trigger.get('interval_ms', 30000)
+        actions = trigger.get('actions', [])
+        interval_sec = interval_ms / 1000.0
+        
+        while self._running and self.recorder.playing:
+            # 執行動作
+            with self._lock:
+                for action in actions:
+                    if not self._running:
+                        break
+                    self._execute_action_text(action)
+            
+            # 等待間隔
+            wait_start = time.time()
+            while self._running and self.recorder.playing:
+                if time.time() - wait_start >= interval_sec:
+                    break
+                time.sleep(0.1)
+    
+    def _run_condition_trigger(self, trigger):
+        """執行條件觸發器"""
+        target = trigger.get('target', '')
+        cooldown_ms = trigger.get('cooldown_ms', 5000)
+        actions = trigger.get('actions', [])
+        cooldown_sec = cooldown_ms / 1000.0
+        trigger_id = f"condition_{target}"
+        
+        while self._running and self.recorder.playing:
+            # 檢查冷卻
+            last_time = self._last_trigger_time.get(trigger_id, 0)
+            if time.time() - last_time < cooldown_sec:
+                time.sleep(0.1)
+                continue
+            
+            # 檢查條件（圖片是否存在）
+            if self.recorder._images_dir:
+                found = self.recorder._find_image_on_screen(target)
+                if found:
+                    self._last_trigger_time[trigger_id] = time.time()
+                    with self._lock:
+                        for action in actions:
+                            if not self._running:
+                                break
+                            self._execute_action_text(action)
+            
+            time.sleep(0.2)  # 偵測間隔
+    
+    def _run_priority_trigger(self, trigger):
+        """執行優先觸發器（偵測到目標時中斷當前執行）"""
+        target = trigger.get('target', '')
+        actions = trigger.get('actions', [])
+        trigger_id = f"priority_{target}"
+        
+        while self._running and self.recorder.playing:
+            # 檢查冷卻（優先觸發器也需要冷卻避免頻繁觸發）
+            last_time = self._last_trigger_time.get(trigger_id, 0)
+            if time.time() - last_time < 2.0:  # 2秒冷卻
+                time.sleep(0.1)
+                continue
+            
+            # 檢查條件
+            if self.recorder._images_dir:
+                found = self.recorder._find_image_on_screen(target)
+                if found:
+                    self._last_trigger_time[trigger_id] = time.time()
+                    self.logger(f"[優先觸發] 偵測到 {target}，中斷當前執行")
+                    with self._lock:
+                        for action in actions:
+                            if not self._running:
+                                break
+                            self._execute_action_text(action)
+            
+            time.sleep(0.3)  # 優先觸發偵測間隔
+    
+    def _execute_action_text(self, action_text):
+        """執行單行動作文字"""
+        try:
+            # 解析簡單動作
+            if action_text.startswith('>按'):
+                # 按鍵動作：>按F1, 延遲100ms
+                import re
+                match = re.match(r'>按(\w+)', action_text)
+                if match:
+                    key = match.group(1)
+                    import keyboard
+                    keyboard.press_and_release(key)
+            elif action_text.startswith('>跳到#'):
+                # 跳轉：目前在觸發器中的跳轉需要特殊處理
+                label = action_text.replace('>跳到#', '').strip()
+                self.recorder._pending_jump = label
+            elif action_text.startswith('>延遲'):
+                match = re.match(r'>延遲(\d+)(ms|秒)', action_text)
+                if match:
+                    value = int(match.group(1))
+                    unit = match.group(2)
+                    delay = value / 1000.0 if unit == 'ms' else value
+                    time.sleep(delay)
+        except Exception as e:
+            self.logger(f"[觸發器] 執行動作失敗: {e}")
+
+
+# ==================== 並行執行器 (v2.8.0+) ====================
+class ParallelExecutor:
+    """管理並行區塊的多線程執行
+    
+    執行多個線程，每個線程內的動作按順序執行，
+    但不同線程之間並行執行。
+    """
+    
+    def __init__(self, recorder, logger=None):
+        self.recorder = recorder
+        self.logger = logger or (lambda s: None)
+        self._threads = []
+        self._running = False
+        self._lock = threading.Lock()
+    
+    def execute_parallel_block(self, parallel_event):
+        """執行並行區塊"""
+        threads_config = parallel_event.get('threads', [])
+        if not threads_config:
+            return
+        
+        self._running = True
+        self._threads.clear()
+        
+        # 為每個配置創建並啟動線程
+        for thread_config in threads_config:
+            thread_name = thread_config.get('name', 'unnamed')
+            actions = thread_config.get('actions', [])
+            
+            t = threading.Thread(
+                target=self._run_thread,
+                args=(thread_name, actions),
+                daemon=True,
+                name=f"Parallel-{thread_name}"
+            )
+            self._threads.append(t)
+            t.start()
+            self.logger(f"[並行] 啟動線程: {thread_name}")
+        
+        # 等待所有線程完成
+        for t in self._threads:
+            t.join()
+        
+        self._running = False
+        self.logger("[並行] 所有線程已完成")
+    
+    def _run_thread(self, thread_name, actions):
+        """執行單個線程的動作"""
+        for action in actions:
+            if not self._running or not self.recorder.playing:
+                break
+            
+            with self._lock:
+                try:
+                    self._execute_action_text(action)
+                except Exception as e:
+                    self.logger(f"[並行-{thread_name}] 動作執行失敗: {e}")
+    
+    def _execute_action_text(self, action_text):
+        """執行單行動作文字（與 TriggerManager 共用邏輯）"""
+        try:
+            if action_text.startswith('>按'):
+                import re
+                match = re.match(r'>按(\w+)', action_text)
+                if match:
+                    key = match.group(1)
+                    import keyboard
+                    keyboard.press_and_release(key)
+            elif action_text.startswith('>延遲'):
+                import re
+                match = re.match(r'>延遲(\d+)(ms|秒)', action_text)
+                if match:
+                    value = int(match.group(1))
+                    unit = match.group(2)
+                    delay = value / 1000.0 if unit == 'ms' else value
+                    time.sleep(delay)
+            elif action_text.startswith('>左鍵點擊'):
+                import re
+                match = re.match(r'>左鍵點擊\((\d+),(\d+)\)', action_text)
+                if match:
+                    x, y = int(match.group(1)), int(match.group(2))
+                    import mouse
+                    mouse.move(x, y)
+                    mouse.click('left')
+        except Exception as e:
+            self.logger(f"[並行] 動作執行失敗: {e}")
+    
+    def stop(self):
+        """停止所有線程"""
+        self._running = False
+
+
+# ==================== 狀態機執行器 (v2.8.0+) ====================
+class StateMachine:
+    """執行狀態機邏輯
+    
+    狀態機由多個狀態組成，每個狀態包含：
+    - actions: 該狀態下執行的動作列表
+    - transitions: 狀態切換規則 {condition: target_state}
+    """
+    
+    def __init__(self, recorder, logger=None):
+        self.recorder = recorder
+        self.logger = logger or (lambda s: None)
+        self._current_state = None
+        self._states = {}
+        self._running = False
+        self._lock = threading.Lock()
+    
+    def load(self, state_machine_event):
+        """載入狀態機配置"""
+        self._states = state_machine_event.get('states', {})
+        self._current_state = state_machine_event.get('initial_state', None)
+        
+        if not self._current_state and self._states:
+            self._current_state = list(self._states.keys())[0]
+        
+        self.logger(f"[狀態機] 已載入，初始狀態: {self._current_state}")
+    
+    def run(self):
+        """執行狀態機（循環執行直到停止）"""
+        self._running = True
+        
+        while self._running and self.recorder.playing:
+            if not self._current_state or self._current_state not in self._states:
+                self.logger(f"[狀態機] 無效狀態: {self._current_state}，停止執行")
+                break
+            
+            state_data = self._states[self._current_state]
+            actions = state_data.get('actions', [])
+            transitions = state_data.get('transitions', {})
+            
+            self.logger(f"[狀態機] 進入狀態: {self._current_state}")
+            
+            # 執行狀態內的動作
+            last_result = None
+            for action in actions:
+                if not self._running:
+                    break
+                
+                # 檢查是否為狀態切換指令
+                if action.startswith('>切換>') or action.startswith('>>切換>') or action.startswith('>>>切換>'):
+                    continue  # 切換指令在動作執行後處理
+                
+                with self._lock:
+                    last_result = self._execute_action_text(action)
+            
+            if not self._running:
+                break
+            
+            # 根據結果處理狀態切換
+            next_state = None
+            if last_result == 'success' and 'success' in transitions:
+                next_state = transitions['success']
+            elif last_result == 'failure' and 'failure' in transitions:
+                next_state = transitions['failure']
+            elif 'default' in transitions:
+                next_state = transitions['default']
+            
+            if next_state and next_state in self._states:
+                self._current_state = next_state
+            elif next_state:
+                self.logger(f"[狀態機] 目標狀態不存在: {next_state}")
+                self._running = False
+    
+    def _execute_action_text(self, action_text):
+        """執行單行動作，返回結果 ('success', 'failure', None)"""
+        try:
+            if action_text.startswith('>按'):
+                import re
+                match = re.match(r'>按(\w+)', action_text)
+                if match:
+                    key = match.group(1)
+                    import keyboard
+                    keyboard.press_and_release(key)
+                return 'success'
+            elif action_text.startswith('>延遲'):
+                import re
+                match = re.match(r'>延遲(\d+)(ms|秒)', action_text)
+                if match:
+                    value = int(match.group(1))
+                    unit = match.group(2)
+                    delay = value / 1000.0 if unit == 'ms' else value
+                    time.sleep(delay)
+                return None
+            elif action_text.startswith('>if>'):
+                # 條件檢查：簡化版本
+                target = action_text[4:].split(',')[0].strip()
+                if self.recorder._images_dir:
+                    found = self.recorder._find_image_on_screen(target)
+                    return 'success' if found else 'failure'
+                return 'failure'
+        except Exception as e:
+            self.logger(f"[狀態機] 動作執行失敗: {e}")
+        return None
+    
+    def stop(self):
+        """停止狀態機"""
+        self._running = False
+
+
 class CoreRecorder:
     """錄製和回放的核心類別
     
@@ -97,6 +471,10 @@ class CoreRecorder:
         self._current_try_max = 0  # 當前嘗試的最大次數
         self._current_try_success = None  # 當前嘗試成功的分支
         self._current_try_failure = None  # 當前嘗試失敗的分支
+        
+        # ✅ v2.8.0+ 新增：觸發器管理器
+        self._trigger_manager = TriggerManager(self, logger)
+        self._pending_jump = None  # 觸發器請求的跳轉目標
     
     def _log(self, msg: str, level: str = "info"):
         """統一日誌輸出（相容新舊格式）

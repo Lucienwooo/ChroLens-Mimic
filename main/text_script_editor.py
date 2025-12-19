@@ -61,7 +61,8 @@ def font_tuple(size, weight=None, monospace=False):
 # 用於圖形模式的線路碰撞偵測和路徑計算
 
 PCB_COLORS = {
-    "main": "#8B8B8B",
+    "main": "#ff8c00",  # ✅ v2.8.1: 預設線路顔色改為橙色
+    "inactive": "#6e7681",  # ✅ v2.8.1: 無作用節點的連線用灰色
     "success": "#3fb950",
     "failure": "#f85149",
     "loop": "#58a6ff",
@@ -8175,14 +8176,67 @@ class TextCommandEditor(tk.Toplevel):
         background_labels = []  # 背景線程的標籤
         main_labels = []  # 主線程的標籤
         
+        # ✅ v2.8.1: 追蹤軌跡區塊和滑鼠動作
+        in_trajectory = False  # 是否在軌跡區塊內
+        pending_trajectory_info = ""  # 待處理的軌跡資訊
+        action_counter = 0  # 動作計數器
+        connection_labels = {}  # 連線標籤 {(from_label, to_label): label_text}
+        last_action_label = None  # 上一個動作的標籤
+        
         # ✅ 自動添加起點
         start_label = '#[起點]'
         label_commands[start_label] = []
         label_order.append(start_label)
+        last_action_label = start_label
         
         for line in lines:
             line = line.strip()
             if not line or line.startswith('##'):
+                continue
+            
+            # ✅ v2.8.1: 識別軌跡區塊
+            if line.startswith('# [軌跡]'):
+                # 提取軌跡摘要資訊
+                pending_trajectory_info = "軌跡"
+                in_trajectory = True
+                continue
+            elif line == '# [軌跡開始]':
+                in_trajectory = True
+                continue
+            elif line == '# [軌跡結束]':
+                in_trajectory = False
+                continue
+            elif in_trajectory and line.startswith('>移動至'):
+                # 跳過軌跡內的移動指令
+                continue
+            
+            # ✅ v2.8.1: 識別滑鼠點擊動作（在軌跡外）
+            if (line.startswith('>左鍵點擊') or line.startswith('>右鍵點擊') or 
+                line.startswith('>中鍵點擊') or line.startswith('>左鍵雙擊')):
+                action_counter += 1
+                # 提取點擊動作的簡化名稱
+                if '>左鍵點擊' in line:
+                    action_name = '左鍵點擊'
+                elif '>右鍵點擊' in line:
+                    action_name = '右鍵點擊'
+                elif '>中鍵點擊' in line:
+                    action_name = '中鍵點擊'
+                elif '>左鍵雙擊' in line:
+                    action_name = '左鍵雙擊'
+                else:
+                    action_name = '點擊'
+                
+                # 創建動作節點
+                action_label = f'#[{action_name}_{action_counter}]'
+                label_commands[action_label] = [line]
+                label_order.append(action_label)
+                
+                # 記錄連線標籤（如果有待處理的軌跡）
+                if last_action_label and pending_trajectory_info:
+                    connection_labels[(last_action_label, action_label)] = pending_trajectory_info
+                    pending_trajectory_info = ""  # 清除已使用的軌跡資訊
+                
+                last_action_label = action_label
                 continue
             
             # ✅ v2.8.0: 識別新的區塊結構（視為特殊標籤）
@@ -8309,6 +8363,9 @@ class TextCommandEditor(tk.Toplevel):
                 label_types[label] = "state_machine"
             elif '[狀態:' in label:
                 label_types[label] = "state"
+            # ✅ v2.8.1: 識別滑鼠動作節點
+            elif '[左鍵點擊' in label or '[右鍵點擊' in label or '[中鍵點擊' in label or '[左鍵雙擊' in label:
+                label_types[label] = "action"
             elif any(c.startswith('>>>') for c in commands):
                 label_types[label] = "condition"
             else:
@@ -8447,6 +8504,14 @@ class TextCommandEditor(tk.Toplevel):
                 "name": "條件判斷區"
             })
         
+        # ✅ v2.8.1: 儲存連線標籤（用於軌跡標籤顯示）
+        self.pcb_connection_labels = {}
+        for (from_label, to_label), label_text in connection_labels.items():
+            from_idx = label_to_idx.get(from_label)
+            to_idx = label_to_idx.get(to_label)
+            if from_idx is not None and to_idx is not None:
+                self.pcb_connection_labels[(from_idx, to_idx)] = label_text
+        
         # 繪製
         self._draw_pcb_graph()
     
@@ -8557,6 +8622,9 @@ class TextCommandEditor(tk.Toplevel):
             lambda e, t=tag, n=node: self._on_node_press(e, t, n))
         self.workflow_canvas.tag_bind(tag, "<B1-Motion>",
             lambda e, t=tag, n=node: self._on_node_drag(e, t, n))
+        # ✅ v2.8.1: 綁定釋放事件以清理拖曳狀態
+        self.workflow_canvas.tag_bind(tag, "<ButtonRelease-1>",
+            lambda e: self._on_node_release(e))
     
     def _get_pcb_node_style(self, name, node_type):
         """取得節點樣式"""
@@ -8575,6 +8643,9 @@ class TextCommandEditor(tk.Toplevel):
             return {"icon": "⊚", "icon_color": "#ec6547", "border": "#ec6547"}  # 紅橘色
         elif node_type == "state" or '[狀態:' in name:
             return {"icon": "◉", "icon_color": "#ec6547", "border": "#ec6547"}  # 紅橘色
+        # ✅ v2.8.1: 滑鼠動作節點樣式
+        elif node_type == "action" or '[左鍵點擊' in name or '[右鍵點擊' in name or '[中鍵點擊' in name or '[左鍵雙擊' in name:
+            return {"icon": "🖱", "icon_color": "#58a6ff", "border": "#58a6ff"}  # 藍色滑鼠
         elif node_type == "condition" or "檢查" in name or "驗證" in name:
             return {"icon": "?", "icon_color": "#8957e5", "border": "#8957e5"}
         elif "成功" in name:
@@ -8616,6 +8687,10 @@ class TextCommandEditor(tk.Toplevel):
         self.pcb_router = GlobalRouter(self.pcb_nodes)
         self._draw_pcb_connections()
     
+    def _on_node_release(self, event):
+        """✅ v2.8.1: 節點釋放事件 - 清理拖曳狀態"""
+        self._drag_data = None
+    
     def _draw_pcb_connections(self):
         """繪製 PCB 風格連線"""
         for from_idx, to_idx, path_type in self.pcb_connections:
@@ -8628,8 +8703,19 @@ class TextCommandEditor(tk.Toplevel):
             # 計算路徑
             path = self.pcb_router.route(from_node, to_node, path_type, from_idx, to_idx)
             
-            # 繪製線路
-            color = PCB_COLORS.get(path_type, PCB_COLORS["main"])
+            # ✅ v2.8.1: 檢查目標節點是否無作用（如 [終點] 這類節點）
+            to_node_name = to_node.get("name", "")
+            to_node_type = to_node.get("type", "")
+            is_inactive_target = (
+                to_node_type == "end" or 
+                '[終點]' in to_node_name
+            )
+            
+            # 繪製線路 - 無作用節點用灰色，否則用對應類型的顏色
+            if is_inactive_target and path_type == "main":
+                color = PCB_COLORS.get("inactive", "#6e7681")
+            else:
+                color = PCB_COLORS.get(path_type, PCB_COLORS["main"])
             
             if len(path) >= 2:
                 points = []
@@ -8655,6 +8741,22 @@ class TextCommandEditor(tk.Toplevel):
                 self.workflow_canvas.create_text(
                     lx, ly, text=labels.get(path_type, ""),
                     fill=color, font=("Microsoft JhengHei", 7, "bold"),
+                    tags=("pcb_connection", "pcb_label")
+                )
+            
+            # ✅ v2.8.1: 繪製軌跡標籤（如果有的話）
+            if hasattr(self, 'pcb_connection_labels') and (from_idx, to_idx) in self.pcb_connection_labels:
+                trajectory_label = self.pcb_connection_labels[(from_idx, to_idx)]
+                lx, ly = self.pcb_router.find_label_position(path)
+                
+                self.workflow_canvas.create_rectangle(
+                    lx - 18, ly - 8, lx + 18, ly + 8,
+                    fill="#161b22", outline="#f0883e", width=1,
+                    tags=("pcb_connection", "pcb_label")
+                )
+                self.workflow_canvas.create_text(
+                    lx, ly, text=trajectory_label,
+                    fill="#f0883e", font=("Microsoft JhengHei", 7, "bold"),
                     tags=("pcb_connection", "pcb_label")
                 )
     
@@ -9134,21 +9236,46 @@ class TextCommandEditor(tk.Toplevel):
     #     pass
     
     def _on_workflow_canvas_click(self, event):
-        """處理畫布點擊（只能拖移畫布）"""
-        # 👆 不再檢查是否點擊到節點，直接啟動畫布拖移
+        """處理畫布點擊（支援節點拖曳和畫布平移）"""
+        # ✅ v2.8.1: 檢查是否點擊到 PCB 節點
+        clicked_items = self.workflow_canvas.find_overlapping(
+            event.x - 5, event.y - 5,
+            event.x + 5, event.y + 5
+        )
+        
+        # 檢查是否點擊到 pcb_node
+        for item in clicked_items:
+            tags = self.workflow_canvas.gettags(item)
+            if "pcb_node" in tags:
+                # 點擊到節點，不啟動畫布平移（讓 tag_bind 處理）
+                return
+        
+        # 沒有點擊到節點，啟動畫布拖移
         self.workflow_is_panning = True
         self.workflow_pan_start_x = event.x
         self.workflow_pan_start_y = event.y
         self.workflow_canvas.config(cursor="fleur")
     
     def _on_workflow_canvas_drag(self, event):
-        """處理畫布拖移（只拖移畫布）"""
+        """處理畫布拖移（同步更新節點座標數據）"""
         if self.workflow_is_panning:
             # 拖移畫布
             dx = event.x - self.workflow_pan_start_x
             dy = event.y - self.workflow_pan_start_y
             
+            # 移動所有視覺元素
             self.workflow_canvas.move("all", dx, dy)
+            
+            # ✅ v2.8.1: 同步更新 pcb_nodes 座標數據
+            if hasattr(self, 'pcb_nodes'):
+                for node in self.pcb_nodes:
+                    node["x"] += dx
+                    node["y"] += dy
+            
+            # ✅ v2.8.1: 同步更新 workflow_nodes 座標數據
+            for label, node_data in self.workflow_nodes.items():
+                node_data['x'] += dx
+                node_data['y'] += dy
             
             self.workflow_pan_start_x = event.x
             self.workflow_pan_start_y = event.y

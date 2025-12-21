@@ -149,6 +149,11 @@ export default function Home() {
             ☕ Ko-fi - 支持作者
           </a>
         </p>
+        <p>
+          <a href="/tutorial">
+            📚 使用教學 - 從零開始學習 ChroLens Mimic
+          </a>
+        </p>
       </section>
 
       <section className={styles.version}>

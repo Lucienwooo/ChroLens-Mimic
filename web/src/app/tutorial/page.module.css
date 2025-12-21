@@ -1,0 +1,421 @@
+/* ============================================
+   ChroLens Mimic Tutorial Page Styles
+   Modern, responsive design with rich aesthetics
+   ============================================ */
+
+.main {
+  min-height: 100vh;
+  padding: 2rem;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+  color: #e0e0e0;
+}
+
+/* Header Section */
+.header {
+  text-align: center;
+  margin-bottom: 3rem;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(90deg, #4ec9b0, #58a6ff, #c586c0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header p {
+  font-size: 1.1rem;
+  color: #9ca3af;
+}
+
+/* Progress Indicator */
+.progressContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.progressBar {
+  width: 200px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #3fb950, #4ec9b0);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progressText {
+  color: #4ec9b0;
+  font-weight: 600;
+}
+
+/* Navigation */
+.nav {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.nav a {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #9ca3af;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav a:hover {
+  background: rgba(78, 201, 176, 0.2);
+  color: #4ec9b0;
+  border-color: #4ec9b0;
+  transform: translateY(-2px);
+}
+
+/* Tutorial List */
+.tutorialList {
+  max-width: 900px;
+  margin: 0 auto 3rem;
+}
+
+/* Step Card */
+.stepCard {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.stepCard:hover {
+  border-color: rgba(78, 201, 176, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.stepCard.expanded {
+  border-color: #4ec9b0;
+  box-shadow: 0 8px 32px rgba(78, 201, 176, 0.15);
+}
+
+.stepHeader {
+  display: flex;
+  align-items: center;
+  padding: 1.25rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.stepNumber {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4ec9b0, #3fb950);
+  color: #0a0a0a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.stepInfo {
+  flex: 1;
+  margin-left: 1rem;
+}
+
+.stepInfo h3 {
+  font-size: 1.2rem;
+  margin: 0 0 0.25rem;
+  color: #ffffff;
+}
+
+.stepInfo p {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+.expandIcon {
+  color: #4ec9b0;
+  font-size: 0.8rem;
+  transition: transform 0.3s ease;
+}
+
+.stepCard.expanded .expandIcon {
+  transform: rotate(180deg);
+}
+
+/* Step Content */
+.stepContent {
+  padding: 0 1.5rem 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stepContent h4 {
+  color: #4ec9b0;
+  margin: 1.5rem 0 0.75rem;
+  font-size: 1.1rem;
+}
+
+.stepContent ol,
+.stepContent ul {
+  padding-left: 1.5rem;
+  line-height: 1.8;
+}
+
+.stepContent li {
+  margin-bottom: 0.5rem;
+}
+
+.stepContent code {
+  background: rgba(78, 201, 176, 0.15);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: "Consolas", "Monaco", monospace;
+  color: #4ec9b0;
+  font-size: 0.9em;
+}
+
+.stepContent a {
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+.stepContent a:hover {
+  text-decoration: underline;
+}
+
+/* Keyboard keys */
+.stepContent kbd {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  background: linear-gradient(180deg, #3a3a4a, #2a2a3a);
+  border: 1px solid #4a4a5a;
+  border-radius: 4px;
+  font-family: "Consolas", monospace;
+  font-size: 0.85em;
+  color: #e0e0e0;
+  box-shadow: 0 2px 0 #1a1a2a;
+}
+
+/* Hotkey Table */
+.hotkeyTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.hotkeyTable th,
+.hotkeyTable td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hotkeyTable th {
+  background: rgba(255, 255, 255, 0.05);
+  color: #4ec9b0;
+}
+
+.hotkeyTable tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Code Block */
+.codeBlock {
+  background: #1e1e2e;
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.codeBlock pre {
+  margin: 0;
+  font-family: "Consolas", "Monaco", monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #d4d4d4;
+}
+
+/* Info/Warning Boxes */
+.tipBox,
+.warningBox {
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.tipBox {
+  background: rgba(78, 201, 176, 0.1);
+  border-left: 4px solid #4ec9b0;
+}
+
+.warningBox {
+  background: rgba(248, 81, 73, 0.1);
+  border-left: 4px solid #f85149;
+}
+
+/* Video Container */
+.videoContainer {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  margin: 1rem 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.videoContainer iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.videoPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  margin: 1rem 0;
+  color: #6e7681;
+}
+
+/* Complete Button */
+.completeBtn {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  margin-top: 1rem;
+  background: linear-gradient(135deg, #3fb950, #4ec9b0);
+  color: #0a0a0a;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.completeBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(63, 185, 80, 0.4);
+}
+
+/* Next Steps Section */
+.nextSteps {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.nextSteps h2 {
+  text-align: center;
+  color: #ffffff;
+  margin-bottom: 1.5rem;
+}
+
+.nextGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.nextCard {
+  display: block;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.nextCard:hover {
+  background: rgba(78, 201, 176, 0.1);
+  border-color: #4ec9b0;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.nextCard h3 {
+  color: #ffffff;
+  margin: 0 0 0.5rem;
+}
+
+.nextCard p {
+  color: #9ca3af;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .main {
+    padding: 1rem;
+  }
+
+  .header h1 {
+    font-size: 1.75rem;
+  }
+
+  .stepHeader {
+    padding: 1rem;
+  }
+
+  .stepNumber {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  .stepInfo h3 {
+    font-size: 1rem;
+  }
+
+  .nav {
+    gap: 0.5rem;
+  }
+
+  .nav a {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+}

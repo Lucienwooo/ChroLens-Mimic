@@ -1,5 +1,101 @@
 import React from 'react';
 import styles from './page.module.css';
+import VideoPreview from '../components/VideoPreview';
+
+// 功能卡片類型定義
+interface FeatureCard {
+  title: string;
+  youtubeId?: string;
+  videoSrc?: string;
+  thumbnail?: string;
+  features: string[];
+}
+
+// 功能卡片資料（方便後續添加影片）
+const featureCards: FeatureCard[] = [
+  {
+    title: '🎮 錄製與回放',
+    youtubeId: 'waHPYnjPwbM',
+    features: [
+      '錄製滑鼠和鍵盤操作',
+      '支援暫停/繼續功能',
+      '多種回放速度設定（1x-10x）',
+      '智能視窗定位',
+      '滑鼠模式與視窗模式切換'
+    ]
+  },
+  {
+    title: '📝 腳本編輯器',
+    // youtubeId: 'YOUR_VIDEO_ID',
+    features: [
+      '文字指令式編輯器',
+      '圖片辨識功能（支援pic命名）',
+      'OCR文字辨識',
+      '條件判斷與迴圈',
+      '變數系統（v2.7.1+）',
+      '語法高亮與自動完成'
+    ]
+  },
+  {
+    title: '⚙️ 進階功能',
+    // youtubeId: 'YOUR_VIDEO_ID',
+    features: [
+      '多腳本管理',
+      '快捷鍵設定',
+      '排程執行',
+      'MiniMode簡化介面',
+      '腳本合併功能',
+      '自動備份機制'
+    ]
+  },
+  {
+    title: '🌍 國際化支援',
+    features: [
+      '繁體中文（預設）',
+      'English（v2.7.3+完整支援）',
+      '日本語（語言套件）',
+      '可擴展語言系統'
+    ]
+  },
+  {
+    title: '🖼️ 圖片辨識（v2.6.7+）',
+    // youtubeId: 'YOUR_VIDEO_ID',
+    features: [
+      '支援任意pic開頭命名',
+      '辨識時顯示邊框',
+      '範圍辨識（限定搜尋區域）',
+      '組合參數使用'
+    ]
+  },
+  {
+    title: '📋 剪貼簿操作（v2.7.3+）',
+    features: [
+      '複製到剪貼簿',
+      '從剪貼簿讀取',
+      '清空剪貼簿',
+      '支援文字和圖片'
+    ]
+  },
+  {
+    title: '🖥️ 視窗操作（v2.7.3+）',
+    features: [
+      '取得視窗標題',
+      '設定視窗大小',
+      '最小化/最大化/還原',
+      '切換視窗',
+      '取得視窗位置'
+    ]
+  },
+  {
+    title: '📸 螢幕擷取（v2.7.3+）',
+    features: [
+      '截圖全螢幕',
+      '截圖指定區域',
+      '截圖指定視窗',
+      '支援自動儲存'
+    ]
+  }
+];
 
 export default function Home() {
   return (
@@ -11,91 +107,25 @@ export default function Home() {
         <h2>核心功能</h2>
 
         <div className={styles.featureGrid}>
-          <div className={styles.featureCard}>
-            <h3>🎮 錄製與回放</h3>
-            <ul>
-              <li>錄製滑鼠和鍵盤操作</li>
-              <li>支援暫停/繼續功能</li>
-              <li>多種回放速度設定（1x-10x）</li>
-              <li>智能視窗定位</li>
-              <li>滑鼠模式與視窗模式切換</li>
-            </ul>
-          </div>
-
-          <div className={styles.featureCard}>
-            <h3>📝 腳本編輯器</h3>
-            <ul>
-              <li>文字指令式編輯器</li>
-              <li>圖片辨識功能（支援pic命名）</li>
-              <li>OCR文字辨識</li>
-              <li>條件判斷與迴圈</li>
-              <li>變數系統（v2.7.1+）</li>
-              <li>語法高亮與自動完成</li>
-            </ul>
-          </div>
-
-          <div className={styles.featureCard}>
-            <h3>⚙️ 進階功能</h3>
-            <ul>
-              <li>多腳本管理</li>
-              <li>快捷鍵設定</li>
-              <li>排程執行</li>
-              <li>MiniMode簡化介面</li>
-              <li>腳本合併功能</li>
-              <li>自動備份機制</li>
-            </ul>
-          </div>
-
-          <div className={styles.featureCard}>
-            <h3>🌍 國際化支援</h3>
-            <ul>
-              <li>繁體中文（預設）</li>
-              <li>English（v2.7.3+完整支援）</li>
-              <li>日本語（語言套件）</li>
-              <li>可擴展語言系統</li>
-            </ul>
-          </div>
-
-          <div className={styles.featureCard}>
-            <h3>🖼️ 圖片辨識（v2.6.7+）</h3>
-            <ul>
-              <li>支援任意pic開頭命名</li>
-              <li>辨識時顯示邊框</li>
-              <li>範圍辨識（限定搜尋區域）</li>
-              <li>組合參數使用</li>
-            </ul>
-          </div>
-
-          <div className={styles.featureCard}>
-            <h3>📋 剪貼簿操作（v2.7.3+）</h3>
-            <ul>
-              <li>複製到剪貼簿</li>
-              <li>從剪貼簿讀取</li>
-              <li>清空剪貼簿</li>
-              <li>支援文字和圖片</li>
-            </ul>
-          </div>
-
-          <div className={styles.featureCard}>
-            <h3>🖥️ 視窗操作（v2.7.3+）</h3>
-            <ul>
-              <li>取得視窗標題</li>
-              <li>設定視窗大小</li>
-              <li>最小化/最大化/還原</li>
-              <li>切換視窗</li>
-              <li>取得視窗位置</li>
-            </ul>
-          </div>
-
-          <div className={styles.featureCard}>
-            <h3>📸 螢幕擷取（v2.7.3+）</h3>
-            <ul>
-              <li>截圖全螢幕</li>
-              <li>截圖指定區域</li>
-              <li>截圖指定視窗</li>
-              <li>支援自動儲存</li>
-            </ul>
-          </div>
+          {featureCards.map((card, index) => (
+            <div key={index} className={styles.featureCard}>
+              {/* 影片預覽區 */}
+              {(card.youtubeId || card.videoSrc || card.thumbnail) && (
+                <VideoPreview
+                  youtubeId={card.youtubeId}
+                  videoSrc={card.videoSrc}
+                  thumbnail={card.thumbnail}
+                  title={card.title}
+                />
+              )}
+              <h3>{card.title}</h3>
+              <ul>
+                {card.features.map((feature, i) => (
+                  <li key={i}>{feature}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </section>
 

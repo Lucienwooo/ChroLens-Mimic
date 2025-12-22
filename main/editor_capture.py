@@ -26,6 +26,7 @@ class ScreenCaptureSelector(tk.Toplevel):
     
     提供全螢幕半透明遮罩，讓使用者拖曳選取要截圖的區域。
     支援 ESC 取消操作。
+    ✅ v2.7.5: 支援多螢幕環境
     """
     
     def __init__(self, parent, callback):
@@ -40,8 +41,34 @@ class ScreenCaptureSelector(tk.Toplevel):
         self.result = None
         self.ready = False  # 是否準備好截圖
         
-        # 全螢幕置頂
-        self.attributes('-fullscreen', True)
+        # ✅ 獲取虛擬桌面區域（包含所有螢幕）
+        if MSS_AVAILABLE:
+            try:
+                with mss.mss() as sct:
+                    # monitors[0] 是所有螢幕的合併區域
+                    all_monitors = sct.monitors[0]
+                    self.virtual_left = all_monitors["left"]
+                    self.virtual_top = all_monitors["top"]
+                    self.virtual_width = all_monitors["width"]
+                    self.virtual_height = all_monitors["height"]
+            except:
+                # 回退到主螢幕
+                self.virtual_left = 0
+                self.virtual_top = 0
+                self.virtual_width = self.winfo_screenwidth()
+                self.virtual_height = self.winfo_screenheight()
+        else:
+            # 使用 Windows API 獲取虛擬桌面
+            import ctypes
+            user32 = ctypes.windll.user32
+            self.virtual_left = user32.GetSystemMetrics(76)   # SM_XVIRTUALSCREEN
+            self.virtual_top = user32.GetSystemMetrics(77)    # SM_YVIRTUALSCREEN
+            self.virtual_width = user32.GetSystemMetrics(78)  # SM_CXVIRTUALSCREEN
+            self.virtual_height = user32.GetSystemMetrics(79) # SM_CYVIRTUALSCREEN
+        
+        # ✅ 覆蓋所有螢幕（取代 -fullscreen）
+        self.overrideredirect(True)  # 無邊框
+        self.geometry(f"{self.virtual_width}x{self.virtual_height}+{self.virtual_left}+{self.virtual_top}")
         self.attributes('-topmost', True)
         self.attributes('-alpha', 0.3)
         
@@ -49,9 +76,9 @@ class ScreenCaptureSelector(tk.Toplevel):
         self.canvas = tk.Canvas(self, cursor="cross", bg="gray")
         self.canvas.pack(fill="both", expand=True)
         
-        # 說明文字
+        # 說明文字（置中於視窗）
         self.text_id = self.canvas.create_text(
-            self.winfo_screenwidth() // 2,
+            self.virtual_width // 2,
             50,
             text="正在準備截圖...",
             font=font_tuple(18, "bold"),
@@ -139,6 +166,7 @@ class CoordinateSelector(tk.Toplevel):
     
     提供全螢幕半透明遮罩，讓使用者點擊以捕捉座標。
     支援左鍵和右鍵兩種模式。
+    ✅ v2.7.5: 支援多螢幕環境
     """
     
     def __init__(self, parent, button_type, callback):
@@ -149,8 +177,31 @@ class CoordinateSelector(tk.Toplevel):
         self.result = None
         self.ready = False
         
-        # 全螢幕置頂
-        self.attributes('-fullscreen', True)
+        # ✅ 獲取虛擬桌面區域（包含所有螢幕）
+        if MSS_AVAILABLE:
+            try:
+                with mss.mss() as sct:
+                    all_monitors = sct.monitors[0]
+                    self.virtual_left = all_monitors["left"]
+                    self.virtual_top = all_monitors["top"]
+                    self.virtual_width = all_monitors["width"]
+                    self.virtual_height = all_monitors["height"]
+            except:
+                self.virtual_left = 0
+                self.virtual_top = 0
+                self.virtual_width = self.winfo_screenwidth()
+                self.virtual_height = self.winfo_screenheight()
+        else:
+            import ctypes
+            user32 = ctypes.windll.user32
+            self.virtual_left = user32.GetSystemMetrics(76)
+            self.virtual_top = user32.GetSystemMetrics(77)
+            self.virtual_width = user32.GetSystemMetrics(78)
+            self.virtual_height = user32.GetSystemMetrics(79)
+        
+        # ✅ 覆蓋所有螢幕
+        self.overrideredirect(True)
+        self.geometry(f"{self.virtual_width}x{self.virtual_height}+{self.virtual_left}+{self.virtual_top}")
         self.attributes('-topmost', True)
         self.attributes('-alpha', 0.3)
         
@@ -161,7 +212,7 @@ class CoordinateSelector(tk.Toplevel):
         # 說明文字
         button_name = "左鍵" if button_type == "left" else "右鍵"
         self.text_id = self.canvas.create_text(
-            self.winfo_screenwidth() // 2,
+            self.virtual_width // 2,
             50,
             text="正在準備捕捉座標...",
             font=font_tuple(18, "bold"),
@@ -216,6 +267,7 @@ class RegionSelector(tk.Toplevel):
     
     提供全螢幕半透明遮罩，讓使用者拖曳選取辨識範圍。
     返回範圍座標 (x1, y1, x2, y2)。
+    ✅ v2.7.5: 支援多螢幕環境
     """
     
     def __init__(self, parent, callback):
@@ -230,8 +282,31 @@ class RegionSelector(tk.Toplevel):
         self.result = None
         self.ready = False
         
-        # 全螢幕置頂
-        self.attributes('-fullscreen', True)
+        # ✅ 獲取虛擬桌面區域（包含所有螢幕）
+        if MSS_AVAILABLE:
+            try:
+                with mss.mss() as sct:
+                    all_monitors = sct.monitors[0]
+                    self.virtual_left = all_monitors["left"]
+                    self.virtual_top = all_monitors["top"]
+                    self.virtual_width = all_monitors["width"]
+                    self.virtual_height = all_monitors["height"]
+            except:
+                self.virtual_left = 0
+                self.virtual_top = 0
+                self.virtual_width = self.winfo_screenwidth()
+                self.virtual_height = self.winfo_screenheight()
+        else:
+            import ctypes
+            user32 = ctypes.windll.user32
+            self.virtual_left = user32.GetSystemMetrics(76)
+            self.virtual_top = user32.GetSystemMetrics(77)
+            self.virtual_width = user32.GetSystemMetrics(78)
+            self.virtual_height = user32.GetSystemMetrics(79)
+        
+        # ✅ 覆蓋所有螢幕
+        self.overrideredirect(True)
+        self.geometry(f"{self.virtual_width}x{self.virtual_height}+{self.virtual_left}+{self.virtual_top}")
         self.attributes('-topmost', True)
         self.attributes('-alpha', 0.3)
         
@@ -241,7 +316,7 @@ class RegionSelector(tk.Toplevel):
         
         # 說明文字
         self.text_id = self.canvas.create_text(
-            self.winfo_screenwidth() // 2,
+            self.virtual_width // 2,
             50,
             text="正在準備選擇範圍...",
             font=font_tuple(18, "bold"),

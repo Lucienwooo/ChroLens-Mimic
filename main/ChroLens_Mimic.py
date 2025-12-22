@@ -9,7 +9,7 @@
 # 該檔案包含所有開發規範、流程說明、版本管理規則和重要備註
 # ═══════════════════════════════════════════════════════════════════════════
 
-VERSION = "2.7.3"
+VERSION = "2.7.4"
 
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
@@ -3995,12 +3995,23 @@ class RecorderApp(tb.Window):
                 # 建立新視窗並儲存引用
                 self.visual_editor_window = VisualScriptEditor(self, script_path)
                 self.log("[資訊] 已開啟腳本編輯器")
+                # ✅ 延遲確保編輯器視窗在最上層（避免主視窗遮住編輯器）
+                self.after(100, self._ensure_editor_on_top)
         except Exception as e:
             self.log(f"[錯誤] 無法開啟編輯器：{e}")
             import traceback
             error_detail = traceback.format_exc()
             self.log(f"錯誤詳情: {error_detail}")
             messagebox.showerror("錯誤", f"無法開啟腳本編輯器：\n\n{e}\n\n請查看日誌獲取詳細資訊")
+
+    def _ensure_editor_on_top(self):
+        """確保編輯器視窗在最上層"""
+        if hasattr(self, 'visual_editor_window') and self.visual_editor_window:
+            try:
+                self.visual_editor_window.lift()
+                self.visual_editor_window.focus_force()
+            except:
+                pass
 
     def open_schedule_settings(self):
         """開啟排程設定視窗"""

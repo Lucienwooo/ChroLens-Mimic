@@ -6,10 +6,10 @@ export default function Home() {
     <main className={styles.main}>
       <h1>ChroLens Mimic</h1>
       <p className={styles.subtitle}>輕量級 Windows 巨集錄製與回放工具</p>
-      
+
       <section className={styles.features}>
         <h2>核心功能</h2>
-        
+
         <div className={styles.featureGrid}>
           <div className={styles.featureCard}>
             <h3>🎮 錄製與回放</h3>
@@ -158,15 +158,13 @@ export default function Home() {
 
       <section className={styles.version}>
         <h2>最新版本</h2>
-        <h3>v2.7.3 - 完整英文支援與功能擴展</h3>
+        <h3>v2.7.4 - 編輯器修復與多螢幕支援</h3>
         <ul>
-          <li>🌍 完整英文版支援，所有UI和編輯器全面英文化</li>
-          <li>📚 整合完整功能文檔到官方網站</li>
-          <li>🖥️ 新增視窗操作進階指令</li>
-          <li>📋 新增剪貼簿操作指令</li>
-          <li>📸 新增螢幕擷取指令</li>
-          <li>🧹 專案清理，移除測試檔案和舊版說明</li>
-          <li>📦 優化打包流程，統一使用單一打包腳本</li>
+          <li>🐛 修復腳本編輯器視窗層級問題</li>
+          <li>🎯 編輯器開啟後正確顯示在最上層並獲得焦點</li>
+          <li>🖥️ 圖片辨識截圖功能支援所有螢幕</li>
+          <li>🖱️ 左鍵/右鍵座標捕捉功能支援多螢幕環境</li>
+          <li>📐 範圍選擇器支援跨螢幕操作</li>
         </ul>
       </section>
     </main>

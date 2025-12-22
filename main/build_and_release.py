@@ -67,29 +67,28 @@ class MimicReleaseBuilder:
             return "2.7.2"
     
     def _get_github_token(self) -> str:
-        """獲取 GitHub Token"""
-        # 檢查是否已存在 token
-        if self.token_file.exists():
-            try:
-                with open(self.token_file, 'r') as f:
-                    token = f.read().strip()
-                    if token:
-                        return token
-            except:
-                pass
+        """從使用者輸入獲取 GitHub Token"""
+        print("\n" + "="*60)
+        print("📝 GitHub Token 輸入")
+        print("="*60)
+        print("\n若沒有 Token，請前往：")
+        print("  https://github.com/settings/tokens")
+        print("  點擊「Generate new token (classic)」")
+        print("  勾選「repo」權限，生成後複製 Token\n")
         
-        # 直接使用預設 token
-        token = "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"
+        token = input("請貼上您的 GitHub Token: ").strip()
         
-        # 保存 token
-        try:
-            with open(self.token_file, 'w') as f:
-                f.write(token)
-            # 設定檔案為只讀（安全性）
-            os.chmod(self.token_file, 0o600)
-        except:
-            pass
+        if not token:
+            print("❌ 未輸入 Token，取消發布")
+            return None
         
+        if not token.startswith("ghp_") and not token.startswith("github_pat_"):
+            print("⚠️  Token 格式可能不正確（應以 ghp_ 或 github_pat_ 開頭）")
+            confirm = input("是否繼續? (y/n): ").strip().lower()
+            if confirm != 'y':
+                return None
+        
+        print("✓ Token 已接收\n")
         return token
     
     def _extract_changelog(self) -> str:
@@ -281,6 +280,8 @@ class MimicReleaseBuilder:
         
         # 獲取 Token
         token = self._get_github_token()
+        if not token:
+            return False
         
         # 連接 GitHub
         try:
@@ -376,9 +377,9 @@ class MimicReleaseBuilder:
             self.create_version_file()
             zip_path = self.create_zip()
             
-            # 自動上傳到 GitHub
+            # 創建 GitHub Release 並上傳
             print("\n" + "="*60)
-            print("正在自動上傳到 GitHub Releases...")
+            print("正在發布到 GitHub Releases...")
             print("="*60)
             
             success = self.create_github_release(zip_path)

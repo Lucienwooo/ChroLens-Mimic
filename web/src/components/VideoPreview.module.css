@@ -1,3 +1,14 @@
+.container {
+  position: relative;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+/* 展開時的容器樣式 - 高度自動擴展 */
+.container.expanded {
+  z-index: 10;
+}
+
 .preview {
   position: relative;
   width: 100%;
@@ -5,18 +16,10 @@
   border-radius: 8px;
   overflow: hidden;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-  margin-bottom: 1rem;
-  contain: layout style;
 }
 
 .preview.clickable {
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.preview.clickable:hover {
-  transform: scale(1.02);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .preview.clickable:hover .playButton {
@@ -62,62 +65,34 @@
   margin-left: 3px;
 }
 
-/* 模態框 - 使用 contain 和 will-change 優化 */
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  padding: 2rem;
-  box-sizing: border-box;
-  contain: strict;
-  will-change: opacity;
-  animation: fadeIn 0.15s ease-out;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.modalContent {
+/* 影片包裹容器（原地展開） */
+.videoWrapper {
   position: relative;
   width: 100%;
-  max-width: 900px;
   aspect-ratio: 16 / 9;
   background: #000;
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
-  contain: layout paint;
 }
 
-.closeButton {
+/* 收起按鈕 */
+.collapseButton {
   position: absolute;
-  top: -40px;
-  right: 0;
-  background: transparent;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.7);
   border: none;
   color: white;
-  font-size: 1.5rem;
+  font-size: 0.875rem;
   cursor: pointer;
-  padding: 0.5rem;
-  opacity: 0.8;
-  transition: opacity 0.2s;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
   z-index: 10;
+  transition: background 0.2s;
 }
 
-.closeButton:hover {
-  opacity: 1;
+.collapseButton:hover {
+  background: rgba(0, 0, 0, 0.9);
 }
 
 .video {
@@ -135,6 +110,7 @@
   justify-content: center;
   color: #888;
   font-size: 1rem;
+  min-height: 200px;
 }
 
 /* 響應式 */
@@ -142,23 +118,19 @@
   .preview {
     height: 100px;
   }
-
+  
   .playButton {
     width: 40px;
     height: 40px;
   }
-
+  
   .playButton svg {
     width: 20px;
     height: 20px;
   }
-
-  .modal {
-    padding: 1rem;
-  }
-
-  .closeButton {
-    top: -35px;
-    font-size: 1.25rem;
+  
+  .collapseButton {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
   }
 }

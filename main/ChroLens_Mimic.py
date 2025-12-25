@@ -36,7 +36,7 @@ except ImportError:
     PYSTRAY_AVAILABLE = False
 
 
-# ✅ v2.6.5: 不再使用 HotkeyListener，改用純 keyboard.add_hotkey（2.5 風格）
+
 
 # 檢查是否以管理員身份執行
 def is_admin():
@@ -396,10 +396,9 @@ class RecorderApp(tb.Window):
         self._hotkey_handlers = {}
         # 用來儲存腳本快捷鍵的 handler id
         self._script_hotkey_handlers = {}
-        # ✅ v2.6.5: 直接使用 keyboard 模組，不再使用 HotkeyListener
         # MiniMode 管理器（由 mini.py 提供）
         self.mini_window = None
-        self.mini_mode_on = False  # ✅ 修復: 初始化 mini_mode_on
+        self.mini_mode_on = False
         self.target_hwnd = None
         self.target_title = None
         
@@ -454,13 +453,13 @@ class RecorderApp(tb.Window):
         window_title = self.title()
         Tooltip(self.icon_tip_label, f"{window_title}_By_Lucien")
 
-        # ✅ 設定響應式佈局 (Responsive Layout / Adaptive Window)
+        # 設定響應式佈局 (Responsive Layout / Adaptive Window)
         # 設定最小視窗尺寸並允許彈性調整
         self.minsize(1100, 600)  # 增加最小寬度以容納新功能
         self.geometry("1150x620")  # 增加初始寬度和高度
         self.resizable(True, True)  # 允許調整大小
         
-        # ✅ 啟用內容自動適應
+        # 啟用內容自動適應
         self.update_idletasks()  # 更新所有待處理的 GUI 事件
         
         self.recording = False
@@ -485,8 +484,7 @@ class RecorderApp(tb.Window):
         # 效能優化器
         self.performance_optimizer = None
 
-        # ✅ v2.6.5: 移除不必要的管理器，簡化架構
-        # 直接使用內建的 _register_hotkeys 和 script_io
+
 
         # ====== 上方操作區 ======
         frm_top = tb.Frame(self, padding=(8, 10, 8, 5))
@@ -931,7 +929,7 @@ class RecorderApp(tb.Window):
         # 初始化 core_recorder（需要在 self.log 可用之後）
         self.core_recorder = CoreRecorder(logger=self.log)
         
-        # ✅ v2.6.5: 強化焦點獲取和快捷鍵註冊時序
+        # 強化焦點獲取和快捷鍵註冊時序
         self.after(50, self._force_focus)   # 主動獲得焦點
         self.after(200, self._force_focus)  # 再次確認焦點
         self.after(300, self._register_hotkeys)  # 註冊快捷鍵
@@ -944,7 +942,7 @@ class RecorderApp(tb.Window):
     def _force_focus(self):
         """主動獲得焦點，確保鍵盤鉤子正常工作"""
         try:
-            # ✅ 強化焦點獲取機制（不使用topmost避免蓋過其他視窗）
+            # 強化焦點獲取機制（不使用topmost避免蓋過其他視窗）
             self.lift()  # 提升視窗
             self.focus_force()  # 強制獲得焦點
             self.update()  # 強制更新
@@ -1902,7 +1900,6 @@ class RecorderApp(tb.Window):
         # 等待 core_recorder 的錄製執行緒結束
         self._wait_record_thread_finish()
         
-        # ✅ v2.1 風格：不重新註冊快捷鍵，保持始終有效
 
     def play_record(self):
         """開始回放"""
@@ -2262,7 +2259,6 @@ class RecorderApp(tb.Window):
             except Exception as e:
                 self.log(f"[警告] 等待錄製結束時發生錯誤: {e}")
             
-            # ✅ v2.1 風格：不重新註冊快捷鍵
         
         if self.playing:
             self.playing = False
@@ -2415,7 +2411,7 @@ class RecorderApp(tb.Window):
                 except:
                     pass
 
-            # ✅ v2.6.5 修復：不再呼叫 unhook_all/unhook_all_hotkeys
+            # 不再呼叫 unhook_all/unhook_all_hotkeys
             # 這些會移除系統快捷鍵 (F9/F10 等)，導致 3-5 次後失效
             # 只需釋放按鍵本身即可，快捷鍵保持註冊狀態
 
@@ -3435,18 +3431,16 @@ class RecorderApp(tb.Window):
         btn_frame.pack(fill="x", pady=15)
         tb.Button(btn_frame, text="儲存", command=save_and_apply, width=15, bootstyle=SUCCESS).pack(pady=5)
 
-    # ✅ v2.6.5+: 儲存快捷鍵 handle，避免使用 keyboard.unhook_all()
 
     def _register_hotkeys(self):
         """
-        註冊系統快捷鍵（v2.6.5+ - 精確 Hook 管理）
+        註冊系統快捷鍵
         
-        ✅ 重構改進：
         - 儲存每個快捷鍵的 handle
         - 清理時只移除本程式註冊的快捷鍵
         - 不影響其他程式的全域熱鍵
         
-        ❌ 禁止：keyboard.unhook_all() - 會移除所有熱鍵（包括其他程式）
+        禁止：keyboard.unhook_all() - 會移除所有熱鍵（包括其他程式）
         """
         try:
             import keyboard

@@ -26,6 +26,16 @@ import random  # 新增
 import tkinter.font as tkfont
 import sys
 
+# 新增：系統托盤支援
+try:
+    import pystray
+    from PIL import Image as PILImage
+    PYSTRAY_AVAILABLE = True
+except ImportError:
+    print("pystray 或 Pillow 未安裝，系統托盤功能將停用")
+    PYSTRAY_AVAILABLE = False
+
+
 # ✅ v2.6.5: 不再使用 HotkeyListener，改用純 keyboard.add_hotkey（2.5 風格）
 
 # 檢查是否以管理員身份執行
@@ -549,6 +559,21 @@ class RecorderApp(tb.Window):
         self.main_auto_mini_check.grid(row=0, column=8, padx=4)
         Tooltip(self.main_auto_mini_check, lang_map["勾選時，程式錄製/回放將自動轉換"])
         
+        # ====== 隱藏到系統托盤勾選框 ======
+        self.hide_to_tray_var = tk.BooleanVar(value=self.user_config.get("hide_to_tray", False))
+        self.hide_to_tray_check = tb.Checkbutton(
+            frm_top, text=lang_map.get("隱藏", "隱藏"), variable=self.hide_to_tray_var, style="My.TCheckbutton"
+        )
+        self.hide_to_tray_check.grid(row=0, column=9, padx=4)
+        Tooltip(self.hide_to_tray_check, lang_map.get("勾選後最小化將隱藏至系統托盤", "勾選後最小化將隱藏至系統托盤"))
+        
+        # 系統托盤圖示實例
+        self.tray_icon = None
+        
+        # 綁定最小化事件
+        self.bind("<Unmap>", self._on_minimize)
+
+        
         # ====== 儲存按鈕 ======
         self.save_script_btn_text = tk.StringVar(value=LANG_MAP.get(saved_lang, LANG_MAP["繁體中文"])["儲存"])
         self.save_script_btn = tb.Button(
@@ -936,6 +961,104 @@ class RecorderApp(tb.Window):
         if hasattr(self.core_recorder, 'set_background_mode'):
             self.core_recorder.set_background_mode(mode)
         # 靜默設定，不顯示日誌
+
+    # ====== 系統托盤相關方法 ======
+    def _on_minimize(self, event):
+        """當視窗最小化時觸發"""
+        if not self.hide_to_tray_var.get():
+            return  # 沒有勾選「隱藏」，不做任何事
+        
+        # 檢查是否真的是最小化（不是隱藏或其他事件）
+        if self.state() == "iconic":
+            self._hide_to_tray()
+    
+    def _hide_to_tray(self):
+        """完全隱藏視窗到系統托盤"""
+        if not PYSTRAY_AVAILABLE:
+            return
+        
+        # 隱藏主視窗
+        self.withdraw()
+        
+        # 建立托盤圖示（如果還沒建立）
+        if self.tray_icon is None:
+            self._create_tray_icon()
+    
+    def _create_tray_icon(self):
+        """建立系統托盤圖示"""
+        if not PYSTRAY_AVAILABLE:
+            return
+        
+        # 載入圖示
+        icon_path = get_icon_path()
+        try:
+            if os.path.exists(icon_path):
+                image = PILImage.open(icon_path)
+            else:
+                # 建立預設圖示（藍色方塊）
+                image = PILImage.new('RGB', (64, 64), color=(66, 133, 244))
+        except Exception:
+            image = PILImage.new('RGB', (64, 64), color=(66, 133, 244))
+        
+        # 取得當前語言的選單文字
+        lang = self.language_var.get()
+        lang_map = LANG_MAP.get(lang, LANG_MAP["繁體中文"])
+        show_text = lang_map.get("顯示主視窗", "顯示主視窗")
+        exit_text = lang_map.get("退出", "退出")
+        
+        # 建立選單
+        menu = pystray.Menu(
+            pystray.MenuItem(show_text, self._show_from_tray),
+            pystray.MenuItem(exit_text, self._quit_from_tray)
+        )
+        
+        # 建立托盤圖示
+        self.tray_icon = pystray.Icon(
+            "ChroLens_Mimic",
+            image,
+            f"ChroLens_Mimic {VERSION}",
+            menu
+        )
+        
+        # 設定點擊事件（左鍵點擊顯示視窗）
+        self.tray_icon.default = pystray.MenuItem(show_text, self._show_from_tray)
+        
+        # 在背景執行緒執行托盤圖示
+        tray_thread = threading.Thread(target=self.tray_icon.run, daemon=True)
+        tray_thread.start()
+    
+    def _show_from_tray(self, icon=None, item=None):
+        """從系統托盤顯示主視窗"""
+        # 停止托盤圖示
+        if self.tray_icon is not None:
+            try:
+                self.tray_icon.stop()
+            except Exception:
+                pass
+            self.tray_icon = None
+        
+        # 使用 after 確保在主執行緒執行
+        self.after(0, self._restore_window)
+    
+    def _restore_window(self):
+        """還原視窗（在主執行緒中執行）"""
+        self.deiconify()  # 顯示視窗
+        self.lift()       # 提升到最上層
+        self.focus_force()  # 獲得焦點
+    
+    def _quit_from_tray(self, icon=None, item=None):
+        """從系統托盤退出程式"""
+        # 停止托盤圖示
+        if self.tray_icon is not None:
+            try:
+                self.tray_icon.stop()
+            except Exception:
+                pass
+            self.tray_icon = None
+        
+        # 在主執行緒中執行退出
+        self.after(0, self.force_quit)
+
 
     def update_speed_tooltip(self):
         lang = self.language_var.get()

@@ -2972,7 +2972,7 @@ class TextCommandEditor(tk.Toplevel):
         # 創建獨立的說明視窗
         ref_window = tk.Toplevel(self)
         ref_window.title("ChroLens Mimic - 指令說明")
-        ref_window.geometry("1200x750")
+        ref_window.geometry("1200x850")  # 增加高度以容納新手入門區
         ref_window.configure(bg="#1e1e1e")
         
         # 創建帶滾動條的 Canvas 容器
@@ -2995,21 +2995,31 @@ class TextCommandEditor(tk.Toplevel):
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
+        # ✅ 新增：新手快速入門區（更親民的說明）
+        self._insert_beginner_guide(scrollable_frame)
+        
         # 插入指令表格（使用 grid）
         self._insert_command_grid_table(scrollable_frame)
         
-        # 底部提示文字
+        # 底部提示文字（更清楚的說明）
         info_frame = tk.Frame(ref_window, bg="#1e1e1e")
         info_frame.pack(fill="x", padx=10, pady=(0, 10))
         
-        info_text = "提示：指令中的 T= 參數表示執行時間（格式：秒s毫秒，例如 T=1s500 表示 1.5 秒）｜所有座標和時間都可以根據需要調整"
-        info_label = tk.Label(info_frame,
-                             text=info_text,
-                             font=font_tuple(9),
-                             bg="#1e1e1e",
-                             fg="#6a9955",
-                             justify="left")
-        info_label.pack(anchor="w")
+        # 更親民的提示文字
+        tips = [
+            "💡 T=1s500 的意思是「1.5秒」= 1秒 + 500毫秒（1000毫秒 = 1秒）",
+            "💡 座標 (100,200) 是螢幕上的位置，可以用滑鼠錄製功能自動取得",
+            "💡 pic01 是圖片名稱，按「圖片辨識」按鈕會自動幫你截圖並命名"
+        ]
+        for tip in tips:
+            tk.Label(
+                info_frame,
+                text=tip,
+                font=font_tuple(9),
+                bg="#1e1e1e",
+                fg="#6a9955",
+                anchor="w"
+            ).pack(anchor="w", pady=1)
         
         # 綁定滑鼠滾輪
         def _on_mousewheel(event):
@@ -3035,6 +3045,97 @@ class TextCommandEditor(tk.Toplevel):
         ref_window.transient(self)
         ref_window.lift()
         ref_window.focus_force()
+    
+    def _insert_beginner_guide(self, parent_frame):
+        """新增新手快速入門區塊（白話說明）- 可摺疊版本"""
+        # 主容器
+        container = tk.Frame(parent_frame, bg="#1e1e1e")
+        container.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 15), padx=5)
+        
+        # 摺疊狀態
+        is_expanded = [True]  # 使用列表以便在閉包中修改
+        
+        # 快速入門標題（可點擊切換展開/收合）
+        title_frame = tk.Frame(container, bg="#2d5a2d", cursor="hand2")
+        title_frame.pack(fill="x")
+        
+        # 展開/收合圖示
+        toggle_label = tk.Label(
+            title_frame,
+            text="▼",
+            font=font_tuple(10),
+            bg="#2d5a2d",
+            fg="#ffffff"
+        )
+        toggle_label.pack(side="left", padx=10, pady=8)
+        
+        title_label = tk.Label(
+            title_frame,
+            text="🌟 新手快速入門 - 這些指令在做什麼？（點擊收合/展開）",
+            font=font_tuple(11, "bold"),
+            bg="#2d5a2d",
+            fg="#ffffff",
+            cursor="hand2"
+        )
+        title_label.pack(side="left", pady=8)
+        
+        # 簡易說明內容區
+        guide_frame = tk.Frame(container, bg="#1e1e1e", relief="groove", bd=1)
+        guide_frame.pack(fill="x", pady=(5, 0))
+        
+        guide_items = [
+            ("🖱️ 滑鼠操作", "讓程式幫你點滑鼠。例如「左鍵點擊(100,200)」就是在螢幕座標 100,200 的地方點一下左鍵"),
+            ("⌨️ 鍵盤操作", "讓程式幫你打字或按按鍵。例如「按a」就是幫你按一下鍵盤上的 A 鍵"),
+            ("📷 圖片辨識", "讓程式「看」螢幕找圖片。例如找到「登入按鈕」的圖片後自動點擊"),
+            ("📝 文字辨識", "讓程式「讀」螢幕上的文字。例如找到「歡迎」字樣後執行下一步"),
+            ("🏷️ 標籤跳轉", "標籤就像書籤，讓程式可以跳到指定位置重新執行"),
+            ("⏱️ 延遲等待", "讓程式暫停一下再繼續，避免動作太快"),
+            ("🔀 條件判斷", "根據情況決定下一步。例如「如果找到圖片就執行A，找不到就執行B」"),
+            ("🔄 迴圈重複", "讓一段指令重複執行多次"),
+        ]
+        
+        for i, (title, desc) in enumerate(guide_items):
+            row_frame = tk.Frame(guide_frame, bg="#252526" if i % 2 == 0 else "#1e1e1e")
+            row_frame.pack(fill="x", padx=5, pady=2)
+            
+            # 標題
+            tk.Label(
+                row_frame,
+                text=title,
+                font=font_tuple(10, "bold"),
+                bg=row_frame["bg"],
+                fg="#4ec9b0",
+                width=12,
+                anchor="w"
+            ).pack(side="left", padx=10, pady=5)
+            
+            # 說明
+            tk.Label(
+                row_frame,
+                text=desc,
+                font=font_tuple(9),
+                bg=row_frame["bg"],
+                fg="#d4d4d4",
+                anchor="w",
+                wraplength=900,
+                justify="left"
+            ).pack(side="left", fill="x", expand=True, padx=5, pady=5)
+        
+        # 摺疊/展開功能
+        def toggle_guide():
+            if is_expanded[0]:
+                guide_frame.pack_forget()
+                toggle_label.config(text="▶")
+                is_expanded[0] = False
+            else:
+                guide_frame.pack(fill="x", pady=(5, 0))
+                toggle_label.config(text="▼")
+                is_expanded[0] = True
+        
+        # 綁定點擊事件
+        title_frame.bind("<Button-1>", lambda e: toggle_guide())
+        title_label.bind("<Button-1>", lambda e: toggle_guide())
+        toggle_label.bind("<Button-1>", lambda e: toggle_guide())
     
     def _configure_reference_tags(self, text_widget):
         """配置指令說明的文字標籤樣式（與編輯器一致）"""
@@ -3384,39 +3485,37 @@ class TextCommandEditor(tk.Toplevel):
             ("重置計時器", ">重置計時器>等待載入, T=0s000", "重置指定計時器"),
         ]
         
-        # 表頭
+        # 設定統一的欄位寬度（像素）
+        col_widths = [150, 480, 320]  # 指令按鈕、指令內容、說明
+        
+        # 表頭（使用與資料列相同的結構確保對齊）
+        base_row = 1  # 從 row=1 開始，row=0 被新手入門區塊使用
+        header_frame = tk.Frame(parent_frame, bg="#2d2d30")
+        header_frame.grid(row=base_row, column=0, columnspan=3, sticky="ew", padx=5)
+        
         headers = ["指令按鈕", "指令內容", "說明"]
-        for col, header in enumerate(headers):
+        for col, (header, width) in enumerate(zip(headers, col_widths)):
             label = tk.Label(
-                parent_frame,
+                header_frame,
                 text=header,
-                font=font_tuple(10),
+                font=font_tuple(10, "bold"),
                 bg="#2d2d30",
                 fg="#ffffff",
+                width=width // 8,  # 大約轉換為字元寬度
                 padx=10,
                 pady=8,
+                anchor="w",
                 relief="solid",
                 borderwidth=1
             )
-            label.grid(row=0, column=col, sticky="ew")
+            label.pack(side="left", fill="x", expand=(col == 1))  # 中間欄位可伸縮
         
-        # 配置列寬度
-        parent_frame.grid_columnconfigure(0, minsize=180)
-        parent_frame.grid_columnconfigure(1, minsize=500)
-        parent_frame.grid_columnconfigure(2, minsize=350)
-        
-        # 插入指令資料
-        for row, (button_name, command, description) in enumerate(commands, start=1):
-            # 創建整行的框架，用於點擊選取（預留2px邊框空間避免浮動）
-            row_frame = tk.Frame(parent_frame, bg="#1e1e1e", relief="solid", borderwidth=2, highlightthickness=0)
-            row_frame.grid(row=row, column=0, columnspan=3, sticky="ew")
-            # 設定透明邊框色（未選取時）
+        # 插入指令資料（從 base_row + 1 開始）
+        for row, (button_name, command, description) in enumerate(commands, start=base_row + 1):
+            # 創建整行的框架
+            row_frame = tk.Frame(parent_frame, bg="#1e1e1e", highlightthickness=2)
+            row_frame.grid(row=row, column=0, columnspan=3, sticky="ew", padx=5)
             row_frame.config(highlightbackground="#1e1e1e", highlightcolor="#1e1e1e")
-            
-            # 配置內部的 grid
-            row_frame.grid_columnconfigure(0, minsize=180)
-            row_frame.grid_columnconfigure(1, minsize=500)
-            row_frame.grid_columnconfigure(2, minsize=350)
             
             # 按鈕名稱
             btn_label = tk.Label(
@@ -3425,17 +3524,18 @@ class TextCommandEditor(tk.Toplevel):
                 font=font_tuple(9),
                 bg="#1e1e1e",
                 fg="#569cd6",
+                width=col_widths[0] // 8,
                 padx=10,
                 pady=5,
                 anchor="w",
                 relief="solid",
                 borderwidth=1
             )
-            btn_label.grid(row=0, column=0, sticky="ew")
+            btn_label.pack(side="left", fill="y")
             
             # 指令內容（帶語法高亮）
             cmd_frame = tk.Frame(row_frame, bg="#1e1e1e", relief="solid", borderwidth=1)
-            cmd_frame.grid(row=0, column=1, sticky="ew")
+            cmd_frame.pack(side="left", fill="both", expand=True)
             
             cmd_text = tk.Text(
                 cmd_frame,
@@ -3465,13 +3565,15 @@ class TextCommandEditor(tk.Toplevel):
                 font=font_tuple(9),
                 bg="#1e1e1e",
                 fg="#b8c5d6",
+                width=col_widths[2] // 8,
                 padx=10,
                 pady=5,
                 anchor="w",
                 relief="solid",
-                borderwidth=1
+                borderwidth=1,
+                wraplength=col_widths[2] - 20
             )
-            desc_label.grid(row=0, column=2, sticky="ew")
+            desc_label.pack(side="left", fill="y")
             
             # 為整行添加點擊事件，顯示選取框
             def make_click_handler(frame, labels):

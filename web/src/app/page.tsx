@@ -188,13 +188,13 @@ export default function Home() {
 
       <section className={styles.version}>
         <h2>最新版本</h2>
-        <h3>v2.7.4 - 編輯器修復與多螢幕支援</h3>
+        <h3>v2.7.5 - YOLO 物件偵測與精度強化</h3>
         <ul>
-          <li>🐛 修復腳本編輯器視窗層級問題</li>
-          <li>🎯 編輯器開啟後正確顯示在最上層並獲得焦點</li>
-          <li>🖥️ 圖片辨識截圖功能支援所有螢幕</li>
-          <li>🖱️ 左鍵/右鍵座標捕捉功能支援多螢幕環境</li>
-          <li>📐 範圍選擇器支援跨螢幕操作</li>
+          <li>🤖 整合 YOLOv8s AI 物件偵測，支援 80 種物件類別</li>
+          <li>🔍 新增嚴格模式，可區分相似按鈕（如 Accept vs Accept all）</li>
+          <li>⌨️ 修復快捷鍵系統，支援單獨按鍵和任意組合鍵</li>
+          <li>📚 新增可摺疊的「新手快速入門」教學區塊</li>
+          <li>🧹 專案瘦身，減少約 2.7 MB</li>
         </ul>
       </section>
     </main>

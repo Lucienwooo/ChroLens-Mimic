@@ -9,7 +9,7 @@
 # 該檔案包含所有開發規範、流程說明、版本管理規則和重要備註
 # ═══════════════════════════════════════════════════════════════════════════
 
-VERSION = "2.7.4"
+VERSION = "2.7.5"
 
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
@@ -3311,23 +3311,53 @@ class RecorderApp(tb.Window):
         row = 0
 
         def on_entry_key(event, key, var):
-            """強化版快捷鍵捕捉"""
-            keys = []
+            """強化版快捷鍵捕捉 - v2.8.2 修復版
             
-            # 檢測修飾鍵
-            if event.state & 0x0001 or event.keysym in ('Shift_L', 'Shift_R'):  # Shift
-                keys.append("shift")
-            if event.state & 0x0004 or event.keysym in ('Control_L', 'Control_R'):  # Ctrl
-                keys.append("ctrl")
-            if event.state & 0x0008 or event.state & 0x20000 or event.keysym in ('Alt_L', 'Alt_R'):  # Alt
-                keys.append("alt")
-            if event.state & 0x0040:  # Win key
-                keys.append("win")
+            修復問題：使用者只能設定 alt+按鍵 的組合
+            解決方案：正確分離修飾鍵偵測與主按鍵處理
             
-            # 取得主按鍵
+            支援：
+            - 單獨按鍵：z, F7, F12
+            - 組合鍵：alt+z, ctrl+F3, shift+a
+            - 多修飾鍵：ctrl+alt+z, ctrl+shift+F5
+            """
+            # 取得主按鍵名稱
             key_name = event.keysym.lower()
             
-            # 特殊按鍵映射
+            # 修飾鍵映射（用於過濾）
+            modifier_keysyms = {
+                'shift_l', 'shift_r', 
+                'control_l', 'control_r',
+                'alt_l', 'alt_r', 'alt_gr',
+                'win_l', 'win_r', 'super_l', 'super_r',
+                'meta_l', 'meta_r'
+            }
+            
+            # 如果只按了修飾鍵本身，先不設定（等待主按鍵）
+            if key_name in modifier_keysyms:
+                return "break"
+            
+            # 檢測真正按住的修飾鍵（排除修飾鍵本身的 keysym）
+            modifiers = []
+            
+            # Ctrl 鍵：state bit 2 (0x0004)
+            if event.state & 0x0004:
+                modifiers.append("ctrl")
+            
+            # Shift 鍵：state bit 0 (0x0001)
+            if event.state & 0x0001:
+                modifiers.append("shift")
+            
+            # Alt 鍵：Windows 上 Alt 是 state bit 17 (0x20000)，也可能是 bit 3 (0x0008)
+            # 注意：只有在非 Alt 本身按鍵時才加入
+            if event.state & 0x20000 or event.state & 0x0008:
+                modifiers.append("alt")
+            
+            # Win 鍵：state bit 6 (0x0040)
+            if event.state & 0x0040:
+                modifiers.append("win")
+            
+            # 特殊按鍵映射（將 Tkinter keysym 轉為 keyboard 模組格式）
             special_keys = {
                 'return': 'enter',
                 'prior': 'page_up',
@@ -3345,41 +3375,65 @@ class RecorderApp(tb.Window):
                 'scroll_lock': 'scroll_lock',
                 'print': 'print_screen',
                 'pause': 'pause',
+                'grave': '`',
+                'asciitilde': '`',
+                'quoteleft': '`',
+                'minus': '-',
+                'equal': '=',
+                'bracketleft': '[',
+                'bracketright': ']',
+                'backslash': '\\',
+                'semicolon': ';',
+                'quoteright': "'",
+                'apostrophe': "'",
+                'comma': ',',
+                'period': '.',
+                'slash': '/',
             }
             
+            # 處理主按鍵
+            main_key = None
+            
             # 功能鍵 F1-F24
-            if key_name.startswith('f') and key_name[1:].isdigit():
-                key_name = key_name  # F1-F24 保持原樣
+            if key_name.startswith('f') and len(key_name) >= 2 and key_name[1:].isdigit():
+                main_key = key_name.upper()  # F1, F12 等大寫
             # 方向鍵
             elif key_name in ('up', 'down', 'left', 'right'):
-                key_name = key_name
+                main_key = key_name
             # 特殊按鍵
             elif key_name in special_keys:
-                key_name = special_keys[key_name]
-            # 修飾鍵本身不加入（已經在 keys 列表中）
-            elif key_name in ("shift_l", "shift_r", "control_l", "control_r", "alt_l", "alt_r", "win_l", "win_r"):
-                # 如果只按修飾鍵，顯示修飾鍵本身
-                if not keys:
-                    keys.append(key_name.replace('_l', '').replace('_r', ''))
-                key_name = None
+                main_key = special_keys[key_name]
             # 數字鍵盤
             elif key_name.startswith('kp_'):
-                key_name = key_name.replace('kp_', 'num_')
+                main_key = key_name.replace('kp_', 'num_')
+            # 一般按鍵（字母、數字）
+            elif len(key_name) == 1 and key_name.isalnum():
+                main_key = key_name
+            # 其他按鍵
+            elif key_name not in modifier_keysyms:
+                main_key = key_name
             
-            # 組合按鍵字串
-            if key_name and key_name not in [k for k in keys]:
-                keys.append(key_name)
-            
-            # 去除重複並排序（ctrl, alt, shift, win, 主鍵）
-            modifier_order = {'ctrl': 0, 'alt': 1, 'shift': 2, 'win': 3}
-            modifiers = [k for k in keys if k in modifier_order]
-            main_key = [k for k in keys if k not in modifier_order]
-            
-            modifiers.sort(key=lambda x: modifier_order[x])
-            result = modifiers + main_key
-            
-            if result:
-                var.set("+".join(result))
+            # 組合最終結果
+            if main_key:
+                # 清除輸入框防止殘留字元
+                entries[key].delete(0, tk.END)
+                
+                # 按照 ctrl, alt, shift, win 順序排列
+                modifier_order = {'ctrl': 0, 'alt': 1, 'shift': 2, 'win': 3}
+                modifiers.sort(key=lambda x: modifier_order.get(x, 99))
+                
+                # 去除重複
+                seen = set()
+                unique_modifiers = []
+                for m in modifiers:
+                    if m not in seen:
+                        seen.add(m)
+                        unique_modifiers.append(m)
+                
+                result_parts = unique_modifiers + [main_key]
+                result = "+".join(result_parts)
+                
+                var.set(result)
             
             return "break"
 
@@ -3877,23 +3931,52 @@ class RecorderApp(tb.Window):
         pass
 
     def on_hotkey_entry_key(self, event):
-        """強化版快捷鍵捕捉（用於腳本快捷鍵）"""
-        keys = []
+        """強化版快捷鍵捕捉（用於腳本快捷鍵）- v2.8.2 修復版
         
-        # 檢測修飾鍵
-        if event.state & 0x0001 or event.keysym in ('Shift_L', 'Shift_R'):  # Shift
-            keys.append("shift")
-        if event.state & 0x0004 or event.keysym in ('Control_L', 'Control_R'):  # Ctrl
-            keys.append("ctrl")
-        if event.state & 0x0008 or event.state & 0x20000 or event.keysym in ('Alt_L', 'Alt_R'):  # Alt
-            keys.append("alt")
-        if event.state & 0x0040:  # Win key
-            keys.append("win")
+        修復問題：使用者只能設定 alt+按鍵 的組合
+        解決方案：正確分離修飾鍵偵測與主按鍵處理
         
-        # 取得主按鍵
+        支援：
+        - 單獨按鍵：z, F7, F12
+        - 組合鍵：alt+z, ctrl+F3, shift+a
+        - 多修飾鍵：ctrl+alt+z, ctrl+shift+F5
+        """
+        # 取得主按鍵名稱
         key_name = event.keysym.lower()
         
-        # 特殊按鍵映射
+        # 修飾鍵映射（用於過濾）
+        modifier_keysyms = {
+            'shift_l', 'shift_r', 
+            'control_l', 'control_r',
+            'alt_l', 'alt_r', 'alt_gr',
+            'win_l', 'win_r', 'super_l', 'super_r',
+            'meta_l', 'meta_r'
+        }
+        
+        # 如果只按了修飾鍵本身，先不設定（等待主按鍵）
+        if key_name in modifier_keysyms:
+            return "break"
+        
+        # 檢測真正按住的修飾鍵
+        modifiers = []
+        
+        # Ctrl 鍵：state bit 2 (0x0004)
+        if event.state & 0x0004:
+            modifiers.append("ctrl")
+        
+        # Shift 鍵：state bit 0 (0x0001)
+        if event.state & 0x0001:
+            modifiers.append("shift")
+        
+        # Alt 鍵：Windows 上 Alt 是 state bit 17 (0x20000)，也可能是 bit 3 (0x0008)
+        if event.state & 0x20000 or event.state & 0x0008:
+            modifiers.append("alt")
+        
+        # Win 鍵：state bit 6 (0x0040)
+        if event.state & 0x0040:
+            modifiers.append("win")
+        
+        # 特殊按鍵映射（將 Tkinter keysym 轉為 keyboard 模組格式）
         special_keys = {
             'return': 'enter',
             'prior': 'page_up',
@@ -3911,41 +3994,62 @@ class RecorderApp(tb.Window):
             'scroll_lock': 'scroll_lock',
             'print': 'print_screen',
             'pause': 'pause',
+            'grave': '`',
+            'asciitilde': '`',
+            'quoteleft': '`',
+            'minus': '-',
+            'equal': '=',
+            'bracketleft': '[',
+            'bracketright': ']',
+            'backslash': '\\',
+            'semicolon': ';',
+            'quoteright': "'",
+            'apostrophe': "'",
+            'comma': ',',
+            'period': '.',
+            'slash': '/',
         }
         
+        # 處理主按鍵
+        main_key = None
+        
         # 功能鍵 F1-F24
-        if key_name.startswith('f') and key_name[1:].isdigit():
-            key_name = key_name  # F1-F24 保持原樣
+        if key_name.startswith('f') and len(key_name) >= 2 and key_name[1:].isdigit():
+            main_key = key_name.upper()  # F1, F12 等大寫
         # 方向鍵
         elif key_name in ('up', 'down', 'left', 'right'):
-            key_name = key_name
+            main_key = key_name
         # 特殊按鍵
         elif key_name in special_keys:
-            key_name = special_keys[key_name]
-        # 修飾鍵本身不加入（已經在 keys 列表中）
-        elif key_name in ("shift_l", "shift_r", "control_l", "control_r", "alt_l", "alt_r", "win_l", "win_r"):
-            # 如果只按修飾鍵，顯示修飾鍵本身
-            if not keys:
-                keys.append(key_name.replace('_l', '').replace('_r', ''))
-            key_name = None
+            main_key = special_keys[key_name]
         # 數字鍵盤
         elif key_name.startswith('kp_'):
-            key_name = key_name.replace('kp_', 'num_')
+            main_key = key_name.replace('kp_', 'num_')
+        # 一般按鍵（字母、數字）
+        elif len(key_name) == 1 and key_name.isalnum():
+            main_key = key_name
+        # 其他按鍵
+        elif key_name not in modifier_keysyms:
+            main_key = key_name
         
-        # 組合按鍵字串
-        if key_name and key_name not in [k for k in keys]:
-            keys.append(key_name)
-        
-        # 去除重複並排序（ctrl, alt, shift, win, 主鍵）
-        modifier_order = {'ctrl': 0, 'alt': 1, 'shift': 2, 'win': 3}
-        modifiers = [k for k in keys if k in modifier_order]
-        main_key = [k for k in keys if k not in modifier_order]
-        
-        modifiers.sort(key=lambda x: modifier_order[x])
-        result = modifiers + main_key
-        
-        if result:
-            self.hotkey_capture_var.set("+".join(result))
+        # 組合最終結果
+        if main_key:
+            # 按照 ctrl, alt, shift, win 順序排列
+            modifier_order = {'ctrl': 0, 'alt': 1, 'shift': 2, 'win': 3}
+            modifiers.sort(key=lambda x: modifier_order.get(x, 99))
+            
+            # 去除重複
+            seen = set()
+            unique_modifiers = []
+            for m in modifiers:
+                if m not in seen:
+                    seen.add(m)
+                    unique_modifiers.append(m)
+            
+            result_parts = unique_modifiers + [main_key]
+            result = "+".join(result_parts)
+            
+            self.hotkey_capture_var.set(result)
         
         return "break"
 

@@ -29,6 +29,15 @@ except ImportError:
     BEZIER_AVAILABLE = False
     print("⚠️ BezierMouseMover 未載入，將使用傳統直線移動")
 
+# 🔥 v2.8.2: 匯入 YOLO 物件偵測模組
+try:
+    from yolo_detector import YOLODetector, get_detector, YOLO_AVAILABLE
+except ImportError:
+    YOLO_AVAILABLE = False
+    YOLODetector = None
+    get_detector = None
+    print("⚠️ YOLO 模組未載入，物件偵測功能不可用")
+
 
 # ==================== 觸發器管理器 (v2.8.0+) ====================
 class TriggerManager:
@@ -475,6 +484,13 @@ class CoreRecorder:
         # ✅ v2.8.0+ 新增：觸發器管理器
         self._trigger_manager = TriggerManager(self, logger)
         self._pending_jump = None  # 觸發器請求的跳轉目標
+        
+        # 🔥 v2.8.2+ 新增：YOLO 物件偵測器
+        self._yolo_detector = None
+        self._yolo_enabled = False
+        if YOLO_AVAILABLE:
+            self._yolo_detector = get_detector(logger=lambda m: self._log(m, "info"))
+            self._log("[YOLO] YOLOv8s 偵測模組已就緒", "info")
     
     def _log(self, msg: str, level: str = "info"):
         """統一日誌輸出（相容新舊格式）
@@ -2871,18 +2887,19 @@ class CoreRecorder:
             del self._motion_history[image_name]
         self.logger(f"[追蹤] 已停用 {image_name} 的追蹤模式")
     
-    def find_image_on_screen(self, image_name_or_path, threshold=0.7, region=None, multi_scale=True, fast_mode=False, use_features_fallback=True, show_border=False, enable_tracking=False):
-        """在螢幕上尋找圖片（🔥 極速優化版 + 智能追蹤）
+    def find_image_on_screen(self, image_name_or_path, threshold=0.9, region=None, multi_scale=True, fast_mode=False, use_features_fallback=True, show_border=False, enable_tracking=False, strict_mode=True):
+        """在螢幕上尋找圖片（🔥 極速優化版 + 智能追蹤 + 精確比對）
         
         Args:
             image_name_or_path: 圖片顯示名稱或完整路徑
-            threshold: 匹配閾值 (0-1)，預設0.7平衡速度與準確度 (已優化)
+            threshold: 匹配閾值 (0-1)，預設0.8平衡速度與準確度 (v2.8.2 提高)
             region: 搜尋區域 (x1, y1, x2, y2)，None表示全螢幕
             multi_scale: 是否啟用多尺度搜尋（提高容錯性）
             fast_mode: 快速模式（跳過驗證步驟，大幅提升速度）
             use_features_fallback: 模板匹配失敗時，是否嘗試特徵點匹配
             show_border: 是否顯示邊框
             enable_tracking: 啟用追蹤模式（預測式搜尋，適合移動目標）
+            strict_mode: 嚴格模式（v2.8.2 新增）- 使用更精確的比對避免相似圖片誤判
             
         Returns:
             (center_x, center_y) 如果找到，否則 None
@@ -2925,7 +2942,7 @@ class CoreRecorder:
             best_template_size = None
             best_scale = 1.0
             
-            # 🔥 極速模式：單一演算法、原始尺寸、無驗證
+            # 🔥 極速模式：單一演算法、原始尺寸
             if fast_mode:
                 # 使用最快的 TM_CCOEFF_NORMED 算法
                 result = cv2.matchTemplate(screen_cv, template_gray, cv2.TM_CCOEFF_NORMED)
@@ -2933,6 +2950,28 @@ class CoreRecorder:
                 
                 if max_val >= threshold:
                     h, w = template_gray.shape
+                    
+                    # 🔥 v2.8.2 嚴格模式：驗證匹配區域是否真的與模板一致
+                    if strict_mode:
+                        verified = self._verify_match_strict(
+                            screen_cv, template_gray, max_loc, 
+                            threshold=0.92  # 嚴格驗證使用更高閾值
+                        )
+                        if not verified:
+                            self.logger(f"[圖片辨識][嚴格模式] ⚠️ 匹配位置驗證失敗，可能是相似但不同的圖片")
+                            # 嘗試找下一個最佳匹配
+                            alt_pos = self._find_strict_match(
+                                screen_cv, template_gray, result, threshold, search_region
+                            )
+                            if alt_pos:
+                                if search_region:
+                                    alt_pos = (alt_pos[0] + search_region[0], alt_pos[1] + search_region[1])
+                                self.logger(f"[圖片辨識][嚴格模式] ✅ 找到精確匹配於 ({alt_pos[0]}, {alt_pos[1]})")
+                                return alt_pos
+                            else:
+                                self.logger(f"[圖片辨識][嚴格模式] ❌ 無法找到精確匹配")
+                                return None
+                    
                     pos = (max_loc[0] + w // 2, max_loc[1] + h // 2)
                     
                     # 如果有指定region，需要加上偏移
@@ -3198,11 +3237,210 @@ class CoreRecorder:
             traceback.print_exc()
             return None, None
     
+    def _verify_match_strict(self, screen_cv, template_gray, match_loc, threshold=0.92):
+        """🔥 v2.8.2 嚴格驗證匹配區域
+        
+        用於區分相似但不同的按鈕（如 Accept vs Accept all）
+        
+        Args:
+            screen_cv: 螢幕截圖（灰度）
+            template_gray: 模板圖片（灰度）
+            match_loc: 匹配位置 (x, y)
+            threshold: 驗證閾值
+            
+        Returns:
+            bool: 是否驗證通過
+        """
+        try:
+            h, w = template_gray.shape
+            x, y = match_loc
+            
+            # 確保範圍在螢幕內
+            if y + h > screen_cv.shape[0] or x + w > screen_cv.shape[1]:
+                return False
+            
+            # 提取匹配區域
+            matched_region = screen_cv[y:y+h, x:x+w]
+            
+            # 1️⃣ 像素差異統計（核心驗證）
+            diff = cv2.absdiff(matched_region, template_gray)
+            mean_diff = np.mean(diff)
+            max_diff = np.max(diff)
+            
+            # 如果平均差異太大，驗證失敗
+            if mean_diff > 15:  # 平均像素差異超過15
+                self.logger(f"[嚴格驗證] 像素差異過大: 平均={mean_diff:.2f}, 最大={max_diff}")
+                return False
+            
+            # 2️⃣ 邊界像素驗證（檢查圖片邊緣是否一致）
+            # 右邊緣（用於區分 Accept 和 Accept all）
+            right_edge_template = template_gray[:, -5:]  # 右邊5像素
+            right_edge_matched = matched_region[:, -5:]
+            right_diff = np.mean(cv2.absdiff(right_edge_template, right_edge_matched))
+            
+            if right_diff > 20:  # 右邊緣差異太大
+                self.logger(f"[嚴格驗證] 右邊緣差異過大: {right_diff:.2f}")
+                return False
+            
+            # 3️⃣ 直方圖相似度驗證
+            hist_template = cv2.calcHist([template_gray], [0], None, [256], [0, 256])
+            hist_matched = cv2.calcHist([matched_region], [0], None, [256], [0, 256])
+            
+            cv2.normalize(hist_template, hist_template)
+            cv2.normalize(hist_matched, hist_matched)
+            
+            hist_corr = cv2.compareHist(hist_template, hist_matched, cv2.HISTCMP_CORREL)
+            
+            if hist_corr < threshold:
+                self.logger(f"[嚴格驗證] 直方圖相似度不足: {hist_corr:.3f} < {threshold}")
+                return False
+            
+            # 4️⃣ 結構相似性（使用正規化互相關）
+            result = cv2.matchTemplate(matched_region, template_gray, cv2.TM_CCOEFF_NORMED)
+            ncc_score = result[0][0]
+            
+            if ncc_score < threshold:
+                self.logger(f"[嚴格驗證] NCC分數不足: {ncc_score:.3f} < {threshold}")
+                return False
+            
+            self.logger(f"[嚴格驗證] ✅ 通過 (像素差={mean_diff:.2f}, 邊緣差={right_diff:.2f}, 直方圖={hist_corr:.3f}, NCC={ncc_score:.3f})")
+            return True
+            
+        except Exception as e:
+            self.logger(f"[嚴格驗證] 錯誤: {e}")
+            return True  # 錯誤時默認通過，避免中斷流程
+    
+    def _find_strict_match(self, screen_cv, template_gray, result_map, threshold, search_region):
+        """🔥 v2.8.2 尋找通過嚴格驗證的匹配位置
+        
+        當第一個最佳匹配驗證失敗時，嘗試找其他候選位置
+        
+        Args:
+            screen_cv: 螢幕截圖（灰度）
+            template_gray: 模板圖片（灰度）
+            result_map: matchTemplate 的結果矩陣
+            threshold: 匹配閾值
+            search_region: 搜尋區域
+            
+        Returns:
+            (center_x, center_y) 或 None
+        """
+        try:
+            h, w = template_gray.shape
+            
+            # 複製結果矩陣以便操作
+            result_copy = result_map.copy()
+            
+            # 最多嘗試5個候選位置
+            for attempt in range(5):
+                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result_copy)
+                
+                if max_val < threshold:
+                    break  # 沒有更多高分候選
+                
+                # 驗證這個位置
+                if self._verify_match_strict(screen_cv, template_gray, max_loc, threshold=0.92):
+                    # 計算中心點
+                    center_x = max_loc[0] + w // 2
+                    center_y = max_loc[1] + h // 2
+                    
+                    self.logger(f"[嚴格匹配] 找到備選位置 (嘗試 #{attempt+1}): ({center_x}, {center_y}) 分數:{max_val:.3f}")
+                    return (center_x, center_y)
+                
+                # 將這個位置標記為已檢查（抹除周圍區域）
+                x, y = max_loc
+                x1 = max(0, x - w // 2)
+                y1 = max(0, y - h // 2)
+                x2 = min(result_copy.shape[1], x + w // 2 + 1)
+                y2 = min(result_copy.shape[0], y + h // 2 + 1)
+                result_copy[y1:y2, x1:x2] = -1  # 標記為無效
+                
+                self.logger(f"[嚴格匹配] 候選 #{attempt+1} ({max_loc}) 驗證失敗，繼續搜尋...")
+            
+            return None
+            
+        except Exception as e:
+            self.logger(f"[嚴格匹配] 錯誤: {e}")
+            return None
+    
     def clear_image_cache(self):
         """清除圖片快取"""
         self._image_cache.clear()
         self.logger("[圖片辨識] 已清除圖片快取")
     
+    # ==================== YOLO 物件偵測 (v2.8.2+) ====================
+    
+    def load_yolo_model(self, model_path: str = None) -> bool:
+        """載入 YOLO 模型
+        
+        Args:
+            model_path: 模型路徑（可選），預設使用 yolov8s.pt
+            
+        Returns:
+            bool: 是否成功載入
+        """
+        if not YOLO_AVAILABLE or self._yolo_detector is None:
+            self._log("[YOLO] ❌ YOLO 模組不可用，請安裝: pip install ultralytics", "warning")
+            return False
+        
+        success = self._yolo_detector.load_model(model_path)
+        if success:
+            self._yolo_enabled = True
+        return success
+    
+    def find_object_yolo(self, class_name: str, confidence: float = 0.5,
+                        region=None) -> tuple:
+        """使用 YOLO 在螢幕上尋找特定物件
+        
+        Args:
+            class_name: 物件類別名稱（如 "person", "laptop", "cell phone"）
+            confidence: 信心度閾值 (0-1)
+            region: 搜尋區域 (x1, y1, x2, y2)，None 表示全螢幕
+            
+        Returns:
+            (center_x, center_y) 如果找到，否則 None
+        """
+        if not self._yolo_enabled or self._yolo_detector is None:
+            # 嘗試自動載入模型
+            if not self.load_yolo_model():
+                return None
+        
+        return self._yolo_detector.find_object(class_name, confidence, region)
+    
+    def detect_objects_yolo(self, confidence: float = 0.5, region=None) -> list:
+        """使用 YOLO 偵測螢幕上的所有物件
+        
+        Args:
+            confidence: 信心度閾值 (0-1)
+            region: 搜尋區域
+            
+        Returns:
+            List[Dict]: 偵測結果列表
+        """
+        if not self._yolo_enabled or self._yolo_detector is None:
+            if not self.load_yolo_model():
+                return []
+        
+        return self._yolo_detector.detect_screen(region, confidence)
+    
+    def get_yolo_classes(self) -> list:
+        """取得 YOLO 可偵測的類別列表
+        
+        Returns:
+            List[str]: COCO 類別名稱列表
+        """
+        if self._yolo_detector:
+            return self._yolo_detector.get_available_classes()
+        return []
+    
+    def is_yolo_available(self) -> bool:
+        """檢查 YOLO 是否可用
+        
+        Returns:
+            bool: True 如果 YOLO 模組已載入
+        """
+        return YOLO_AVAILABLE and self._yolo_detector is not None
+
     def find_image_by_features(self, template, screen_cv, threshold=0.7, min_match_count=10):
         """使用特徵點匹配尋找圖片（Template Matching 的備案方法）
         

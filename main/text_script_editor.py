@@ -66,6 +66,8 @@ PCB_COLORS = {
     "success": "#3fb950",   # 成功 - 綠色
     "failure": "#f85149",   # 失敗 - 紅色
     "loop": "#58a6ff",      # 迴圈 - 藍色
+    "fork": "#56d364",      # 並行分叉 - 亮綠色
+    "parallel": "#a371f7",  # 並行線程 - 紫色
     "background": "#0d1117", # GitHub 深色背景
     "card": "#161b22",      # 卡片背景
     "text": "#c9d1d9",       # 文字顏色
@@ -104,45 +106,52 @@ def create_rounded_rect(canvas, x1, y1, x2, y2, radius=12, **kwargs):
 
 
 class GlobalRouter:
-    """全域碰撞偵測布線器 - PCB 風格"""
+    """全域碰撞偵測布線器 - PCB 風格 (v2.8.2: 支援視覺縮放)"""
     
-    def __init__(self, nodes):
+    def __init__(self, nodes, scale=1.0):
         self.nodes = nodes
+        self.scale = scale
+        # ✅ 基於縮放比例動態調整網格
+        self.grid_size = max(2, int(PCB_GRID_SIZE * scale))
         self.h_segments = {}
         self.v_segments = {}
         self.label_rects = []
+        self.node_rects = []
         self.line_count = 0
         self._mark_nodes_as_blocked()
     
     def _mark_nodes_as_blocked(self):
         self.node_rects = []
-        padding = 4
+        # ✅ Padding 隨比例縮放
+        padding = 4 * self.scale
         for node in self.nodes:
+            # 使用 .get 以防寬高度缺失
+            w = node.get("width", 150)
+            h = node.get("height", 36)
             self.node_rects.append({
                 "x1": node["x"] - padding,
                 "y1": node["y"] - padding,
-                "x2": node["x"] + node["width"] + padding,
-                "y2": node["y"] + node["height"] + padding,
+                "x2": node["x"] + w + padding,
+                "y2": node["y"] + h + padding,
             })
     
     def _snap(self, val):
-        return round(val / PCB_GRID_SIZE) * PCB_GRID_SIZE
+        return round(val / self.grid_size) * self.grid_size
     
     def _is_h_free(self, y, x1, x2, check_nodes=True, from_node_idx=None, to_node_idx=None):
         y_key = self._snap(y)
         x1, x2 = min(x1, x2), max(x1, x2)
+        safe_dist = 5 * self.scale
         
         if y_key in self.h_segments:
             for sx1, sx2, _ in self.h_segments[y_key]:
-                if not (x2 <= sx1 - 5 or x1 >= sx2 + 5):
+                if not (x2 <= sx1 - safe_dist or x1 >= sx2 + safe_dist):
                     return False
         
         if check_nodes:
             for i, rect in enumerate(self.node_rects):
-                if from_node_idx is not None and i == from_node_idx:
-                    continue
-                if to_node_idx is not None and i == to_node_idx:
-                    continue
+                if from_node_idx is not None and i == from_node_idx: continue
+                if to_node_idx is not None and i == to_node_idx: continue
                 if rect["y1"] <= y <= rect["y2"]:
                     if not (x2 <= rect["x1"] or x1 >= rect["x2"]):
                         return False
@@ -151,18 +160,17 @@ class GlobalRouter:
     def _is_v_free(self, x, y1, y2, check_nodes=True, from_node_idx=None, to_node_idx=None):
         x_key = self._snap(x)
         y1, y2 = min(y1, y2), max(y1, y2)
+        safe_dist = 5 * self.scale
         
         if x_key in self.v_segments:
             for sy1, sy2, _ in self.v_segments[x_key]:
-                if not (y2 <= sy1 - 5 or y1 >= sy2 + 5):
+                if not (y2 <= sy1 - safe_dist or y1 >= sy2 + safe_dist):
                     return False
         
         if check_nodes:
             for i, rect in enumerate(self.node_rects):
-                if from_node_idx is not None and i == from_node_idx:
-                    continue
-                if to_node_idx is not None and i == to_node_idx:
-                    continue
+                if from_node_idx is not None and i == from_node_idx: continue
+                if to_node_idx is not None and i == to_node_idx: continue
                 if rect["x1"] <= x <= rect["x2"]:
                     if not (y2 <= rect["y1"] or y1 >= rect["y2"]):
                         return False
@@ -171,14 +179,14 @@ class GlobalRouter:
     def _can_direct_connect(self, x1, y1, x2, y2, from_idx, to_idx):
         min_x, max_x = min(x1, x2), max(x1, x2)
         for i, rect in enumerate(self.node_rects):
-            if i == from_idx or i == to_idx:
-                continue
+            if i == from_idx or i == to_idx: continue
             if rect["x1"] < max_x and rect["x2"] > min_x:
                 if rect["y1"] <= y1 <= rect["y2"]:
                     return False
         return True
     
     def _is_label_pos_free(self, x, y, w=30, h=16):
+        w, h = w * self.scale, h * self.scale
         for rect in self.label_rects:
             if not (x + w < rect["x1"] or x - w > rect["x2"] or
                     y + h < rect["y1"] or y - h > rect["y2"]):
@@ -190,134 +198,107 @@ class GlobalRouter:
         return True
     
     def find_label_position(self, path):
+        scale_off20 = 20 * self.scale
+        scale_off10 = 10 * self.scale
+        
         for i in range(len(path)):
             x, y = path[i]
-            for offset_y in [0, -20, 20, -40, 40]:
+            for offset_y in [0, -scale_off20, scale_off20]:
                 test_y = y + offset_y
                 if self._is_label_pos_free(x, test_y):
-                    self.label_rects.append({
-                        "x1": x - 20, "y1": test_y - 10,
-                        "x2": x + 20, "y2": test_y + 10,
-                    })
+                    self.label_rects.append({"x1": x - scale_off20, "y1": test_y - scale_off10, "x2": x + scale_off20, "y2": test_y + scale_off10})
                     return (x, test_y)
-        
         mid = len(path) // 2
-        if mid < len(path):
-            x, y = path[mid]
-            for offset_x in [-30, 30, -60, 60]:
-                for offset_y in [0, -15, 15]:
-                    test_x, test_y = x + offset_x, y + offset_y
-                    if self._is_label_pos_free(test_x, test_y):
-                        self.label_rects.append({
-                            "x1": test_x - 20, "y1": test_y - 10,
-                            "x2": test_x + 20, "y2": test_y + 10,
-                        })
-                        return (test_x, test_y)
-        
-        if len(path) >= 2:
-            return (path[-2][0], path[-2][1] - 20)
-        return path[len(path) // 2] if path else (0, 0)
+        return path[mid] if path else (0, 0)
     
     def _mark_used(self, path, line_id):
         for i in range(len(path) - 1):
             x1, y1 = path[i]
             x2, y2 = path[i + 1]
-            if abs(y2 - y1) < 3:
+            if abs(y2 - y1) < 2:
                 y_key = self._snap(y1)
-                if y_key not in self.h_segments:
-                    self.h_segments[y_key] = []
+                if y_key not in self.h_segments: self.h_segments[y_key] = []
                 self.h_segments[y_key].append((min(x1, x2), max(x1, x2), line_id))
-            elif abs(x2 - x1) < 3:
+            elif abs(x2 - x1) < 2:
                 x_key = self._snap(x1)
-                if x_key not in self.v_segments:
-                    self.v_segments[x_key] = []
+                if x_key not in self.v_segments: self.v_segments[x_key] = []
                 self.v_segments[x_key].append((min(y1, y2), max(y1, y2), line_id))
     
     def _find_h_channel(self, base_y, x1, x2, direction=1):
-        for offset in range(0, 400, PCB_GRID_SIZE):
+        for offset in range(0, int(400 * self.scale), self.grid_size):
             test_y = base_y + offset * direction
             if self._is_h_free(test_y, x1, x2):
                 return test_y
-        return base_y + 250 * direction
+        return base_y + (250 * self.scale) * direction
     
     def _find_v_channel(self, base_x, y1, y2, direction=1):
-        for offset in range(0, 400, PCB_GRID_SIZE):
+        for offset in range(0, int(400 * self.scale), self.grid_size):
             test_x = base_x + offset * direction
             if self._is_v_free(test_x, y1, y2):
                 return test_x
-        return base_x + 250 * direction
+        return base_x + (250 * self.scale) * direction
     
     def route(self, from_node, to_node, path_type, from_idx=None, to_idx=None):
         self.line_count += 1
-        line_id = self.line_count
         
-        x1 = from_node["x"] + from_node["width"]
-        y1 = from_node["y"] + from_node["height"] // 2
+        # ✅ 使用實時縮放後的寬高 (使用 .get 確保安全)
+        fw = from_node.get("width", 150)
+        fh = from_node.get("height", 36)
+        tw = to_node.get("width", 150)
+        th = to_node.get("height", 36)
+        
+        x1 = from_node["x"] + fw
+        y1 = from_node["y"] + fh // 2
         x2 = to_node["x"]
-        y2 = to_node["y"] + to_node["height"] // 2
+        y2 = to_node["y"] + th // 2
         
         path = [(x1, y1)]
-        
         dx = x2 - x1
-        going_right = dx > 0
-        going_left = dx < 0
-        same_row = from_node.get("row") == to_node.get("row")
+        off15 = 15 * self.scale
+        off20 = 20 * self.scale
         
-        if going_right and same_row:
-            can_direct = self._can_direct_connect(x1, y1, x2, y2, from_idx, to_idx)
-            line_free = self._is_h_free(y1, x1, x2, check_nodes=False)
-            
-            if can_direct and line_free:
+        # 1. 向右發展的情形
+        if dx > 0:
+            # 如果在同一行，嘗試直線連接
+            if from_node.get("row") == to_node.get("row") and self._can_direct_connect(x1, y1, x2, y2, from_idx, to_idx):
                 path.append((x2, y1))
             else:
-                channel_y = self._find_h_channel(y1 - 20, x1, x2, -1)
-                path.append((x1 + 15, y1))
-                path.append((x1 + 15, channel_y))
-                path.append((x2 - 15, channel_y))
-                path.append((x2 - 15, y2))
-        
-        elif going_right:
-            mid_x = (x1 + x2) // 2
-            if self._is_v_free(mid_x, min(y1, y2), max(y1, y2), from_node_idx=from_idx, to_node_idx=to_idx):
+                # 不同行或有障礙，使用三段式佈線 (H-V-H)
+                # 分叉 (fork) 類型通常需要更早的轉折，讓視覺更像分支
+                split_ratio = 0.3 if path_type == "fork" else 0.5
+                mid_x = x1 + dx * split_ratio
+                
                 path.append((mid_x, y1))
                 path.append((mid_x, y2))
-            else:
-                mid_x = self._find_v_channel(mid_x, min(y1, y2), max(y1, y2), 1)
-                path.append((mid_x, y1))
-                path.append((mid_x, y2))
+                path.append((x2, y2))
         
-        elif going_left:
+        # 2. 向左發展的情形 (重試或跳轉)
+        elif dx <= 0:
+            off30 = 30 * self.scale
+            off40 = 40 * self.scale
+            off50 = 50 * self.scale
+            
             if path_type == "loop":
-                top_y = min(n["y"] for n in self.nodes) - 50
-                channel_y = self._find_h_channel(top_y, min(x1, x2) - 30, max(x1, x2) + 30, -1)
+                top_y = min(n["y"] for n in self.nodes) - off50
+                channel_y = self._find_h_channel(top_y, min(x1, x2) - off30, max(x1, x2) + off30, -1)
             elif path_type == "failure":
-                bottom_y = max(n["y"] + n["height"] for n in self.nodes) + 50
-                channel_y = self._find_h_channel(bottom_y, min(x1, x2) - 30, max(x1, x2) + 30, 1)
+                bottom_y = max(n["y"] + n.get("height", 36) for n in self.nodes) + off50
+                channel_y = self._find_h_channel(bottom_y, min(x1, x2) - off30, max(x1, x2) + off30, 1)
             else:
-                channel_y = self._find_h_channel(
-                    min(n["y"] for n in self.nodes) - 40,
-                    min(x1, x2) - 30, max(x1, x2) + 30, -1
-                )
+                channel_y = self._find_h_channel(min(n["y"] for n in self.nodes) - off40, min(x1, x2) - off30, max(x1, x2) + off30, -1)
             
-            exit_x = self._find_v_channel(x1 + 20, min(y1, channel_y), max(y1, channel_y), 1)
-            entry_x = self._find_v_channel(x2 - 20, min(y2, channel_y), max(y2, channel_y), -1)
-            
+            exit_x = x1 + off20
+            entry_x = x2 - off20
             path.append((exit_x, y1))
             path.append((exit_x, channel_y))
             path.append((entry_x, channel_y))
             path.append((entry_x, y2))
+            path.append((x2, y2))
         
+        # 3. 垂直發展的情形 (罕見)
         else:
-            test_x = x1 + 15
-            if self._is_v_free(test_x, min(y1, y2), max(y1, y2), from_node_idx=from_idx, to_node_idx=to_idx):
-                path.append((test_x, y2))
-            else:
-                mid_x = self._find_v_channel(x1 + 15, min(y1, y2), max(y1, y2), 1)
-                path.append((mid_x, y1))
-                path.append((mid_x, y2))
-        
-        path.append((x2, y2))
-        self._mark_used(path, line_id)
+            path.append((x2, y2))
+            
         return path
 
 
@@ -8287,13 +8268,16 @@ class TextCommandEditor(tk.Toplevel):
         self.pcb_groups = []  # [{nodes: [...], color, name}]
         self.pcb_router = None
         
+        # ✅ v2.8.2: 重設並行區塊追蹤
+        self.parallel_threads = {}  # {parallel_label: [thread_labels]}
+        
         # PCB 佈局參數
-        start_x = 120
-        start_y = 120
-        h_gap = 200
-        v_gap = 100
-        node_width = 140
-        node_height = 40
+        start_x = 80
+        start_y = 80
+        h_gap = 180  # 水平間距
+        v_gap = 80   # 垂直間距（縮小以配合分叉）
+        node_width = 150
+        node_height = 36
         
         # 解析標籤和指令
         lines = text_content.split('\n')
@@ -8374,14 +8358,20 @@ class TextCommandEditor(tk.Toplevel):
             # ✅ v2.8.0: 識別新的區塊結構（視為特殊標籤）
             # 並行區塊
             if line == '>並行開始':
-                block_label = '#[並行區塊]'
+                # 創建唯一的並行區塊標籤
+                parallel_count = sum(1 for l in label_order if '[並行區塊' in l)
+                block_label = f'#[並行區塊{parallel_count + 1}]' if parallel_count > 0 else '#[並行區塊]'
                 label_commands[block_label] = []
                 label_order.append(block_label)
                 current_label = block_label
-                block_stack.append('parallel')
+                # 追蹤此並行區塊包含的線程
+                if not hasattr(self, 'parallel_threads'):
+                    self.parallel_threads = {}  # {parallel_label: [thread_labels]}
+                self.parallel_threads[block_label] = []
+                block_stack.append(('parallel', block_label))
                 continue
             elif line == '>並行結束':
-                if block_stack and block_stack[-1] == 'parallel':
+                if block_stack and block_stack[-1][0] == 'parallel':
                     block_stack.pop()
                 current_label = None
                 continue
@@ -8391,6 +8381,10 @@ class TextCommandEditor(tk.Toplevel):
                 label_commands[thread_label] = []
                 label_order.append(thread_label)
                 current_label = thread_label
+                # 記錄此線程屬於哪個並行區塊
+                if block_stack and block_stack[-1][0] == 'parallel':
+                    parallel_label = block_stack[-1][1]
+                    self.parallel_threads[parallel_label].append(thread_label)
                 continue
             elif line == '>線程結束':
                 current_label = None
@@ -8455,7 +8449,8 @@ class TextCommandEditor(tk.Toplevel):
                 continue
             
             # 識別一般標籤（視為主線程）
-            if line.startswith('#') and not line.startswith('##') and not line.startswith('# ['):
+            # ✅ v2.8.2: 跳過 "# " 開頭的註解（如 "# 並行區塊範例"）
+            if line.startswith('#') and not line.startswith('##') and not line.startswith('# [') and not line.startswith('# '):
                 current_label = line
                 label_commands[current_label] = []
                 label_order.append(current_label)
@@ -8504,6 +8499,7 @@ class TextCommandEditor(tk.Toplevel):
                 label_types[label] = "label"
         
         # 簡單佈局：根據依賴關係排列
+        # 簡單佈局：根據依賴關係與順序排列
         visited = set()
         
         def assign_position(label, row, col):
@@ -8513,32 +8509,71 @@ class TextCommandEditor(tk.Toplevel):
             label_to_row[label] = row
             label_to_col[label] = col
             
+            # 優先處理跳轉關係 (>># 或 >>>#)
             commands = label_commands.get(label, [])
-            next_col = col + 1
-            
-            # 找出跳轉目標
             for cmd in commands:
                 if cmd.startswith('>>#'):
                     target = '#' + cmd.split('#')[1].split(',')[0].strip()
                     if target in label_order and target not in visited:
-                        next_col = assign_position(target, row, next_col)
+                        assign_position(target, row, col + 1)
                 elif cmd.startswith('>>>#'):
                     target = '#' + cmd.split('#')[1].split(',')[0].strip()
                     if target in label_order and target not in visited:
-                        # 失敗跳轉放在下一行
-                        assign_position(target, row + 1, 0)
+                        assign_position(target, row + 1, col)
             
-            return next_col
+            # ✅ v2.8.2: 處理自動順序流 - 如果下一個標籤在腳本中緊隨其後，則向右排列
+            idx = label_order.index(label) if label in label_order else -1
+            if idx != -1 and idx + 1 < len(label_order):
+                next_label = label_order[idx + 1]
+                # 排除特殊功能標籤，讓主流程橫向發展
+                if next_label not in visited and not any(kw in next_label for kw in ['[定時:', '[監聽:', '[優先:', '[終點]']):
+                    assign_position(next_label, row, col + 1)
+            
+            return col
         
-        # 從第一個標籤開始佈局
+        # 從起點開始繪製
         if label_order:
             assign_position(label_order[0], 0, 0)
         
-        # 填充未分配的標籤
-        for i, label in enumerate(label_order):
+        # 填充任何脫漏的標籤
+        for label in label_order:
             if label not in label_to_row:
-                label_to_row[label] = (i // 4) + 2
-                label_to_col[label] = i % 4
+                max_r = max(label_to_row.values()) if label_to_row else 0
+                assign_position(label, max_r + 1, 0)
+        
+        # 將終點放置在最右側
+        if end_label in label_order:
+            final_col = max(label_to_col.values()) if label_to_col else 0
+            label_to_row[end_label] = label_to_row.get(start_label, 0)
+            label_to_col[end_label] = final_col + 1
+        
+        
+        # ✅ v2.8.2: 處理並行區塊的分叉佈局
+        # 讓並行區塊的線程垂直分叉顯示
+        if hasattr(self, 'parallel_threads') and self.parallel_threads:
+            for parallel_label, thread_labels in self.parallel_threads.items():
+                if parallel_label in label_to_row and len(thread_labels) > 0:
+                    parallel_col = label_to_col.get(parallel_label, 0)
+                    parallel_row = label_to_row.get(parallel_label, 0)
+                    
+                    # 計算線程的垂直分佈
+                    # 線程從並行區塊的右側開始，垂直分叉
+                    thread_start_col = parallel_col + 1
+                    thread_count = len(thread_labels)
+                    
+                    for i, thread_label in enumerate(thread_labels):
+                        if thread_label in label_to_row:
+                            # ✅ v2.8.2: 增加垂直間距，讓分叉更清晰
+                            # 將線程均勻分布在並行區塊的上下
+                            # 例如 2 個線程：row -1 和 +1（間距 2）
+                            # 例如 3 個線程：row -1.5, 0, +1.5（間距 1.5）
+                            spacing = 1.5  # 線程間距係數
+                            center_offset = (thread_count - 1) / 2.0
+                            offset = (i - center_offset) * spacing
+                            new_row = parallel_row + offset
+                            
+                            label_to_row[thread_label] = new_row
+                            label_to_col[thread_label] = thread_start_col
         
         # 創建 PCB 節點
         label_to_idx = {}
@@ -8585,6 +8620,16 @@ class TextCommandEditor(tk.Toplevel):
                 if first_main_idx is not None:
                     self.pcb_connections.append((start_idx, first_main_idx, "main"))
         
+        # ✅ v2.8.2: 並行區塊連接到其所屬線程（分叉連線）
+        if hasattr(self, 'parallel_threads') and self.parallel_threads:
+            for parallel_label, thread_labels in self.parallel_threads.items():
+                parallel_idx = label_to_idx.get(parallel_label)
+                if parallel_idx is not None:
+                    for thread_label in thread_labels:
+                        thread_idx = label_to_idx.get(thread_label)
+                        if thread_idx is not None:
+                            self.pcb_connections.append((parallel_idx, thread_idx, "fork"))
+        
         for label, commands in label_commands.items():
             from_idx = label_to_idx.get(label)
             if from_idx is None:
@@ -8605,8 +8650,20 @@ class TextCommandEditor(tk.Toplevel):
                 next_label = label_order[label_idx_in_order + 1]
                 next_idx = label_to_idx.get(next_label)
                 
+                # ✅ v2.8.2: 跳過並行區塊到線程的連線（已經用 fork 處理）
+                is_parallel_to_thread = False
+                if hasattr(self, 'parallel_threads') and self.parallel_threads:
+                    for parallel_label, thread_labels in self.parallel_threads.items():
+                        if label == parallel_label and next_label in thread_labels:
+                            is_parallel_to_thread = True
+                            break
+                        # 也跳過線程到下一個線程的連線
+                        if label in thread_labels and next_label in thread_labels:
+                            is_parallel_to_thread = True
+                            break
+                
                 # 如果已經有 success/fail 跳轉，不添加 main
-                if next_idx is not None and success_target != next_label and fail_target != next_label:
+                if next_idx is not None and success_target != next_label and fail_target != next_label and not is_parallel_to_thread:
                     # 判斷是否為迴圈（向左回頭）
                     if self.pcb_nodes[next_idx]["col"] < self.pcb_nodes[from_idx]["col"]:
                         self.pcb_connections.append((from_idx, next_idx, "loop"))
@@ -8651,8 +8708,8 @@ class TextCommandEditor(tk.Toplevel):
         """繪製 PCB 風格圖形"""
         self.workflow_canvas.configure(bg="#010409")
         
-        # 1. 創建路由器
-        self.pcb_router = GlobalRouter(self.pcb_nodes)
+        # 1. 創建路由器 (v2.8.2: 傳入縮放比例)
+        self.pcb_router = GlobalRouter(self.pcb_nodes, scale=getattr(self, "workflow_scale", 1.0))
         
         # 2. 繪製連線
         self._draw_pcb_connections()
@@ -8804,11 +8861,12 @@ class TextCommandEditor(tk.Toplevel):
     
     def _on_node_press(self, event, tag, node):
         """節點按下事件"""
+        # ✅ v2.8.2: 使用畫布座標
         self._drag_data = {
             "tag": tag,
             "node": node,
-            "x": event.x,
-            "y": event.y
+            "x": self.workflow_canvas.canvasx(event.x),
+            "y": self.workflow_canvas.canvasy(event.y)
         }
     
     def _on_node_drag(self, event, tag, node):
@@ -8816,8 +8874,12 @@ class TextCommandEditor(tk.Toplevel):
         if not hasattr(self, '_drag_data') or self._drag_data is None:
             return
         
-        dx = event.x - self._drag_data["x"]
-        dy = event.y - self._drag_data["y"]
+        # ✅ v2.8.2: 使用畫布座標而非視窗座標，修復縮放後拖曳錯位問題
+        canvas_x = self.workflow_canvas.canvasx(event.x)
+        canvas_y = self.workflow_canvas.canvasy(event.y)
+        
+        dx = canvas_x - self._drag_data["x"]
+        dy = canvas_y - self._drag_data["y"]
         
         self.workflow_canvas.move(tag, dx, dy)
         
@@ -8825,12 +8887,12 @@ class TextCommandEditor(tk.Toplevel):
         node["x"] += dx
         node["y"] += dy
         
-        self._drag_data["x"] = event.x
-        self._drag_data["y"] = event.y
+        self._drag_data["x"] = canvas_x
+        self._drag_data["y"] = canvas_y
         
-        # ✅ 重新繪製所有連線
+        # ✅ 重新繪製所有連線 (v2.8.2: 傳入縮放比例)
         self.workflow_canvas.delete("pcb_connection")
-        self.pcb_router = GlobalRouter(self.pcb_nodes)
+        self.pcb_router = GlobalRouter(self.pcb_nodes, scale=getattr(self, "workflow_scale", 1.0))
         self._draw_pcb_connections()
     
     def _on_node_release(self, event):
@@ -8838,7 +8900,9 @@ class TextCommandEditor(tk.Toplevel):
         self._drag_data = None
     
     def _draw_pcb_connections(self):
-        """繪製 PCB 風格連線"""
+        """繪製 PCB 風格連線 (v2.8.2: 支援視覺縮放)"""
+        scale = getattr(self, "workflow_scale", 1.0)
+        
         for from_idx, to_idx, path_type in self.pcb_connections:
             if from_idx >= len(self.pcb_nodes) or to_idx >= len(self.pcb_nodes):
                 continue
@@ -8849,27 +8913,21 @@ class TextCommandEditor(tk.Toplevel):
             # 計算路徑
             path = self.pcb_router.route(from_node, to_node, path_type, from_idx, to_idx)
             
-            # ✅ v2.8.1: 檢查目標節點是否無作用（如 [終點] 這類節點）
+            # ✅ v2.8.1: 檢查目標節點是否無作用
             to_node_name = to_node.get("name", "")
             to_node_type = to_node.get("type", "")
-            is_inactive_target = (
-                to_node_type == "end" or 
-                '[終點]' in to_node_name
-            )
+            is_inactive_target = (to_node_type == "end" or '[終點]' in to_node_name)
             
-            # 繪製線路 - 無作用節點用灰色，否則用對應類型的顏色
-            if is_inactive_target and path_type == "main":
-                color = PCB_COLORS.get("inactive", "#6e7681")
-            else:
-                color = PCB_COLORS.get(path_type, PCB_COLORS["main"])
+            color = PCB_COLORS.get("inactive", "#6e7681") if (is_inactive_target and path_type == "main") else PCB_COLORS.get(path_type, PCB_COLORS["main"])
             
             if len(path) >= 2:
                 points = []
                 for px, py in path:
                     points.extend([px, py])
                 
+                # ✅ 縮放連線寬度
                 self.workflow_canvas.create_line(
-                    *points, fill=color, width=PCB_LINE_WIDTH,
+                    *points, fill=color, width=max(1, int(PCB_LINE_WIDTH * scale)),
                     capstyle="round", joinstyle="round",
                     tags=("pcb_connection",)
                 )
@@ -8879,30 +8937,36 @@ class TextCommandEditor(tk.Toplevel):
                 labels = {"success": "成功", "failure": "失敗", "loop": "重試"}
                 lx, ly = self.pcb_router.find_label_position(path)
                 
+                # ✅ 縮放標籤尺寸與字體
+                rw, rh = 16 * scale, 8 * scale
+                f_size = max(5, int(7 * scale))
+                
                 self.workflow_canvas.create_rectangle(
-                    lx - 16, ly - 8, lx + 16, ly + 8,
-                    fill="#161b22", outline=color, width=1,
+                    lx - rw, ly - rh, lx + rw, ly + rh,
+                    fill="#161b22", outline=color, width=max(1, int(1 * scale)),
                     tags=("pcb_connection", "pcb_label")
                 )
                 self.workflow_canvas.create_text(
                     lx, ly, text=labels.get(path_type, ""),
-                    fill=color, font=("Microsoft JhengHei", 7, "bold"),
+                    fill=color, font=("Microsoft JhengHei", f_size, "bold"),
                     tags=("pcb_connection", "pcb_label")
                 )
             
-            # ✅ v2.8.1: 繪製軌跡標籤（如果有的話）
+            # ✅ v2.8.1: 繪製軌跡標籤
             if hasattr(self, 'pcb_connection_labels') and (from_idx, to_idx) in self.pcb_connection_labels:
                 trajectory_label = self.pcb_connection_labels[(from_idx, to_idx)]
                 lx, ly = self.pcb_router.find_label_position(path)
+                rw, rh = 18 * scale, 8 * scale
+                f_size = max(5, int(7 * scale))
                 
                 self.workflow_canvas.create_rectangle(
-                    lx - 18, ly - 8, lx + 18, ly + 8,
-                    fill="#161b22", outline="#f0883e", width=1,
+                    lx - rw, ly - rh, lx + rw, ly + rh,
+                    fill="#161b22", outline="#f0883e", width=max(1, int(1 * scale)),
                     tags=("pcb_connection", "pcb_label")
                 )
                 self.workflow_canvas.create_text(
                     lx, ly, text=trajectory_label,
-                    fill="#f0883e", font=("Microsoft JhengHei", 7, "bold"),
+                    fill="#f0883e", font=("Microsoft JhengHei", f_size, "bold"),
                     tags=("pcb_connection", "pcb_label")
                 )
     
@@ -9383,10 +9447,14 @@ class TextCommandEditor(tk.Toplevel):
     
     def _on_workflow_canvas_click(self, event):
         """處理畫布點擊（支援節點拖曳和畫布平移）"""
-        # ✅ v2.8.1: 檢查是否點擊到 PCB 節點
+        # ✅ v2.8.2: 使用畫布座標而非視窗座標
+        canvas_x = self.workflow_canvas.canvasx(event.x)
+        canvas_y = self.workflow_canvas.canvasy(event.y)
+        
+        # 檢查是否點擊到 PCB 節點
         clicked_items = self.workflow_canvas.find_overlapping(
-            event.x - 5, event.y - 5,
-            event.x + 5, event.y + 5
+            canvas_x - 5, canvas_y - 5,
+            canvas_x + 5, canvas_y + 5
         )
         
         # 檢查是否點擊到 pcb_node
@@ -9394,6 +9462,7 @@ class TextCommandEditor(tk.Toplevel):
             tags = self.workflow_canvas.gettags(item)
             if "pcb_node" in tags:
                 # 點擊到節點，不啟動畫布平移（讓 tag_bind 處理）
+                self.workflow_is_panning = False
                 return
         
         # 沒有點擊到節點，啟動畫布拖移
@@ -9404,7 +9473,11 @@ class TextCommandEditor(tk.Toplevel):
     
     def _on_workflow_canvas_drag(self, event):
         """處理畫布拖移（同步更新節點座標數據）"""
-        if self.workflow_is_panning:
+        # ✅ v2.8.2: 如果正在拖曳節點（有 _drag_data），不執行畫布拖移
+        if hasattr(self, '_drag_data') and self._drag_data is not None:
+            return
+        
+        if hasattr(self, 'workflow_is_panning') and self.workflow_is_panning:
             # 拖移畫布
             dx = event.x - self.workflow_pan_start_x
             dy = event.y - self.workflow_pan_start_y
@@ -9555,11 +9628,34 @@ class TextCommandEditor(tk.Toplevel):
             scale = 0.9
         
         self.workflow_scale *= scale
+        
+        # ✅ v2.8.2: 縮放時同步更新 pcb_nodes 座標
+        # 計算縮放中心點（畫布座標）
+        cx = self.workflow_canvas.canvasx(event.x)
+        cy = self.workflow_canvas.canvasy(event.y)
+        
+        # 更新所有節點座標與尺寸
+        if hasattr(self, 'pcb_nodes'):
+            for node in self.pcb_nodes:
+                # 套用縮放公式：new_pos = center + (old_pos - center) * scale
+                node["x"] = cx + (node["x"] - cx) * scale
+                node["y"] = cy + (node["y"] - cy) * scale
+                # ✅ 確保寬高也同步更新，讓路由器計算正確
+                node["width"] = node.get("width", 150) * scale
+                node["height"] = node.get("height", 36) * scale
+        
+        # 更新 workflow_nodes 座標
+        if hasattr(self, 'workflow_nodes'):
+            for label, node_data in self.workflow_nodes.items():
+                node_data['x'] = cx + (node_data['x'] - cx) * scale
+                node_data['y'] = cy + (node_data['y'] - cy) * scale
+        
         self.workflow_canvas.scale("all", event.x, event.y, scale, scale)
     
     def _show_workflow_context_menu(self, event):
         """顯示右鍵選單"""
         menu = tk.Menu(self, tearoff=0, bg="#2d2d30", fg="white")
+        menu.add_command(label="🏠 恢復原始大小 (100%)", command=self._reset_workflow_zoom)
         menu.add_command(label="🔄 自動排列", command=self._auto_arrange_workflow)
         
         try:
@@ -9567,6 +9663,36 @@ class TextCommandEditor(tk.Toplevel):
         finally:
             menu.grab_release()
     
+    def _reset_workflow_zoom(self):
+        """🏠 恢復原始大小 (100%) - 最有效的補救措施"""
+        if not hasattr(self, 'workflow_scale') or self.workflow_scale == 1.0:
+            return
+            
+        # 計算還原倍率 (目前的倒數)
+        ratio = 1.0 / self.workflow_scale
+        
+        # ✅ 還原邏輯座標數據 (以 0,0 為準還原，確保座標系統回歸標準)
+        if hasattr(self, 'pcb_nodes'):
+            for node in self.pcb_nodes:
+                node["x"] *= ratio
+                node["y"] *= ratio
+                # 強制重設為原始預設尺寸
+                node["width"] = 150
+                node["height"] = 36
+        
+        # 還原主節點數據
+        if hasattr(self, 'workflow_nodes'):
+            for label, node_data in self.workflow_nodes.items():
+                node_data['x'] *= ratio
+                node_data['y'] *= ratio
+        
+        # 重設全域倍率
+        self.workflow_scale = 1.0
+        
+        # ✅ 清除畫布並以 1.0 倍率重繪所有內容 (這會讓所有線條與字體回歸精準)
+        self.workflow_canvas.delete("all")
+        self._draw_pcb_graph()
+        
     def _auto_arrange_workflow(self):
         """自動重新排列節點"""
         # 重新解析和繪製

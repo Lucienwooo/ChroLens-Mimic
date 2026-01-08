@@ -57,20 +57,50 @@ def font_tuple(size, weight=None, monospace=False):
     return (fam, size)
 
 
-# ========== PCB 風格布線器 (v11) ==========
+# ========== PCB 風格布線器 (v11 - GitHub Actions 風格) ==========
 # 用於圖形模式的線路碰撞偵測和路徑計算
 
 PCB_COLORS = {
-    "main": "#ff8c00",  # ✅ v2.8.1: 預設線路顔色改為橙色
-    "inactive": "#6e7681",  # ✅ v2.8.1: 無作用節點的連線用灰色
-    "success": "#3fb950",
-    "failure": "#f85149",
-    "loop": "#58a6ff",
+    "main": "#30363d",      # GitHub Actions 風格 - 主連線灰色
+    "inactive": "#484f58",  # 無作用節點的連線用深灰色
+    "success": "#3fb950",   # 成功 - 綠色
+    "failure": "#f85149",   # 失敗 - 紅色
+    "loop": "#58a6ff",      # 迴圈 - 藍色
+    "background": "#0d1117", # GitHub 深色背景
+    "card": "#161b22",      # 卡片背景
+    "text": "#c9d1d9",       # 文字顏色
+    "border": "#30363d",    # 邊框顏色
 }
 
-PCB_LINE_WIDTH = 4
+PCB_LINE_WIDTH = 3
 PCB_GRID_SIZE = 10
-PCB_GRAY_COLOR = "#4a4a4a"
+PCB_GRAY_COLOR = "#30363d"
+PCB_CORNER_RADIUS = 12  # 圓角半徑
+
+
+def create_rounded_rect(canvas, x1, y1, x2, y2, radius=12, **kwargs):
+    """
+    在 Canvas 上繪製圓角矩形
+    
+    使用 Bézier 曲線近似圓角
+    """
+    points = [
+        x1 + radius, y1,           # 上邊起點
+        x2 - radius, y1,           # 上邊終點
+        x2, y1,                    # 右上角控制點
+        x2, y1 + radius,           # 右邊起點
+        x2, y2 - radius,           # 右邊終點
+        x2, y2,                    # 右下角控制點
+        x2 - radius, y2,           # 下邊起點
+        x1 + radius, y2,           # 下邊終點
+        x1, y2,                    # 左下角控制點
+        x1, y2 - radius,           # 左邊起點
+        x1, y1 + radius,           # 左邊終點
+        x1, y1,                    # 左上角控制點
+        x1 + radius, y1,           # 回到起點
+    ]
+    return canvas.create_polygon(points, smooth=True, **kwargs)
+
 
 
 class GlobalRouter:
@@ -8649,7 +8679,7 @@ class TextCommandEditor(tk.Toplevel):
             ))
     
     def _draw_pcb_node(self, idx, node):
-        """繪製單個 PCB 風格節點"""
+        """繪製單個 PCB 風格節點 - GitHub Actions 風格 (圓角矩形)"""
         x, y = node["x"], node["y"]
         w, h = node["width"], node["height"]
         name = node["name"]
@@ -8659,45 +8689,59 @@ class TextCommandEditor(tk.Toplevel):
         # 根據類型設定樣式
         style = self._get_pcb_node_style(name, node_type)
         
-        # 陰影
-        self.workflow_canvas.create_rectangle(
+        # 陰影 (圓角)
+        create_rounded_rect(
+            self.workflow_canvas,
             x + 2, y + 2, x + w + 2, y + h + 2,
+            radius=PCB_CORNER_RADIUS,
             fill="#010409", outline="",
             tags=(tag, "pcb_node")
         )
         
-        # 卡片背景
-        self.workflow_canvas.create_rectangle(
+        # 卡片背景 (圓角矩形)
+        create_rounded_rect(
+            self.workflow_canvas,
             x, y, x + w, y + h,
-            fill="#161b22", outline=style["border"], width=2,
+            radius=PCB_CORNER_RADIUS,
+            fill=PCB_COLORS["card"], outline=style["border"], width=2,
             tags=(tag, "pcb_node", "pcb_card")
         )
         
-        # 圖示背景
-        icon_x, icon_y = x + 18, y + h // 2
+        # 左側圖示背景 (GitHub 風格 - 較小的圓形)
+        icon_x, icon_y = x + 16, y + h // 2
         self.workflow_canvas.create_oval(
-            icon_x - 10, icon_y - 10, icon_x + 10, icon_y + 10,
+            icon_x - 8, icon_y - 8, icon_x + 8, icon_y + 8,
             fill=style["icon_color"], outline="",
             tags=(tag, "pcb_node")
         )
         
-        # 圖示文字
+        # 圖示文字 (使用 ✓ 符號類似 GitHub Actions)
+        icon_text = "✓" if style["icon"] == "▶" else style["icon"]
         self.workflow_canvas.create_text(
-            icon_x, icon_y, text=style["icon"],
-            fill="white", font=("Microsoft JhengHei", 8, "bold"),
+            icon_x, icon_y, text=icon_text,
+            fill="white", font=("Segoe UI", 7, "bold"),
             tags=(tag, "pcb_node")
         )
         
-        # 標題文字
+        # 標題文字 (置左)
         display_name = name.replace("#", "")
-        if len(display_name) > 8:
-            display_name = display_name[:7] + ".."
+        if len(display_name) > 12:
+            display_name = display_name[:11] + ".."
         
         self.workflow_canvas.create_text(
-            x + 32, y + h // 2, text=display_name,
-            fill="#c9d1d9", font=("Microsoft JhengHei", 9),
+            x + 30, y + h // 2, text=display_name,
+            fill=PCB_COLORS["text"], font=("Segoe UI", 9),
             anchor="w", tags=(tag, "pcb_node", "pcb_text")
         )
+        
+        # 右側時間標籤 (GitHub Actions 風格)
+        time_text = node.get("duration", "")
+        if time_text:
+            self.workflow_canvas.create_text(
+                x + w - 10, y + h // 2, text=time_text,
+                fill="#8b949e", font=("Segoe UI", 8),
+                anchor="e", tags=(tag, "pcb_node", "pcb_time")
+            )
         
         # 輸入連接埠
         self.workflow_canvas.create_oval(

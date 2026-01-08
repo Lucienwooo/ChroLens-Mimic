@@ -269,6 +269,181 @@ export default function ScriptEditor() {
                 <li><strong>載入模組：</strong>在腳本編輯器中右鍵 → 選擇「插入自訂模組」→ 選擇要插入的模組</li>
                 <li><strong>模組管理：</strong>模組儲存在 <code>scripts/modules/</code> 資料夾，可手動編輯或刪除</li>
             </ul>
+
+            <h3>🚀 進階功能</h3>
+
+            <h4>⏰ 排程執行</h4>
+            <p>排程功能可以讓腳本在指定時間自動執行，即使正在執行其他腳本也會自動切換。</p>
+            <ul>
+                <li><strong>設定方式：</strong>在「腳本設定」頁面選擇腳本 → 點擊「排程」按鈕 → 設定執行時間</li>
+                <li><strong>自動觸發：</strong>只要主程式開啟，到達排程時間就會自動執行對應腳本</li>
+                <li><strong>衝突處理：</strong>若有腳本正在執行，會自動停止舊的腳本並執行新的排程腳本</li>
+            </ul>
+
+            <h4>🔄 並行執行</h4>
+            <p>並行區塊可以讓多個任務<strong>同時執行</strong>，適合需要同時監控和操作的場景。</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th style={{ width: '25%' }}>指令</th>
+                        <th style={{ width: '45%' }}>說明</th>
+                        <th style={{ width: '30%' }}>範例</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>&gt;並行開始</code></td>
+                        <td>開始並行區塊（內含多個線程）</td>
+                        <td><code>&gt;並行開始</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>&gt;線程&gt;[名稱]</code></td>
+                        <td>定義一個線程（內含的動作會按順序執行）</td>
+                        <td><code>&gt;線程&gt;偵測任務</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>&gt;線程結束</code></td>
+                        <td>結束當前線程定義</td>
+                        <td><code>&gt;線程結束</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>&gt;並行結束</code></td>
+                        <td>結束並行區塊，等待所有線程完成</td>
+                        <td><code>&gt;並行結束</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p><strong>📝 並行區塊範例：</strong></p>
+            <pre>{`#同時執行兩個任務
+>並行開始
+>線程>偵測並點擊
+>if>pic怪物
+>左鍵點擊>pic怪物
+>延遲500ms
+>線程結束
+>線程>持續按鍵
+>按a, 延遲50ms
+>按s, 延遲50ms
+>按d, 延遲50ms
+>線程結束
+>並行結束`}</pre>
+            <p>上述範例會同時執行「偵測圖片並點擊」和「持續按 A、S、D 鍵」兩個任務。</p>
+
+            <h4>⚡ 觸發器</h4>
+            <p>觸發器會在背景持續監控條件，當條件滿足時自動執行指定動作。</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th style={{ width: '25%' }}>指令</th>
+                        <th style={{ width: '45%' }}>說明</th>
+                        <th style={{ width: '30%' }}>範例</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>&gt;定時觸發&gt;[間隔]</code></td>
+                        <td>每隔指定時間執行一次動作</td>
+                        <td><code>&gt;定時觸發&gt;30秒</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>&gt;定時結束</code></td>
+                        <td>結束定時觸發器定義</td>
+                        <td><code>&gt;定時結束</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>&gt;條件觸發&gt;[圖片], 冷卻[毫秒]ms</code></td>
+                        <td>當偵測到指定圖片時觸發動作</td>
+                        <td><code>&gt;條件觸發&gt;pic警告, 冷卻5000ms</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>&gt;條件結束</code></td>
+                        <td>結束條件觸發器定義</td>
+                        <td><code>&gt;條件結束</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>&gt;優先偵測&gt;[圖片]</code></td>
+                        <td>偵測到目標時中斷當前執行並執行動作</td>
+                        <td><code>&gt;優先偵測&gt;pic血量低</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>&gt;優先偵測結束</code></td>
+                        <td>結束優先觸發器定義</td>
+                        <td><code>&gt;優先偵測結束</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p><strong>📝 觸發器範例：</strong></p>
+            <pre>{`# 每30秒自動撿取物品
+>定時觸發>30秒
+>按F, 延遲50ms
+>定時結束
+
+# 偵測到血量低圖示時自動喝藥
+>優先偵測>pic血量低
+>按1, 延遲50ms
+>優先偵測結束`}</pre>
+
+            <h4>🤖 狀態機</h4>
+            <p>狀態機是一種進階執行模式，可以根據條件自動切換不同狀態，適合複雜的 AI 邏輯。</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th style={{ width: '25%' }}>指令</th>
+                        <th style={{ width: '45%' }}>說明</th>
+                        <th style={{ width: '30%' }}>範例</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>&gt;狀態機&gt;[名稱]</code></td>
+                        <td>開始狀態機定義</td>
+                        <td><code>&gt;狀態機&gt;戰鬥AI</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>&gt;狀態&gt;[名稱], 初始</code></td>
+                        <td>定義初始狀態</td>
+                        <td><code>&gt;狀態&gt;待機, 初始</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>&gt;狀態&gt;[名稱]</code></td>
+                        <td>定義一般狀態</td>
+                        <td><code>&gt;狀態&gt;攻擊</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>&gt;切換&gt;[條件]&gt;[狀態]</code></td>
+                        <td>定義狀態切換規則</td>
+                        <td><code>&gt;切換&gt;success&gt;待機</code></td>
+                    </tr>
+                    <tr>
+                        <td><code>&gt;狀態機結束</code></td>
+                        <td>結束狀態機定義</td>
+                        <td><code>&gt;狀態機結束</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p><strong>📝 狀態機範例：</strong></p>
+            <pre>{`>狀態機>戰鬥AI
+>狀態>待機, 初始
+>if>pic怪物
+>切換>success>攻擊
+>切換>failure>待機
+>狀態>攻擊
+>左鍵點擊>pic怪物
+>延遲1000ms
+>切換>default>待機
+>狀態機結束`}</pre>
+
+            <h4>🎨 圖形模式（Workflow）</h4>
+            <p>腳本編輯器支援圖形模式顯示，將文字腳本轉換為類似 GitHub Actions 的流程圖。</p>
+            <ul>
+                <li><strong>切換方式：</strong>在編輯器中勾選「圖形模式」選項</li>
+                <li><strong>視覺化：</strong>每個標籤和動作區塊會顯示為圓角矩形節點</li>
+                <li><strong>連線：</strong>流程控制（跳轉、條件分支）會以連線表示</li>
+                <li><strong>縮放拖曳：</strong>可使用滾輪縮放、中鍵拖曳視圖</li>
+            </ul>
         </div>
     );
 }

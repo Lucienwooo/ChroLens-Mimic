@@ -605,7 +605,7 @@ class RecorderApp(tb.Window):
         self.btn_pause.grid(row=0, column=1, padx=4)
         self.btn_stop = tb.Button(frm_top, text=f"停止 ({self.hotkey_map['stop']})", command=self.stop_all, bootstyle=WARNING, width=14, style="My.TButton")
         self.btn_stop.grid(row=0, column=2, padx=4)
-        self.btn_play = tb.Button(frm_top, text=f"回放 ({self.hotkey_map['play']})", command=self.play_record, bootstyle=SUCCESS, width=10, style="My.TButton")
+        self.btn_play = tb.Button(frm_top, text=f"執行 ({self.hotkey_map['play']})", command=self.play_record, bootstyle=SUCCESS, width=10, style="My.TButton")
         self.btn_play.grid(row=0, column=3, padx=4)
 
         # ====== MiniMode 按鈕 ======
@@ -618,7 +618,7 @@ class RecorderApp(tb.Window):
         # ====== 下方操作區 ======
         frm_bottom = tb.Frame(self, padding=(8, 0, 8, 5))
         frm_bottom.pack(fill="x")
-        self.lbl_speed = tb.Label(frm_bottom, text="回放速度:", style="My.TLabel")
+        self.lbl_speed = tb.Label(frm_bottom, text="執行速度:", style="My.TLabel")
         self.lbl_speed.grid(row=0, column=0, padx=(0, 6))
         self.speed_tooltip = Tooltip(self.lbl_speed, "正常速度1倍=100,範圍1~1000")
         self.update_speed_tooltip()
@@ -664,7 +664,7 @@ class RecorderApp(tb.Window):
             frm_top, text=lang_map["自動切換"], variable=self.auto_mini_var, style="My.TCheckbutton"
         )
         self.main_auto_mini_check.grid(row=0, column=8, padx=4)
-        Tooltip(self.main_auto_mini_check, lang_map["勾選時，程式錄製/回放將自動轉換"])
+        Tooltip(self.main_auto_mini_check, lang_map["勾選時，程式錄製/執行將自動轉換"])
         
         # ====== 隱藏到系統托盤勾選框 ======
         self.hide_to_tray_var = tk.BooleanVar(value=self.user_config.get("hide_to_tray", False))
@@ -733,7 +733,7 @@ class RecorderApp(tb.Window):
             frm_script, text=lang_map["滑鼠模式"], variable=self.mouse_mode_var, style="My.TCheckbutton"
         )
         self.mouse_mode_check.grid(row=0, column=5, padx=4)
-        Tooltip(self.mouse_mode_check, lang_map["勾選時以控制真實滑鼠的模式回放"])
+        Tooltip(self.mouse_mode_check, lang_map["勾選時以控制真實滑鼠的模式執行"])
         
         # 添加滑鼠模式變更監聽 - 取消勾選時顯示警告
         def on_mouse_mode_change(*args):
@@ -1617,10 +1617,10 @@ class RecorderApp(tb.Window):
         self.btn_start.config(text=lang_map["開始錄製"] + f" ({self.hotkey_map['start']})")
         self.btn_pause.config(text=lang_map["暫停/繼續"] + f" ({self.hotkey_map['pause']})")
         self.btn_stop.config(text=lang_map["停止"] + f" ({self.hotkey_map['stop']})")
-        self.btn_play.config(text=lang_map["回放"] + f" ({self.hotkey_map['play']})")
+        self.btn_play.config(text=lang_map["執行"] + f" ({self.hotkey_map['play']})")
         self.mini_mode_btn.config(text=lang_map["MiniMode"])
         self.about_btn.config(text=lang_map["關於"])
-        self.lbl_speed.config(text=lang_map["回放速度:"])
+        self.lbl_speed.config(text=lang_map["執行速度:"])
         self.btn_hotkey.config(text=lang_map["快捷鍵"])
         self.total_time_label_prefix.config(text=lang_map["總運作"])
         self.countdown_label_prefix.config(text=lang_map["單次"])
@@ -1737,13 +1737,13 @@ class RecorderApp(tb.Window):
         self.countdown_label_s.config(text=f"{s:02d}", foreground=s_color)
 
     def _update_play_time(self):
-        """更新回放時間顯示（強化版 - 使用實際時間確保準確倒數）"""
+        """更新執行時間顯示（強化版 - 使用實際時間確保準確倒數）"""
         if self.playing:
             # 檢查 core_recorder 是否仍在播放
             if not getattr(self.core_recorder, 'playing', False):
-                # 回放已結束，同步狀態
+                # 執行已結束，同步狀態
                 self.playing = False
-                self.log(f"[{format_time(time.time())}] 回放完成")
+                self.log(f"[{format_time(time.time())}] 執行完成")
                 
                 # 釋放所有可能卡住的修飾鍵
                 self._release_all_modifiers()
@@ -1781,7 +1781,7 @@ class RecorderApp(tb.Window):
                 self._current_cycle_start_time = time.time()
                 self._last_repeat_count = current_repeat
             
-            # 獲取單次回放的起始時間
+            # 獲取單次執行的起始時間
             if not hasattr(self, '_current_cycle_start_time') or self._current_cycle_start_time is None:
                 # 初始化當前循環起始時間
                 self._current_cycle_start_time = time.time()
@@ -1842,7 +1842,7 @@ class RecorderApp(tb.Window):
             # 持續更新（100ms 刷新率）
             self.after(100, self._update_play_time)
         else:
-            # 回放停止時重置所有時間顯示
+            # 執行停止時重置所有時間顯示
             self.update_time_label(0)
             self.update_countdown_label(0)
             self.update_total_time_label(0)
@@ -1972,7 +1972,7 @@ class RecorderApp(tb.Window):
                 self.paused = not self.paused
             
             state = "暫停" if self.paused else "繼續"
-            mode = "錄製" if self.recording else "回放"
+            mode = "錄製" if self.recording else "執行"
             self.log(f"[{format_time(time.time())}] {mode}{state}。")
             
             # ✅ 2.5 風格：暫停時停止 keyboard 錄製，暫存事件
@@ -2012,18 +2012,18 @@ class RecorderApp(tb.Window):
         
 
     def play_record(self):
-        """開始回放"""
+        """開始執行"""
         if self.playing:
             return
         if not self.events:
-            self.log("沒有可回放的事件，請先錄製或載入腳本。")
+            self.log("沒有可執行的事件，請先錄製或載入腳本。")
             return
         
         # 自動切換到 MiniMode（如果勾選）
         if self.auto_mini_var.get() and not self.mini_mode_on:
             self.toggle_mini_mode()
         
-        # 初始化座標偏移量（用於相對座標回放）
+        # 初始化座標偏移量（用於相對座標執行）
         self.playback_offset_x = 0
         self.playback_offset_y = 0
         
@@ -2132,7 +2132,7 @@ class RecorderApp(tb.Window):
                         tb.Button(btn_frame, text="✨ 智能適配（推薦）", bootstyle=SUCCESS, 
                                  command=on_auto_scale, width=25).pack(pady=5, fill="x")
                         
-                        tb.Button(btn_frame, text="❌ 取消回放", bootstyle=DANGER, 
+                        tb.Button(btn_frame, text="❌ 取消執行", bootstyle=DANGER, 
                                  command=on_cancel, width=25).pack(pady=5, fill="x")
                         
                         # 添加說明
@@ -2148,7 +2148,7 @@ class RecorderApp(tb.Window):
                         
                         # 處理使用者選擇
                         if user_choice["action"] == "cancel":
-                            self.log("已取消回放")
+                            self.log("已取消執行")
                             return
                         elif user_choice["action"] == "adjust":
                             # 強制歸位
@@ -2165,7 +2165,7 @@ class RecorderApp(tb.Window):
                                 )
                                 
                                 self.log(f"已調整視窗至錄製時狀態")
-                                self.log("將在 2 秒後開始回放...")
+                                self.log("將在 2 秒後開始執行...")
                                 
                                 # 延遲 2 秒後繼續
                                 self.after(2000, self._continue_play_record)
@@ -2174,7 +2174,7 @@ class RecorderApp(tb.Window):
                                 self.log(f"無法調整視窗: {e}")
                         elif user_choice["action"] == "auto_scale":
                             # 智能適配模式
-                            self.log(f"使用智能適配模式進行回放")
+                            self.log(f"使用智能適配模式進行執行")
                             self.log(f"將自動調整座標以適應當前環境")
                             # 設定縮放比例（用於後續座標轉換）
                             self._scale_ratio = {
@@ -2188,7 +2188,7 @@ class RecorderApp(tb.Window):
                 import traceback
                 self.log(f"錯誤詳情: {traceback.format_exc()}")
         
-        # 直接開始回放
+        # 直接開始執行
         self._continue_play_record()
     
     def play_script(self):
@@ -2196,7 +2196,7 @@ class RecorderApp(tb.Window):
         self.play_record()
     
     def _continue_play_record(self):
-        """實際執行回放的內部方法（支援智能縮放）"""
+        """實際執行執行的內部方法（支援智能縮放）"""
         # ✅ 設定圖片辨識目錄
         images_dir = os.path.join(self.script_dir, "images")
         if os.path.exists(images_dir):
@@ -2251,7 +2251,7 @@ class RecorderApp(tb.Window):
         # 顯示縮放資訊（僅顯示一次）
         if has_scale_ratio and scaled_count > 0:
             self.log(f"[智能適配] 已縮放 {scaled_count} 個座標事件")
-            # 清除縮放比例（避免影響下次回放）
+            # 清除縮放比例（避免影響下次執行）
             del self._scale_ratio
         
         # 設定 core_recorder 的事件
@@ -2262,9 +2262,9 @@ class RecorderApp(tb.Window):
             mouse_mode = self.mouse_mode_var.get()
             self.core_recorder.set_mouse_mode(mouse_mode)
             if mouse_mode:
-                self.log("回放模式：滑鼠模式（將控制真實滑鼠游標）")
+                self.log("執行模式：滑鼠模式（將控制真實滑鼠游標）")
             else:
-                self.log("回放模式：後台模式（智能自動適應）")
+                self.log("執行模式：後台模式（智能自動適應）")
         
         if self.target_hwnd and any(e.get('relative_to_window', False) for e in self.events):
             relative_count = sum(1 for e in self.events if e.get('relative_to_window', False))
@@ -2316,7 +2316,7 @@ class RecorderApp(tb.Window):
         self._current_play_index = 0
 
         def on_event(event):
-            """回放事件的回調函數（確保索引同步更新）"""
+            """執行事件的回調函數（確保索引同步更新）"""
             # 從 core_recorder 獲取最新索引
             try:
                 idx = getattr(self.core_recorder, "_current_play_index", 0)
@@ -2334,10 +2334,10 @@ class RecorderApp(tb.Window):
 
         if success:
             # 修正日誌顯示，不要把 ratio 字串插入 lbl，保留數值顯示與內部倍率
-            self.log(f"[{format_time(time.time())}] 開始回放，速度倍率: {self.speed:.2f} ({self.speed_var.get()})")
+            self.log(f"[{format_time(time.time())}] 開始執行，速度倍率: {self.speed:.2f} ({self.speed_var.get()})")
             self.after(100, self._update_play_time)
         else:
-            self.log("沒有可回放的事件，請先錄製或載入腳本。")
+            self.log("沒有可執行的事件，請先錄製或載入腳本。")
 
     def stop_all(self):
         """停止所有動作（全新實作 - 更穩健的處理）"""
@@ -2373,14 +2373,14 @@ class RecorderApp(tb.Window):
         if self.playing:
             self.playing = False
             stopped = True
-            self.log(f"[{format_time(time.time())}] 停止回放。")
+            self.log(f"[{format_time(time.time())}] 停止執行。")
             
             # 停止 core_recorder 播放
             if hasattr(self, 'core_recorder') and hasattr(self.core_recorder, 'stop_play'):
                 try:
                     self.core_recorder.stop_play()
                 except Exception as e:
-                    self.log(f"[警告] 停止回放時發生錯誤: {e}")
+                    self.log(f"[警告] 停止執行時發生錯誤: {e}")
             
             # 釋放所有可能卡住的修飾鍵
             try:
@@ -2415,7 +2415,7 @@ class RecorderApp(tb.Window):
         - 保護其他程式的全域熱鍵
         
         【執行順序】
-        1. 立即停止所有錄製和回放
+        1. 立即停止所有錄製和執行
         2. 釋放所有按鍵和 hooks
         3. 清理本程式註冊的快捷鍵（不影響其他程式）
         4. 強制終止程式
@@ -3412,7 +3412,7 @@ class RecorderApp(tb.Window):
             "start": lang_map["開始錄製"],
             "pause": lang_map["暫停/繼續"],
             "stop": lang_map["停止"],
-            "play": lang_map["回放"],
+            "play": lang_map["執行"],
             "mini": lang_map["MiniMode"],
             "force_quit": lang_map["強制停止"]
         }
@@ -3735,9 +3735,9 @@ class RecorderApp(tb.Window):
             self.log(f"[腳本快捷鍵] 註冊完成: 成功 {registered_scripts}, 失敗 {failed_scripts}")
 
     def _play_script_by_hotkey(self, script):
-        """透過快捷鍵觸發腳本回放（使用腳本儲存的參數）"""
+        """透過快捷鍵觸發腳本執行（使用腳本儲存的參數）"""
         if self.playing or self.recording:
-            self.log(f"目前正在錄製或回放中，無法執行腳本：{script}")
+            self.log(f"目前正在錄製或執行中，無法執行腳本：{script}")
             return
         
         path = os.path.join(self.script_dir, script)
@@ -3763,7 +3763,7 @@ class RecorderApp(tb.Window):
             
             self.log(f"透過快捷鍵載入腳本：{script}")
             
-            # 開始回放
+            # 開始執行
             self.play_record()
             
         except Exception as ex:
@@ -3773,7 +3773,7 @@ class RecorderApp(tb.Window):
         self.btn_start.config(text=f"開始錄製 ({self.hotkey_map['start']})")
         self.btn_pause.config(text=f"暫停/繼續 ({self.hotkey_map['pause']})")
         self.btn_stop.config(text=f"停止 ({self.hotkey_map['stop']})")
-        self.btn_play.config(text=f"回放 ({self.hotkey_map['play']})")
+        self.btn_play.config(text=f"執行 ({self.hotkey_map['play']})")
         # MiniMode 按鈕同步更新
         if hasattr(self, "mini_btns") and self.mini_btns:
             for btn, icon, key in self.mini_btns:
@@ -3851,7 +3851,7 @@ class RecorderApp(tb.Window):
                 self.mini_auto_check.grid(row=0, column=len(btn_defs)+1, padx=5, pady=5)
                 
                 # 添加 Tooltip
-                Tooltip(self.mini_auto_check, lang_map["勾選時，程式錄製/回放將自動轉換"])
+                Tooltip(self.mini_auto_check, lang_map["勾選時，程式錄製/執行將自動轉換"])
                 
                 self.mini_window.protocol("WM_DELETE_WINDOW", self._close_mini_mode)
                 self.withdraw()
@@ -4204,7 +4204,7 @@ class RecorderApp(tb.Window):
             self.refresh_script_listbox()
             
             self.log(f"已設定腳本 {script_name} 的快捷鍵：{hotkey}")
-            self.log("提示：按下快捷鍵將使用腳本內儲存的參數直接回放")
+            self.log("提示：按下快捷鍵將使用腳本內儲存的參數直接執行")
         except Exception as ex:
             self.log(f"設定腳本快捷鍵失敗: {ex}")
             import traceback
@@ -4593,7 +4593,7 @@ class RecorderApp(tb.Window):
             self.log(f"⏰ [排程執行] {script_file}")
             self.log(f"載入 {len(self.events)} 筆事件")
             
-            # 自動開始回放
+            # 自動開始執行
             self.after(500, self.play_record)
             
         except Exception as e:

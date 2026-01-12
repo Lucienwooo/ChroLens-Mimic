@@ -413,7 +413,7 @@ class StateMachine:
 
 
 class CoreRecorder:
-    """錄製和回放的核心類別
+    """錄製和執行的核心類別
     
     ✅ v2.6.5+ 重構改進：
     - 整合 BezierMouseMover（擬真滑鼠移動）
@@ -530,7 +530,7 @@ class CoreRecorder:
             self._log("⚠️ 已停用擬真移動（直線移動）", "info")
 
     def set_target_window(self, hwnd):
-        """設定目標視窗，只錄製/回放該視窗內的操作"""
+        """設定目標視窗，只錄製/執行該視窗內的操作"""
         self._target_hwnd = hwnd
         if hwnd:
             self._log(f"已設定目標視窗：hwnd={hwnd}", "info")
@@ -941,7 +941,7 @@ class CoreRecorder:
             self.logger(f"詳細錯誤: {traceback.format_exc()}")
 
     def play(self, speed=1.0, repeat=1, repeat_time_limit=None, repeat_interval=0, on_event=None):
-        """開始回放錄製的事件
+        """開始執行錄製的事件
         
         Args:
             speed: 播放速度倍率
@@ -970,13 +970,13 @@ class CoreRecorder:
         return True
 
     def stop_play(self):
-        """停止回放（強化版 - 確保狀態正確重置）"""
+        """停止執行（強化版 - 確保狀態正確重置）"""
         was_playing = self.playing
         self.playing = False
         self.paused = False
         
         if was_playing:
-            self.logger(f"[{time.ctime()}] 已停止回放")
+            self.logger(f"[{time.ctime()}] 已停止執行")
             
             # ✅ 修復：釋放可能卡住的修飾鍵（強化版）
             try:
@@ -1011,7 +1011,7 @@ class CoreRecorder:
             pass
 
     def _play_loop(self, speed, repeat, repeat_time_limit, repeat_interval, on_event):
-        """回放主循環（強化版 - 支援時間限制優先，修復點擊其他視窗導致停止的問題）
+        """執行主循環（強化版 - 支援時間限制優先，修復點擊其他視窗導致停止的問題）
         
         優先順序：重複時間 > 重複次數
         - 如果設定了 repeat_time_limit，則在時間內無限重複
@@ -1092,18 +1092,18 @@ class CoreRecorder:
                             time.sleep(0.1)
                     
         except Exception as ex:
-            self.logger(f"回放循環錯誤: {ex}")
+            self.logger(f"執行循環錯誤: {ex}")
         finally:
             self.playing = False
             self._current_repeat_count = 0
-            # ✅ 修復：回放結束後確保所有按鍵都被釋放
+            # ✅ 修復：執行結束後確保所有按鍵都被釋放
             try:
                 self._release_pressed_keys()
             except:
                 pass
             
     def _execute_single_round(self, speed, on_event):
-        """執行單次回放循環（支援標籤跳轉和重複執行）"""
+        """執行單次執行循環（支援標籤跳轉和重複執行）"""
         self._current_play_index = 0
         base_time = self.events[0]['time']
         play_start = time.time()
@@ -1132,7 +1132,7 @@ class CoreRecorder:
                     # 剛進入暫停狀態
                     pause_start_time = time.time()
                     last_pause_state = True
-                    self.logger("[暫停] 回放已暫停")
+                    self.logger("[暫停] 執行已暫停")
                 time.sleep(0.05)
                 continue
             else:
@@ -1142,7 +1142,7 @@ class CoreRecorder:
                     if pause_start_time is not None:
                         pause_duration = time.time() - pause_start_time
                         total_pause_time += pause_duration
-                        self.logger(f"[繼續] 回放繼續（暫停了 {pause_duration:.2f} 秒）")
+                        self.logger(f"[繼續] 執行繼續（暫停了 {pause_duration:.2f} 秒）")
                         pause_start_time = None
                     last_pause_state = False
 
@@ -1171,7 +1171,7 @@ class CoreRecorder:
                         if not last_pause_state:
                             pause_start_time = time.time()
                             last_pause_state = True
-                            self.logger("[暫停] 回放已暫停")
+                            self.logger("[暫停] 執行已暫停")
                         break
                     # 使用極短的睡眠時間以保持時間計算精確
                     sleep_time = min(0.001, target_time - time.time())
@@ -1187,7 +1187,7 @@ class CoreRecorder:
             if not self.playing:
                 break
 
-            # 執行事件（使用 try-except 確保單一事件錯誤不影響整體回放）
+            # 執行事件（使用 try-except 確保單一事件錯誤不影響整體執行）
             try:
                 # 檢查事件是否應該被執行
                 should_execute = True
@@ -1240,7 +1240,7 @@ class CoreRecorder:
                         pass  # 忽略回調錯誤
             except Exception as ex:
                 self.logger(f"執行事件時發生錯誤: {ex}")
-                # 繼續執行下一個事件，不中斷回放
+                # 繼續執行下一個事件，不中斷執行
 
             # 更新索引（確保一定會執行）
             self._current_play_index += 1
@@ -2430,7 +2430,7 @@ class CoreRecorder:
             action_config: {'action': 'continue'/'stop'/'jump', 'target': 'label_name', 'repeat_count': N}
         
         Returns:
-            'stop' 如果需要停止回放，否則 None
+            'stop' 如果需要停止執行，否則 None
             ('jump', 'label_name', repeat_count) 如果需要跳轉
         """
         try:
@@ -2610,7 +2610,7 @@ class CoreRecorder:
             self.logger(f"滑鼠事件發送失敗: {e}")
 
     def _release_pressed_keys(self):
-        """釋放在回放期間可能被 press 但未 release 的按鍵集合"""
+        """釋放在執行期間可能被 press 但未 release 的按鍵集合"""
         try:
             import keyboard
             for k in list(getattr(self, '_pressed_keys', [])):

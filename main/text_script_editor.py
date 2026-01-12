@@ -7137,7 +7137,7 @@ class TextCommandEditor(tk.Toplevel):
                 script_name = os.path.splitext(os.path.basename(self.script_path))[0]
                 self.parent.script_var.set(script_name)
             
-            # 6. 記錄視窗資訊（避免回放時彈窗）
+            # 6. 記錄視窗資訊（避免執行時彈窗）
             if hasattr(self.parent, 'target_hwnd') and self.parent.target_hwnd:
                 from utils import get_window_info
                 current_info = get_window_info(self.parent.target_hwnd)

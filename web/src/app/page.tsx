@@ -188,13 +188,13 @@ export default function Home() {
 
       <section className={styles.version}>
         <h2>最新版本</h2>
-        <h3>v2.7.5 - YOLO 物件偵測與精度強化</h3>
+        <h3>v2.7.5 - 按鍵系統全面增強</h3>
         <ul>
-          <li>🤖 整合 YOLOv8s AI 物件偵測，支援 80 種物件類別</li>
-          <li>🔍 新增嚴格模式，可區分相似按鈕（如 Accept vs Accept all）</li>
-          <li>⌨️ 修復快捷鍵系統，支援單獨按鍵和任意組合鍵</li>
-          <li>📚 新增可摺疊的「新手快速入門」教學區塊</li>
-          <li>🧹 專案瘦身，減少約 2.7 MB</li>
+          <li>⌨️ 完美支援所有按鍵類型（Alt、Ctrl、Shift 等修飾鍵）</li>
+          <li>🎮 遊戲按鍵完全支援（Alt 跳躍/攻擊、組合技等）</li>
+          <li>🔧 按鍵名稱自動標準化，處理不同鍵盤庫差異</li>
+          <li>🛡️ 防卡鍵機制，執行結束自動釋放所有按鍵</li>
+          <li>📝 術語優化：「回放」改為「執行」（更直觀）</li>
         </ul>
       </section>
     </main>

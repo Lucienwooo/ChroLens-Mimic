@@ -93,7 +93,7 @@ class MimicReleaseBuilder:
     
     def _extract_changelog(self) -> str:
         """提取當前版本的更新說明"""
-        # 嘗試從版本說明文件讀取
+        # 嘗試從版本說明檔案讀取
         version_files = [
             self.project_dir / "VERSION_UPDATE_REPORT.md",
             self.project_dir / "UPDATE.md",
@@ -239,8 +239,8 @@ class MimicReleaseBuilder:
         print("  ✓ 複製完成\n")
     
     def create_version_file(self):
-        """創建版本文件"""
-        print("\n[5/7] 創建版本文件...")
+        """創建版本檔案"""
+        print("\n[5/7] 創建版本檔案...")
         
         version_file = self.output_dir / f"version{self.version}.txt"
         

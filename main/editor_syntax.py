@@ -133,10 +133,10 @@ class SyntaxMixin:
     def _apply_syntax_highlighting(self):
         """套用語法高亮 (VS Code Dark+ 配色) - 優化版"""
         try:
-            # 取得整份文件的總行數
+            # 取得整份檔案的總行數
             total_lines = int(self.text_editor.index("end-1c").split('.')[0])
             
-            # 處理整份文件
+            # 處理整份檔案
             start_line = 1
             end_line = total_lines
             

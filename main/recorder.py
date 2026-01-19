@@ -1931,7 +1931,7 @@ class CoreRecorder:
                     self._mouse_event_enhanced('up', button=button)
                     self.logger(f"[點擊圖片] ✅ 已點擊 {button} 於 ({x}, {y})")
                     
-                    # ✅ 返回原位
+                    # ✅ 返回原位 (預設關閉,避免游標跳回原點)
                     if return_to_origin:
                         ctypes.windll.user32.SetCursorPos(original_pos[0], original_pos[1])
                         self.logger(f"[點擊圖片] ✅ 已返回原位 ({original_pos[0]}, {original_pos[1]})")
@@ -2126,7 +2126,7 @@ class CoreRecorder:
                             # 執行對應動作
                             if action == 'click':
                                 button = img_config.get('button', 'left')
-                                return_to_origin = img_config.get('return_to_origin', True)
+                                return_to_origin = img_config.get('return_to_origin', False)  # 預設不返回原位,避免游標跳回
                                 original_pos = win32api.GetCursorPos() if return_to_origin else None
                                 
                                 ctypes.windll.user32.SetCursorPos(pos[0], pos[1])
@@ -2139,6 +2139,7 @@ class CoreRecorder:
                                 if return_to_origin and original_pos:
                                     time.sleep(0.01)
                                     ctypes.windll.user32.SetCursorPos(original_pos[0], original_pos[1])
+                                    self.logger(f"[多圖辨識] ✅ 已返回原位")
                             
                             elif action == 'move':
                                 ctypes.windll.user32.SetCursorPos(pos[0], pos[1])
@@ -2927,7 +2928,7 @@ class CoreRecorder:
             # 🔥 使用快速截圖（優化：mss引擎 + 預轉灰度）
             screen_cv = self._capture_screen_fast(search_region)
             
-            # 🔥 調試信息：輸出截圖和模板尺寸
+            # 🔥 調試資訊：輸出截圖和模板尺寸
             if search_region:
                 self.logger(f"[圖片辨識] 範圍截圖尺寸: {screen_cv.shape[1]}x{screen_cv.shape[0]} (範圍: {search_region})")
             self.logger(f"[圖片辨識] 模板圖片尺寸: {template_gray.shape[1]}x{template_gray.shape[0]}")
@@ -3006,7 +3007,7 @@ class CoreRecorder:
                             self.logger(f"[追蹤] ✅ 全螢幕找到於 ({pos[0]}, {pos[1]}) 信心度:{max_val:.3f}")
                             return pos
                     
-                    # 🔥 增強日誌：顯示搜尋範圍信息
+                    # 🔥 增強日誌：顯示搜尋範圍資訊
                     if search_region:
                         region_info = f"，搜尋範圍: {search_region} (寬{search_region[2]-search_region[0]}x高{search_region[3]-search_region[1]})"
                     else:
@@ -3308,7 +3309,7 @@ class CoreRecorder:
             
         except Exception as e:
             self.logger(f"[嚴格驗證] 錯誤: {e}")
-            return True  # 錯誤時默認通過，避免中斷流程
+            return True  # 錯誤時預設通過，避免中斷流程
     
     def _find_strict_match(self, screen_cv, template_gray, result_map, threshold, search_region):
         """🔥 v2.8.2 尋找通過嚴格驗證的匹配位置

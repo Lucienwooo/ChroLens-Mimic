@@ -9,7 +9,7 @@
 # 該檔案包含所有開發規範、流程說明、版本管理規則和重要備註
 # ═══════════════════════════════════════════════════════════════════════════
 
-VERSION = "2.7.5"
+VERSION = "2.7.6"
 
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
@@ -505,6 +505,9 @@ class RecorderApp(tb.Window):
         self._hotkey_handlers = {}
         # 用來儲存腳本快捷鍵的 handler id
         self._script_hotkey_handlers = {}
+        # ✅ 快捷鍵健康檢查變數
+        self._last_hotkey_register_time = 0
+        self._hotkey_check_failures = 0
         # MiniMode 管理器（由 mini.py 提供）
         self.mini_window = None
         self.mini_mode_on = False
@@ -1043,6 +1046,8 @@ class RecorderApp(tb.Window):
         self.after(200, self._force_focus)  # 再次確認焦點
         self.after(300, self._register_hotkeys)  # 註冊快捷鍵
         self.after(400, self._register_script_hotkeys)
+        # ✅ 新增：定期檢查快捷鍵健康狀態（每30秒）
+        self.after(30000, self._check_hotkey_health)
         self.after(500, self.refresh_script_list)
         self.after(600, self.load_last_script)
         self.after(700, self.update_mouse_pos)
@@ -1201,16 +1206,16 @@ class RecorderApp(tb.Window):
         """將視覺化編輯器的動作列表轉換為事件列表
         
         增強穩定性:
-        - 完整的數據驗證
+        - 完整的資料驗證
         - 詳細的錯誤日誌
-        - 自動修復異常數據
+        - 自動修復異常資料
         - 跳過無效動作而非中斷
         """
         events = []
         current_time = 0.0
         skipped_count = 0
         
-        # 數據驗證
+        # 資料驗證
         if not isinstance(actions, list):
             self.log(f"[轉換錯誤] actions 不是列表類型: {type(actions)}")
             return []
@@ -1257,7 +1262,7 @@ class RecorderApp(tb.Window):
                             # move_to_path: params 是 JSON 字串格式的軌跡列表
                             trajectory = None
                             
-                            # 嘗試解析軌跡數據
+                            # 嘗試解析軌跡資料
                             try:
                                 trajectory = json.loads(params_str)
                             except json.JSONDecodeError:
@@ -1266,13 +1271,13 @@ class RecorderApp(tb.Window):
                                     import ast
                                     trajectory = ast.literal_eval(params_str)
                                 except Exception as ast_err:
-                                    self.log(f"[錯誤] 第 {idx+1} 個動作: 無法解析軌跡數據 - {ast_err}")
+                                    self.log(f"[錯誤] 第 {idx+1} 個動作: 無法解析軌跡資料 - {ast_err}")
                                     skipped_count += 1
                                     continue
                             
-                            # 驗證軌跡數據
+                            # 驗證軌跡資料
                             if not isinstance(trajectory, list) or len(trajectory) == 0:
-                                self.log(f"[跳過] 第 {idx+1} 個動作: 軌跡數據格式錯誤或為空")
+                                self.log(f"[跳過] 第 {idx+1} 個動作: 軌跡資料格式錯誤或為空")
                                 skipped_count += 1
                                 continue
                             
@@ -1321,9 +1326,9 @@ class RecorderApp(tb.Window):
                                 skipped_count += 1
                                 continue
                             
-                            # 檢查是否有軌跡數據
+                            # 檢查是否有軌跡資料
                             if len(parts) > 2 and parts[2]:
-                                # 有軌跡數據,嘗試解析
+                                # 有軌跡資料,嘗試解析
                                 try:
                                     trajectory = json.loads(parts[2])
                                     events.append({
@@ -2521,6 +2526,22 @@ class RecorderApp(tb.Window):
                 except:
                     pass
 
+            # ✅ v2.7.6 強制透過 Windows API 釋放核心修飾鍵 (防止 keyboard 模組失效)
+            try:
+                import win32api, win32con
+                vk_map = {
+                    'ctrl': [win32con.VK_CONTROL, win32con.VK_LCONTROL, win32con.VK_RCONTROL],
+                    'shift': [win32con.VK_SHIFT, win32con.VK_LSHIFT, win32con.VK_RSHIFT],
+                    'alt': [win32con.VK_MENU, win32con.VK_LMENU, win32con.VK_RMENU],
+                    'win': [win32con.VK_LWIN, win32con.VK_RWIN]
+                }
+                for name, vks in vk_map.items():
+                    for vk in vks:
+                        # 0x0002 是 KEYEVENTF_KEYUP
+                        win32api.keybd_event(vk, 0, 0x0002, 0)
+            except Exception as e:
+                self.log(f"⚠️ WinAPI 釋放按鍵失敗: {e}")
+
             # 不再呼叫 unhook_all/unhook_all_hotkeys
             # 這些會移除系統快捷鍵 (F9/F10 等)，導致 3-5 次後失效
             # 只需釋放按鍵本身即可，快捷鍵保持註冊狀態
@@ -2663,7 +2684,7 @@ class RecorderApp(tb.Window):
         
         增強穩定性:
         - 完整的錯誤處理
-        - 數據驗證
+        - 資料驗證
         - 清晰的用戶反饋
         """
         script = self.script_var.get()
@@ -2807,10 +2828,10 @@ class RecorderApp(tb.Window):
             self.log(f"警告: 檢查檔案時發生錯誤: {e}")
         
         try:
-            # 載入腳本數據
+            # 載入腳本資料
             data = sio_load_script(path)
             
-            # ✅ 檢查數據完整性
+            # ✅ 檢查資料完整性
             if not isinstance(data, dict):
                 raise ValueError("腳本格式錯誤: 不是有效的 JSON 物件")
             
@@ -3631,32 +3652,41 @@ class RecorderApp(tb.Window):
         
         # 註冊所有快捷鍵
         for key, hotkey in self.hotkey_map.items():
-            try:
-                method_name = method_map.get(key)
-                if not method_name:
-                    continue
+            method_name = method_map.get(key)
+            if not method_name:
+                continue
+                
+            callback = getattr(self, method_name, None)
+            if not callable(callback):
+                continue
+            
+            # ✅ 註冊並儲存 handle (加入重試機制)
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    handler = keyboard.add_hotkey(
+                        hotkey, 
+                        callback,
+                        suppress=False,
+                        trigger_on_release=False
+                    )
+                    self._hotkey_handlers[key] = handler
                     
-                callback = getattr(self, method_name, None)
-                if not callable(callback):
-                    continue
-                
-                # ✅ 註冊並儲存 handle
-                handler = keyboard.add_hotkey(
-                    hotkey, 
-                    callback,
-                    suppress=False,
-                    trigger_on_release=False
-                )
-                self._hotkey_handlers[key] = handler
-                
-                if self._is_first_run:
-                    self.log(f"已註冊快捷鍵: {hotkey} → {key}")
-            except Exception as ex:
-                self.log(f"快捷鍵 {hotkey} 註冊失敗: {ex}")
+                    if self._is_first_run:
+                        self.log(f"已註冊快捷鍵: {hotkey} → {key}")
+                    break  # 成功則跳出重試迴圈
+                except Exception as ex:
+                    if attempt == max_retries - 1:  # 最後一次嘗試
+                        self.log(f"快捷鍵 {hotkey} 註冊失敗 (已重試{max_retries}次): {ex}")
+                    else:
+                        time.sleep(0.1)  # 短暫延遲後重試
         
         # 提示：首次運行後不再顯示註冊訊息
         if self._is_first_run:
             self.log("✅ 系統快捷鍵註冊完成（錄製時仍然有效）")
+        
+        # ✅ 記錄註冊時間（用於健康檢查）
+        self._last_hotkey_register_time = time.time()
 
 
     def _register_script_hotkeys(self):
@@ -3733,6 +3763,64 @@ class RecorderApp(tb.Window):
         # 總結註冊結果
         if registered_scripts > 0 or failed_scripts > 0:
             self.log(f"[腳本快捷鍵] 註冊完成: 成功 {registered_scripts}, 失敗 {failed_scripts}")
+
+    def _check_hotkey_health(self):
+        """
+        定期檢查快捷鍵健康狀態並自動修復
+        
+        功能：
+        - 檢測快捷鍵是否仍然有效
+        - 自動重新註冊失效的快捷鍵
+        - 記錄失敗次數並提示用戶
+        
+        每30秒執行一次
+        """
+        try:
+            import keyboard
+            
+            # 檢查是否需要重新註冊（如果上次註冊超過5分鐘且有失敗記錄）
+            current_time = time.time()
+            time_since_last_register = current_time - self._last_hotkey_register_time
+            
+            # 檢查快捷鍵是否仍然註冊
+            hotkeys_ok = True
+            
+            # 簡單檢查：嘗試獲取已註冊的快捷鍵數量
+            if len(self._hotkey_handlers) == 0 and len(self.hotkey_map) > 0:
+                # 快捷鍵應該存在但實際上沒有 - 需要重新註冊
+                hotkeys_ok = False
+                self._hotkey_check_failures += 1
+                self.log("⚠️ 檢測到快捷鍵失效，正在自動修復...")
+            
+            # 如果檢測到問題或距離上次註冊超過10分鐘，重新註冊
+            if not hotkeys_ok or time_since_last_register > 600:
+                try:
+                    # 重新註冊系統快捷鍵
+                    self._register_hotkeys()
+                    # 重新註冊腳本快捷鍵
+                    self._register_script_hotkeys()
+                    
+                    if not hotkeys_ok:
+                        self.log("✅ 快捷鍵已自動修復")
+                        self._hotkey_check_failures = 0  # 重置失敗計數
+                except Exception as ex:
+                    self.log(f"❌ 快捷鍵修復失敗: {ex}")
+                    self._hotkey_check_failures += 1
+            
+            # 如果連續失敗3次，提示用戶
+            if self._hotkey_check_failures >= 3:
+                self.log("⚠️ 快捷鍵多次失效，建議重啟程式")
+                self._hotkey_check_failures = 0  # 重置計數避免重複提示
+            
+        except Exception as e:
+            # 靜默處理錯誤，避免影響主程式
+            pass
+        finally:
+            # 繼續下一次檢查（每30秒）
+            try:
+                self.after(30000, self._check_hotkey_health)
+            except:
+                pass  # 如果視窗已關閉，忽略錯誤
 
     def _play_script_by_hotkey(self, script):
         """透過快捷鍵觸發腳本執行（使用腳本儲存的參數）"""

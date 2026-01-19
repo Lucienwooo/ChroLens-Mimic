@@ -146,7 +146,7 @@ class SafePacker:
         print("步驟 4/6: 複製更新工具...")
         
         update_files = [
-            ("更新說明.txt", "更新說明文件")
+            ("更新說明.txt", "更新說明檔案")
         ]
         
         copied_count = 0

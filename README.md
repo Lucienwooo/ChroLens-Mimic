@@ -122,7 +122,7 @@ python ChroLens_Mimic.py
 ### 📚 學習資源
 - [🚀 快速入門指南](./QUICK_START.md) - 5 分鐘上手
 - [📦 範例模板庫](./templates/) - 實用腳本範例
-- [📖 完整指令文件](https://lucienwooo.github.io/ChroLens_Mimic/) - 所有指令說明
+- [📖 完整指令文檔](https://lucienwooo.github.io/ChroLens_Mimic/) - 所有指令說明
 - [🎨 圖形模式教學](./web/src/app/script-editor/) - 視覺化編輯
 
 ### 🔧 進階主題
@@ -193,7 +193,7 @@ ChroLens_Mimic/
 
 - 💬 **Discord 社群**: [加入 ChroLens Discord](https://discord.gg/72Kbs4WPPn)
 - 🐛 **回報問題**: [GitHub Issues](https://github.com/LucienWooo/ChroLens_Mimic/issues)
-- 📖 **查看文件**: [完整文件](https://lucienwooo.github.io/ChroLens_Mimic/)
+- 📖 **查看文檔**: [完整文檔](https://lucienwooo.github.io/ChroLens_Mimic/)
 - 🌐 **ChroLens 專案**: [巴哈姆特介紹](https://home.gamer.com.tw/artwork.php?sn=6150515)
 
 ---

@@ -1,7 +1,8 @@
-﻿
+
 # ChroLens Studio - Lucienwooo
 # python "C:\Users\Lucien\Documents\GitHub\ChroLens_Mimic\main\ChroLens_Mimic.py"
 #
+<<<<<<< Updated upstream
 # ---------------------------------------------------------------------------
 # [ AI Agent 必讀 ]
 # ---------------------------------------------------------------------------
@@ -10,6 +11,17 @@
 # ---------------------------------------------------------------------------
 
 VERSION = "2.7.6"
+=======
+# 
+# i?? AI Agent Ūj
+# 
+# b糧M׶iקeAХ\Ū AI_AGENT_NOTES.py
+# ɮץ]tҦ}oWdBy{B޲zWhMnƵ
+# 
+
+GITHUB_REPO = "Lucienwooo/ChroLens-Mimic"
+VERSION = "2.7.5"
+>>>>>>> Stashed changes
 
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
@@ -22,52 +34,61 @@ import win32api
 import win32gui
 import win32con
 import pywintypes
-import random  # 新增
+import random  # sW
 import tkinter.font as tkfont
 import sys
 
-# 新增：系統托盤支援
+# sWGtΦL䴩
 try:
     import pystray
     from PIL import Image as PILImage
     PYSTRAY_AVAILABLE = True
 except ImportError:
-    print("pystray 或 Pillow 未安裝，系統托盤功能將停用")
+    print("pystray  Pillow wˡAtΦL\N")
     PYSTRAY_AVAILABLE = False
 
 
 
 
-# 檢查是否以管理員身份執行
+# ˬdO_H޲z
 def is_admin():
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
     except:
         return False
 
-# 新增：匯入 Recorder / 語言 / script IO 函式（使用健壯的 fallback）
+# sWGפJ Recorder / y / script IO 禡]ϥΰ fallback^
 try:
     from recorder import CoreRecorder
 except Exception as e:
-    print(f"無法匯入 CoreRecorder: {e}")
+    print(f"LkפJ CoreRecorder: {e}")
 
+<<<<<<< Updated upstream
 # 使用文字指令式腳本編輯器（已移除舊版圖形化編輯器）
 try:
     from text_script_editor import TextCommandEditor as VisualScriptEditor
     print("[訊息] 已載入文字指令編輯器")
 except Exception as e:
     print(f"[錯誤] 無法匯入編輯器: {e}")
+=======
+# ? ϥΤrO}s边]wªϧΤƽs边^
+try:
+    from text_script_editor import TextCommandEditor as VisualScriptEditor
+    print("? wJrOs边")
+except Exception as e:
+    print(f"? LkפJs边: {e}")
+>>>>>>> Stashed changes
     import traceback
     traceback.print_exc()
     VisualScriptEditor = None
 try:
     from lang import LANG_MAP
 except Exception as e:
-    print(f"無法匯入 LANG_MAP: {e}")
+    print(f"LkפJ LANG_MAP: {e}")
 
-# 先嘗試以常用命名匯入，若失敗則 import module 並檢查函式名稱，最後提供 fallback 實作
+# եH`ΩRWפJAYѫh import module ˬd禡W١A̫ᴣ fallback @
 try:
-    # 優先嘗試原先預期的命名匯入
+    # uխwRWפJ
     from script_io import sio_auto_save_script, sio_load_script, sio_save_script_settings
 except Exception as _e:
     try:
@@ -76,10 +97,10 @@ except Exception as _e:
         sio_load_script = getattr(_sio_mod, "sio_load_script", getattr(_sio_mod, "load_script", None))
         sio_save_script_settings = getattr(_sio_mod, "sio_save_script_settings", getattr(_sio_mod, "save_script_settings", None))
         if not (sio_auto_save_script and sio_load_script and sio_save_script_settings):
-            raise ImportError("script_io 模組缺少預期函式")
+            raise ImportError("script_io Ҳկʤֹw禡")
     except Exception as e:
-        print(f"無法匯入 script_io 函式: {e}")
-        # 提供最小 fallback 實作，確保主程式能運作（會回傳/寫入基礎 JSON）
+        print(f"LkפJ script_io 禡: {e}")
+        # ѳ̤p fallback @ATOD{B@]|^/gJ¦ JSON^
         def sio_auto_save_script(script_dir, events, settings):
             if not os.path.exists(script_dir):
                 os.makedirs(script_dir)
@@ -114,26 +135,26 @@ except Exception as _e:
             except Exception as ex:
                 print(f"sio_save_script_settings fallback failed: {ex}")
 
-# 新增：匯入 about 模組
+# sWGפJ about Ҳ
 try:
     import about
 except Exception as e:
-    print(f"無法匯入 about 模組: {e}")
+    print(f"LkפJ about Ҳ: {e}")
 
-# 新增：將 MiniMode 抽出到 mini.py
+# sWGN MiniMode X mini.py
 try:
     import mini
 except Exception as e:
-    print(f"無法匯入 mini 模組: {e}")
+    print(f"LkפJ mini Ҳ: {e}")
 
-# 新增：匯入 window_selector 模組
+# sWGפJ window_selector Ҳ
 try:
     from window_selector import WindowSelectorDialog
 except Exception as e:
-    print(f"無法匯入 window_selector 模組: {e}")
+    print(f"LkפJ window_selector Ҳ: {e}")
     WindowSelectorDialog = None
 
-# 新增：註冊專案內的 LINESeedTW TTF（若存在），並提供通用 font_tuple() 幫助函式
+# sWGUMפ LINESeedTW TTF]Ysb^Aôѳq font_tuple() U禡
 TTF_PATH = os.path.join(os.path.dirname(__file__), "TTF", "LINESeedTW_TTF_Rg.ttf")
 
 def _register_private_ttf(ttf_path):
@@ -142,77 +163,77 @@ def _register_private_ttf(ttf_path):
             FR_PRIVATE = 0x10
             ctypes.windll.gdi32.AddFontResourceExW(ttf_path, FR_PRIVATE, 0)
     except Exception as e:
-        print(f"註冊字型失敗: {e}")
+        print(f"Ur: {e}")
 
-# 嘗試註冊（不會拋錯，失敗時程式仍可繼續）
+# յU]|߿AѮɵ{i~^
 _register_private_ttf(TTF_PATH)
 
 def font_tuple(size, weight=None, monospace=False):
     """
-    回傳 (family, size) 或 (family, size, weight) 的 tuple，
-    優先選擇 LINESeedTW（若可用），否則回退到 Microsoft JhengHei。
-    monospace=True 時使用 Consolas。
+    ^ (family, size)  (family, size, weight)  tupleA
+    u LINESeedTW]YiΡ^A_h^h Microsoft JhengHeiC
+    monospace=True ɨϥ ConsolasC
     """
     fam = "Consolas" if monospace else "LINESeedTW_TTF_Rg"
     try:
-        # 若尚未建立 tk root，tkfont.families() 可能會失敗；以 try 防護
+        # Y|إ tk rootAtkfont.families() i|ѡFH try @
         fams = set(f.lower() for f in tkfont.families())
-        # 嘗試找出任何以 lineseed 開頭的 family
+        # էXH lineseed }Y family
         for f in tkfont.families():
             if f.lower().startswith("lineseed"):
                 fam = f
                 break
         else:
-            # 若找不到 LINESEED，回退到 Microsoft JhengHei（若存在）
+            # Y䤣 LINESEEDA^h Microsoft JhengHei]Ysb^
             if not monospace:
                 for f in tkfont.families():
                     if f.lower().startswith("microsoft jhenghei") or f.lower().startswith("microsoft jhenghei ui"):
                         fam = f
                         break
     except Exception:
-        # 若無法查詢 families，保留預設 fam（依前述值）
+        # YLkd familiesAOdw] fam]̫ezȡ^
         pass
     if weight:
         return (fam, size, weight)
     return (fam, size)
 
 def get_icon_path():
-    """取得圖示檔案路徑（打包後和開發環境通用）"""
+    """oϥɮ׸|]]M}oҳqΡ^"""
     try:
         import sys
         if getattr(sys, 'frozen', False):
-            # 打包後的環境
-            return os.path.join(sys._MEIPASS, "umi_奶茶色.ico")
+            # ]᪺
+            return os.path.join(sys._MEIPASS, "umi_.ico")
         else:
-            # 開發環境
-            # 檢查是否在 main 資料夾中
-            if os.path.exists("umi_奶茶色.ico"):
-                return "umi_奶茶色.ico"
-            # 檢查上層 pic 目錄
-            elif os.path.exists("../pic/umi_奶茶色.ico"):
-                return "../pic/umi_奶茶色.ico"
-            # 檢查上層目錄（向下兼容）
-            elif os.path.exists("../umi_奶茶色.ico"):
-                return "../umi_奶茶色.ico"
+            # }o
+            # ˬdO_b main Ƨ
+            if os.path.exists("umi_.ico"):
+                return "umi_.ico"
+            # ˬdWh pic ؿ
+            elif os.path.exists("../pic/umi_.ico"):
+                return "../pic/umi_.ico"
+            # ˬdWhؿ]VUݮe^
+            elif os.path.exists("../umi_.ico"):
+                return "../umi_.ico"
             else:
-                return "umi_奶茶色.ico"
+                return "umi_.ico"
     except:
-        return "umi_奶茶色.ico"
+        return "umi_.ico"
 
 def set_window_icon(window):
-    """為視窗設定圖示"""
+    """]wϥ"""
     try:
         icon_path = get_icon_path()
         if os.path.exists(icon_path):
             window.iconbitmap(icon_path)
     except Exception as e:
-        print(f"設定視窗圖示失敗: {e}")
+        print(f"]wϥܥ: {e}")
 
 def show_error_window(window_name):
     ctypes.windll.user32.MessageBoxW(
         0,
-        f'找不到 "{window_name}" 視窗，請重試',
-        '錯誤',
+        f'䤣 "{window_name}" AЭ',
+        '~',
         0x10  # MB_ICONERROR
     )
 
@@ -225,13 +246,13 @@ def client_to_screen(hwnd, rel_x, rel_y, window_name=""):
     except pywintypes.error:
         ctypes.windll.user32.MessageBoxW(
             0,
-            f'找不到 "{window_name}" 視窗，請重試',
-            '錯誤',
+            f'䤣 "{window_name}" AЭ',
+            '~',
             0x10  # MB_ICONERROR
         )
         raise
 
-# ====== 滑鼠控制函式放在這裡 ======
+# ====== ƹ禡bo ======
 def move_mouse_abs(x, y):
     ctypes.windll.user32.SetCursorPos(int(x), int(y))
 
@@ -273,31 +294,31 @@ def mouse_event_win(event, x=0, y=0, button='left', delta=0):
         user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
 
 
-# ====== 排程管理器 ======
+# ====== Ƶ{޲z ======
 class ScheduleManager:
     """
-    排程管理器 - 背景持續檢查時間並觸發排程腳本
+    Ƶ{޲z - IˬdɶĲoƵ{}
     
-    功能：
-    - 主程式開著時自動檢查時間
-    - 到達排程時間自動執行對應腳本
-    - 衝突處理：若有腳本執行中，停止舊的、執行新的
+    \G
+    - D{}ۮɦ۰ˬdɶ
+    - FƵ{ɶ۰ʰ}
+    - ĬBzGY}椤AªBs
     """
     
     def __init__(self, app):
         self.app = app
         self.schedules = {}  # {schedule_id: config}
         self.running = True
-        self.last_trigger = {}  # 避免同一分鐘重複觸發 {schedule_id: "HH:MM"}
+        self.last_trigger = {}  # קKP@Ĳo {schedule_id: "HH:MM"}
         self._thread = threading.Thread(target=self._check_loop, daemon=True)
         self._thread.start()
-        print("✓ 排程管理器已啟動")
+        print("? Ƶ{޲zwҰ")
     
     def add_schedule(self, schedule_id, config):
         """
-        新增排程
+        sWƵ{
         config = {
-            'name': '腳本名稱',
+            'name': '}W',
             'type': 'daily',
             'time': 'HH:MM:SS',
             'script': 'script_file.json',
@@ -306,20 +327,20 @@ class ScheduleManager:
         }
         """
         self.schedules[schedule_id] = config
-        print(f"✓ 已新增排程: {schedule_id} @ {config.get('time', '')}")
+        print(f"? wsWƵ{: {schedule_id} @ {config.get('time', '')}")
     
     def remove_schedule(self, schedule_id):
-        """移除排程"""
+        """Ƶ{"""
         if schedule_id in self.schedules:
             del self.schedules[schedule_id]
-            print(f"✓ 已移除排程: {schedule_id}")
+            print(f"? wƵ{: {schedule_id}")
     
     def get_all_schedules(self):
-        """取得所有排程"""
+        """oҦƵ{"""
         return self.schedules.copy()
     
     def _check_loop(self):
-        """背景執行緒 - 每 5 秒檢查一次排程時間（確保準時觸發）"""
+        """I - C 5 ˬd@Ƶ{ɶ]TOǮĲo^"""
         while self.running:
             try:
                 now = datetime.datetime.now()
@@ -330,19 +351,19 @@ class ScheduleManager:
                     if not config.get('enabled', True):
                         continue
                     
-                    # 取得排程時間 (只取 HH:MM)
+                    # oƵ{ɶ (u HH:MM)
                     schedule_time = config.get('time', '')
                     if ':' in schedule_time:
                         schedule_time = schedule_time[:5]  # "15:30:00" -> "15:30"
                     
                     if schedule_time == current_time:
-                        # 使用日期+時間作為 key，避免同一分鐘重複觸發
+                        # ϥΤ+ɶ@ keyAקKP@Ĳo
                         trigger_key = f"{current_date}_{current_time}"
                         if self.last_trigger.get(sid) == trigger_key:
                             continue
                         self.last_trigger[sid] = trigger_key
                         
-                        # 在主執行緒觸發腳本
+                        # bDĲo}
                         script_file = config.get('script')
                         callback = config.get('callback')
                         
@@ -350,40 +371,40 @@ class ScheduleManager:
                             self.app.after(0, lambda s=script_file, c=callback: self._trigger_script(s, c))
                         
             except Exception as e:
-                print(f"排程檢查錯誤: {e}")
+                print(f"Ƶ{ˬd~: {e}")
             
-            time.sleep(5)  # 每 5 秒檢查一次（確保最多延遲 5 秒）
+            time.sleep(5)  # C 5 ˬd@]TO̦h 5 ^
     
     def _trigger_script(self, script_file, callback):
-        """觸發排程腳本 - 若有衝突則停止舊的"""
+        """ĲoƵ{} - YĬhª"""
         try:
-            # 檢查是否有腳本正在執行
+            # ˬdO_}b
             if hasattr(self.app, 'playing') and self.app.playing:
-                print(f"⚠️ 偵測到衝突：停止目前執行中的腳本")
-                self.app.log(f"⚠️ 排程衝突：停止目前腳本，執行新排程")
+                print(f"?? ĬGثe椤}")
+                self.app.log(f"?? Ƶ{ĬGثe}AsƵ{")
                 self.app.stop_all()
-                time.sleep(0.5)  # 等待停止完成
+                time.sleep(0.5)  # ݰ
             
-            # 執行排程腳本
-            print(f"⏰ 觸發排程: {script_file}")
-            self.app.log(f"⏰ 排程觸發: {script_file}")
+            # Ƶ{}
+            print(f"? ĲoƵ{: {script_file}")
+            self.app.log(f"? Ƶ{Ĳo: {script_file}")
             callback(script_file)
             
         except Exception as e:
-            print(f"觸發排程失敗: {e}")
+            print(f"ĲoƵ{: {e}")
             if hasattr(self.app, 'log'):
-                self.app.log(f"❌ 觸發排程失敗: {e}")
+                self.app.log(f"? ĲoƵ{: {e}")
     
     def stop(self):
-        """停止排程管理器"""
+        """Ƶ{޲z"""
         self.running = False
-        print("排程管理器已停止")
+        print("Ƶ{޲zw")
 
 
-# ====== RecorderApp 類別與其餘程式碼 ======
+# ====== RecorderApp OPl{X ======
 SCRIPTS_DIR = "scripts"
 LAST_SCRIPT_FILE = "last_script.txt"
-LAST_SKIN_FILE = "last_skin.txt"  # 新增這行
+LAST_SKIN_FILE = "last_skin.txt"  # sWo
 MOUSE_SAMPLE_INTERVAL = 0.01  # 10ms
 
 
@@ -416,43 +437,43 @@ class Tooltip:
             self.tipwindow = None
 
 def get_dpi_scale():
-    """獲取 Windows 系統的 DPI 縮放比例"""
+    """ Windows tΪ DPI Y"""
     try:
-        # 設定 DPI Awareness
+        # ]w DPI Awareness
         ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
     except:
         pass
     
     try:
-        # 獲取系統 DPI
+        # t DPI
         hdc = ctypes.windll.user32.GetDC(0)
         dpi = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)  # LOGPIXELSX
         ctypes.windll.user32.ReleaseDC(0, hdc)
-        scale = dpi / 96.0  # 96 DPI 是 100% 縮放
+        scale = dpi / 96.0  # 96 DPI O 100% Y
         return scale
     except:
         return 1.0
 
 def get_screen_resolution():
-    """獲取螢幕解析度"""
+    """ùѪR"""
     try:
         user32 = ctypes.windll.user32
         width = user32.GetSystemMetrics(0)   # SM_CXSCREEN
         height = user32.GetSystemMetrics(1)  # SM_CYSCREEN
         return (width, height)
     except:
-        return (1920, 1080)  # 預設值
+        return (1920, 1080)  # w]
 
 def get_window_info(hwnd):
-    """獲取視窗的完整資訊（包含 DPI、解析度等）"""
+    """T]]t DPIBѪR׵^"""
     try:
-        # 獲取視窗矩形
+        # x
         rect = win32gui.GetWindowRect(hwnd)
         width = rect[2] - rect[0]
         height = rect[3] - rect[1]
         pos = (rect[0], rect[1])
         
-        # 獲取系統資訊
+        # tθT
         dpi_scale = get_dpi_scale()
         screen_res = get_screen_resolution()
         
@@ -461,13 +482,13 @@ def get_window_info(hwnd):
             "position": pos,
             "dpi_scale": dpi_scale,
             "screen_resolution": screen_res,
-            "client_size": (width, height)  # 實際可用區域
+            "client_size": (width, height)  # ڥiΰϰ
         }
     except Exception as e:
         return None
 
 def screen_to_client(hwnd, x, y):
-    # 螢幕座標轉視窗內座標
+    # ùyy
     left, top, right, bottom = win32gui.GetWindowRect(hwnd)
     return x - left, y - top
 
@@ -477,15 +498,15 @@ def client_to_screen(hwnd, x, y):
 
 class RecorderApp(tb.Window):
     def __init__(self):
-        # 檢查管理員權限
+        # ˬd޲zv
         if not is_admin():
-            # 顯示警告但仍繼續執行
+            # ĵi~
             try:
-                print("⚠️ 警告：程式未以管理員身份執行，錄製功能可能無法正常工作！")
+                print("?? ĵiG{H޲zAs\iLk`u@I")
             except:
                 print("[WARNING] Program not running as administrator, recording may not work properly!")
         
-        # 初始化基本變數
+        # lưܼ
         self.recording = False
         self.playing = False
         self.paused = False
@@ -493,50 +514,54 @@ class RecorderApp(tb.Window):
 
         self.user_config = load_user_config()
         skin = self.user_config.get("skin", "darkly")
-        # 讀取最後一次語言設定，預設繁體中文
-        lang = self.user_config.get("language", "繁體中文")
+        # Ū̫@y]wAw]c餤
+        lang = self.user_config.get("language", "c餤")
         super().__init__(themename=skin)
         
-        # 如果不是管理員，顯示警告對話框
+        # pGO޲zAĵiܮ
         if not is_admin():
             self.after(1000, self._show_admin_warning)
         
         self.language_var = tk.StringVar(self, value=lang)
         self._hotkey_handlers = {}
-        # 用來儲存腳本快捷鍵的 handler id
+        # Ψxs}ֱ䪺 handler id
         self._script_hotkey_handlers = {}
+<<<<<<< Updated upstream
         # ✅ 快捷鍵健康檢查變數
         self._last_hotkey_register_time = 0
         self._hotkey_check_failures = 0
         # MiniMode 管理器（由 mini.py 提供）
+=======
+        # MiniMode ޲z] mini.py ѡ^
+>>>>>>> Stashed changes
         self.mini_window = None
         self.mini_mode_on = False
         self.target_hwnd = None
         self.target_title = None
         
-        # 首次運行標誌（用於控制是否顯示快捷鍵提示）
+        # Bлx]Ω󱱨O_ܧֱ䴣ܡ^
         self._is_first_run = self.user_config.get("first_run", True)
         if self._is_first_run:
-            # 標記為已運行過
+            # аOwBL
             self.user_config["first_run"] = False
             save_user_config(self.user_config)
 
-        # 讀取 hotkey_map，若無則用預設
+        # Ū hotkey_mapAYLhιw]
         default_hotkeys = {
             "start": "F10",
             "pause": "F11",
             "stop": "F9",
             "play": "F12",
             "mini": "alt+`",
-            "force_quit": "ctrl+alt+z"  # 強制停止的預設快捷鍵
+            "force_quit": "ctrl+alt+z"  # jw]ֱ
         }
         self.hotkey_map = self.user_config.get("hotkey_map", default_hotkeys)
         
-        # 確保 force_quit 存在（向下相容舊配置）
+        # TO force_quit sb]VUۮe°tm^
         if "force_quit" not in self.hotkey_map:
             self.hotkey_map["force_quit"] = "ctrl+alt+z"
 
-        # ====== 統一字體 style ======
+        # ====== Τ@r style ======
         self.style.configure("My.TButton", font=font_tuple(9))
         self.style.configure("My.TLabel", font=font_tuple(9))
         self.style.configure("My.TEntry", font=font_tuple(9))
@@ -545,34 +570,34 @@ class RecorderApp(tb.Window):
         self.style.configure("miniBold.TButton", font=font_tuple(9, "bold"))
 
         self.title(f"ChroLens_Mimic_{VERSION}")
-        # 設定視窗圖示
+        # ]wϥ
         try:
             icon_path = get_icon_path()
             if os.path.exists(icon_path):
-                # 使用 wm_iconbitmap 方法 (更相容 ttkbootstrap)
+                # ϥ wm_iconbitmap k (ۮe ttkbootstrap)
                 self.wm_iconbitmap(icon_path)
         except Exception as e:
-            print(f"設定視窗圖示失敗: {e}")
-        # 關閉視窗時使用強制關閉清理函式
+            print(f"]wϥܥ: {e}")
+        # ɨϥαjMz禡
         try:
             self.protocol("WM_DELETE_WINDOW", self.force_quit)
         except Exception:
             pass
 
-        # 在左上角建立一個小label作為icon區域的懸浮觸發點
+        # bWإߤ@Ӥplabel@iconϰ쪺aBĲoI
         self.icon_tip_label = tk.Label(self, width=2, height=1, bg=self.cget("background"))
         self.icon_tip_label.place(x=0, y=0)
         window_title = self.title()
         Tooltip(self.icon_tip_label, f"{window_title}_By_Lucien")
 
-        # 設定響應式佈局 (Responsive Layout / Adaptive Window)
-        # 設定最小視窗尺寸並允許彈性調整
-        self.minsize(1100, 600)  # 增加最小寬度以容納新功能
-        self.geometry("1150x620")  # 增加初始寬度和高度
-        self.resizable(True, True)  # 允許調整大小
+        # ]wTG (Responsive Layout / Adaptive Window)
+        # ]w̤pؤoä\uʽվ
+        self.minsize(1100, 600)  # W[̤peץHeǷs\
+        self.geometry("1150x620")  # W[leשM
+        self.resizable(True, True)  # \վjp
         
-        # 啟用內容自動適應
-        self.update_idletasks()  # 更新所有待處理的 GUI 事件
+        # ҥΤe۰ʾA
+        self.update_idletasks()  # sҦݳBz GUI ƥ
         
         self.recording = False
         self.playing = False
@@ -583,116 +608,116 @@ class RecorderApp(tb.Window):
         self._play_start_time = None
         self._total_play_time = 0
 
-        # 設定腳本資料夾
+        # ]w}Ƨ
         self.script_dir = self.user_config.get("script_dir", SCRIPTS_DIR)
         if not os.path.exists(self.script_dir):
             os.makedirs(self.script_dir)
         
-        # ====== 新增管理器 ======
-        # 多螢幕管理器
+        # ====== sW޲z ======
+        # hù޲z
         self.multi_monitor = None
-        # 排程管理器 - 初始化背景執行緒檢查排程
+        # Ƶ{޲z - lƭIˬdƵ{
         self.schedule_manager = ScheduleManager(self)
-        # 效能優化器
+        # įuƾ
         self.performance_optimizer = None
 
 
 
-        # ====== 上方操作區 ======
+        # ====== Wާ@ ======
         frm_top = tb.Frame(self, padding=(8, 10, 8, 5))
         frm_top.pack(fill="x")
 
-        self.btn_start = tb.Button(frm_top, text=f"開始錄製 ({self.hotkey_map['start']})", command=self.start_record, bootstyle=PRIMARY, width=14, style="My.TButton")
+        self.btn_start = tb.Button(frm_top, text=f"}ls ({self.hotkey_map['start']})", command=self.start_record, bootstyle=PRIMARY, width=14, style="My.TButton")
         self.btn_start.grid(row=0, column=0, padx=(0, 4))
-        self.btn_pause = tb.Button(frm_top, text=f"暫停/繼續 ({self.hotkey_map['pause']})", command=self.toggle_pause, bootstyle=INFO, width=14, style="My.TButton")
+        self.btn_pause = tb.Button(frm_top, text=f"Ȱ/~ ({self.hotkey_map['pause']})", command=self.toggle_pause, bootstyle=INFO, width=14, style="My.TButton")
         self.btn_pause.grid(row=0, column=1, padx=4)
-        self.btn_stop = tb.Button(frm_top, text=f"停止 ({self.hotkey_map['stop']})", command=self.stop_all, bootstyle=WARNING, width=14, style="My.TButton")
+        self.btn_stop = tb.Button(frm_top, text=f" ({self.hotkey_map['stop']})", command=self.stop_all, bootstyle=WARNING, width=14, style="My.TButton")
         self.btn_stop.grid(row=0, column=2, padx=4)
-        self.btn_play = tb.Button(frm_top, text=f"執行 ({self.hotkey_map['play']})", command=self.play_record, bootstyle=SUCCESS, width=10, style="My.TButton")
+        self.btn_play = tb.Button(frm_top, text=f" ({self.hotkey_map['play']})", command=self.play_record, bootstyle=SUCCESS, width=10, style="My.TButton")
         self.btn_play.grid(row=0, column=3, padx=4)
 
-        # ====== MiniMode 按鈕 ======
+        # ====== MiniMode s ======
         self.mini_mode_btn = tb.Button(
             frm_top, text="MiniMode", style="My.TButton",
             command=self.toggle_mini_mode, width=10
         )
         self.mini_mode_btn.grid(row=0, column=7, padx=4)
 
-        # ====== 下方操作區 ======
+        # ====== Uާ@ ======
         frm_bottom = tb.Frame(self, padding=(8, 0, 8, 5))
         frm_bottom.pack(fill="x")
-        self.lbl_speed = tb.Label(frm_bottom, text="執行速度:", style="My.TLabel")
+        self.lbl_speed = tb.Label(frm_bottom, text="t:", style="My.TLabel")
         self.lbl_speed.grid(row=0, column=0, padx=(0, 6))
-        self.speed_tooltip = Tooltip(self.lbl_speed, "正常速度1倍=100,範圍1~1000")
+        self.speed_tooltip = Tooltip(self.lbl_speed, "`t1=100,d1~1000")
         self.update_speed_tooltip()
         self.speed_var = tk.StringVar(value=self.user_config.get("speed", "100"))
         tb.Entry(frm_bottom, textvariable=self.speed_var, width=6, style="My.TEntry").grid(row=0, column=1, padx=6)
-        saved_lang = self.user_config.get("language", "繁體中文")
+        saved_lang = self.user_config.get("language", "c餤")
         self.language_var = tk.StringVar(self, value=saved_lang)
 
-        # ====== 重複參數設定 ======
-        self.repeat_label = tb.Label(frm_bottom, text="重複次數:", style="My.TLabel")
+        # ====== ưѼƳ]w ======
+        self.repeat_label = tb.Label(frm_bottom, text="Ʀ:", style="My.TLabel")
         self.repeat_label.grid(row=0, column=2, padx=(8, 2))
         self.repeat_var = tk.StringVar(value=self.user_config.get("repeat", "1"))
         entry_repeat = tb.Entry(frm_bottom, textvariable=self.repeat_var, width=6, style="My.TEntry")
         entry_repeat.grid(row=0, column=3, padx=2)
-        # 添加重複次數的懸浮提示
-        self.repeat_tooltip = Tooltip(self.repeat_label, "設定重複執行次數\n輸入 0 表示無限重複\n右鍵點擊輸入框可快速設為0")
+        # K[ƦƪaB
+        self.repeat_tooltip = Tooltip(self.repeat_label, "]wư榸\nJ 0 ܵL\nkIJإiֳt]0")
 
         self.repeat_time_var = tk.StringVar(value="00:00:00")
         entry_repeat_time = tb.Entry(frm_bottom, textvariable=self.repeat_time_var, width=10, style="My.TEntry", justify="center")
         entry_repeat_time.grid(row=0, column=5, padx=(10, 2))
-        self.repeat_time_label = tb.Label(frm_bottom, text="重複時間", style="My.TLabel")
+        self.repeat_time_label = tb.Label(frm_bottom, text="Ʈɶ", style="My.TLabel")
         self.repeat_time_label.grid(row=0, column=6, padx=(0, 2))
-        self.repeat_time_tooltip = Tooltip(self.repeat_time_label, "設定總運作時間，格式HH:MM:SS\n例如: 01:30:00 表示持續1.5小時\n留空或00:00:00則依重複次數執行")
+        self.repeat_time_tooltip = Tooltip(self.repeat_time_label, "]w`B@ɶA榡HH:MM:SS\nҦp: 01:30:00 ܫ1.5p\ndũ00:00:00h̭Ʀư")
 
         self.repeat_interval_var = tk.StringVar(value="00:00:00")
         repeat_interval_entry = tb.Entry(frm_bottom, textvariable=self.repeat_interval_var, width=10, style="My.TEntry", justify="center")
         repeat_interval_entry.grid(row=0, column=7, padx=(10, 2))
-        self.repeat_interval_label = tb.Label(frm_bottom, text="重複間隔", style="My.TLabel")
+        self.repeat_interval_label = tb.Label(frm_bottom, text="ƶj", style="My.TLabel")
         self.repeat_interval_label.grid(row=0, column=8, padx=(0, 2))
-        self.repeat_interval_tooltip = Tooltip(self.repeat_interval_label, "每次重複之間的等待時間\n格式HH:MM:SS，例如: 00:00:30\n表示每次執行完等待30秒再開始下一次")
+        self.repeat_interval_tooltip = Tooltip(self.repeat_interval_label, "CƤݮɶ\n榡HH:MM:SSAҦp: 00:00:30\nܨC槹30A}lU@")
 
         self.random_interval_var = tk.BooleanVar(value=False)
         self.random_interval_check = tb.Checkbutton(
-            frm_bottom, text="隨機", variable=self.random_interval_var, style="My.TCheckbutton"
+            frm_bottom, text="H", variable=self.random_interval_var, style="My.TCheckbutton"
         )
         self.random_interval_check.grid(row=0, column=9, padx=(8, 2))
-        self.random_interval_tooltip = Tooltip(self.random_interval_check, "勾選後，重複間隔將在0到設定值之間隨機\n可避免被偵測為機器人行為")
+        self.random_interval_tooltip = Tooltip(self.random_interval_check, "ĿAƶjNb0]wȤH\niקKQH欰")
 
-        # ====== 自動切換 MiniMode 勾選框 ======
+        # ====== ۰ʤ MiniMode Ŀ ======
         self.auto_mini_var = tk.BooleanVar(value=self.user_config.get("auto_mini_mode", False))
-        lang_map = LANG_MAP.get(saved_lang, LANG_MAP["繁體中文"])
+        lang_map = LANG_MAP.get(saved_lang, LANG_MAP["c餤"])
         self.main_auto_mini_check = tb.Checkbutton(
-            frm_top, text=lang_map["自動切換"], variable=self.auto_mini_var, style="My.TCheckbutton"
+            frm_top, text=lang_map["۰ʤ"], variable=self.auto_mini_var, style="My.TCheckbutton"
         )
         self.main_auto_mini_check.grid(row=0, column=8, padx=4)
-        Tooltip(self.main_auto_mini_check, lang_map["勾選時，程式錄製/執行將自動轉換"])
+        Tooltip(self.main_auto_mini_check, lang_map["ĿɡA{s/N۰ഫ"])
         
-        # ====== 隱藏到系統托盤勾選框 ======
+        # ====== ètΦLĿ ======
         self.hide_to_tray_var = tk.BooleanVar(value=self.user_config.get("hide_to_tray", False))
         self.hide_to_tray_check = tb.Checkbutton(
-            frm_top, text=lang_map.get("隱藏", "隱藏"), variable=self.hide_to_tray_var, style="My.TCheckbutton"
+            frm_top, text=lang_map.get("", ""), variable=self.hide_to_tray_var, style="My.TCheckbutton"
         )
         self.hide_to_tray_check.grid(row=0, column=9, padx=4)
-        Tooltip(self.hide_to_tray_check, lang_map.get("勾選後最小化將隱藏至系統托盤", "勾選後最小化將隱藏至系統托盤"))
+        Tooltip(self.hide_to_tray_check, lang_map.get("Ŀ̤pƱNæܨtΦL", "Ŀ̤pƱNæܨtΦL"))
         
-        # 系統托盤圖示實例
+        # tΦLϥܹ
         self.tray_icon = None
         
-        # 綁定最小化事件
+        # jw̤pƨƥ
         self.bind("<Unmap>", self._on_minimize)
 
         
-        # ====== 儲存按鈕 ======
-        self.save_script_btn_text = tk.StringVar(value=LANG_MAP.get(saved_lang, LANG_MAP["繁體中文"])["儲存"])
+        # ====== xss ======
+        self.save_script_btn_text = tk.StringVar(value=LANG_MAP.get(saved_lang, LANG_MAP["c餤"])["xs"])
         self.save_script_btn = tb.Button(
             frm_bottom, textvariable=self.save_script_btn_text, width=8, bootstyle=SUCCESS, style="My.TButton",
             command=self.save_script_settings
         )
         self.save_script_btn.grid(row=0, column=10, padx=(8, 0))
 
-        # ====== 時間輸入驗證 ======
+        # ====== ɶJ ======
         def validate_time_input(P):
             import re
             return re.fullmatch(r"[\d:]*", P) is not None
@@ -713,10 +738,10 @@ class RecorderApp(tb.Window):
                 self.update_total_time_label(0)
         self.repeat_time_var.trace_add("write", on_repeat_time_change)
 
-        # ====== 腳本選單區 ======
+        # ====== } ======
         frm_script = tb.Frame(self, padding=(8, 0, 8, 5))
         frm_script.pack(fill="x")
-        self.script_menu_label = tb.Label(frm_script, text="腳本選單:", style="My.TLabel")
+        self.script_menu_label = tb.Label(frm_script, text="}:", style="My.TLabel")
         self.script_menu_label.grid(row=0, column=0, sticky="w", padx=(0, 2))
         self.script_var = tk.StringVar(value=self.user_config.get("last_script", ""))
         self.script_combo = tb.Combobox(frm_script, textvariable=self.script_var, width=20, state="readonly", style="My.TCombobox")
@@ -724,36 +749,36 @@ class RecorderApp(tb.Window):
         self.rename_var = tk.StringVar()
         self.rename_entry = tb.Entry(frm_script, textvariable=self.rename_var, width=20, style="My.TEntry")
         self.rename_entry.grid(row=0, column=2, padx=4)
-        self.rename_btn = tb.Button(frm_script, text=lang_map["重新命名"], command=self.rename_script, bootstyle=WARNING, width=12, style="My.TButton")
+        self.rename_btn = tb.Button(frm_script, text=lang_map["sRW"], command=self.rename_script, bootstyle=WARNING, width=12, style="My.TButton")
         self.rename_btn.grid(row=0, column=3, padx=4)
 
-        self.select_target_btn = tb.Button(frm_script, text=lang_map["選擇視窗"], command=self.select_target_window, bootstyle=INFO, width=14, style="My.TButton")
+        self.select_target_btn = tb.Button(frm_script, text=lang_map["ܵ"], command=self.select_target_window, bootstyle=INFO, width=14, style="My.TButton")
         self.select_target_btn.grid(row=0, column=4, padx=4)
 
-        # ====== 滑鼠模式勾選框（預設打勾）======
-        self.mouse_mode_var = tk.BooleanVar(value=self.user_config.get("mouse_mode", True))  # 改為 True
+        # ====== ƹҦĿء]w]ġ^======
+        self.mouse_mode_var = tk.BooleanVar(value=self.user_config.get("mouse_mode", True))  # אּ True
         self.mouse_mode_check = tb.Checkbutton(
-            frm_script, text=lang_map["滑鼠模式"], variable=self.mouse_mode_var, style="My.TCheckbutton"
+            frm_script, text=lang_map["ƹҦ"], variable=self.mouse_mode_var, style="My.TCheckbutton"
         )
         self.mouse_mode_check.grid(row=0, column=5, padx=4)
-        Tooltip(self.mouse_mode_check, lang_map["勾選時以控制真實滑鼠的模式執行"])
+        Tooltip(self.mouse_mode_check, lang_map["ĿɥHuƹҦ"])
         
-        # 添加滑鼠模式變更監聽 - 取消勾選時顯示警告
+        # K[ƹҦܧť - Ŀĵi
         def on_mouse_mode_change(*args):
             if not self.mouse_mode_var.get():
-                # 取消勾選時顯示警告
+                # Ŀĵi
                 current_lang = self.language_var.get()
-                lang_m = LANG_MAP.get(current_lang, LANG_MAP["繁體中文"])
-                warning_msg = lang_m.get("滑鼠模式警告", "⚠️ 注意！\n\n取消勾選滑鼠模式將使用後台操作。\n遊戲可能會偵測外掛，請謹慎使用，後果自負！")
-                messagebox.showwarning("警告", warning_msg)
+                lang_m = LANG_MAP.get(current_lang, LANG_MAP["c餤"])
+                warning_msg = lang_m.get("ƹҦĵi", "?? `NI\n\nĿƹҦNϥΫxާ@C\nCi|~AԷVϥΡAGۭtI")
+                messagebox.showwarning("ĵi", warning_msg)
         self.mouse_mode_var.trace_add("write", on_mouse_mode_change)
 
         self.script_combo.bind("<<ComboboxSelected>>", self.on_script_selected)
-        # 綁定點擊事件，在展開下拉選單前自動刷新列表
+        # jwIƥAbi}UԿe۰ʨsC
         self.script_combo.bind("<Button-1>", self._on_script_combo_click)
 
 
-        # ====== 日誌顯示區 ======
+        # ====== xܰ ======
         frm_log = tb.Frame(self, padding=(10, 0, 10, 10))
         frm_log.pack(fill="both", expand=True)
         log_title_frame = tb.Frame(frm_log)
@@ -761,32 +786,32 @@ class RecorderApp(tb.Window):
 
         self.mouse_pos_label = tb.Label(
             log_title_frame, text="(X=0,Y=0)",
-            font=("Consolas", 10),  # 字體縮小一個單位
+            font=("Consolas", 10),  # rYp@ӳ
             foreground="#668B9B"
         )
-        self.mouse_pos_label.pack(side="left", padx=4)  # 減少間距更緊湊
+        self.mouse_pos_label.pack(side="left", padx=4)  # ֶZ
 
-        # 顯示目前選定的目標視窗（緊接在滑鼠座標右邊，但不要卡到總運作）
+        # ܥثewؼе]򱵦bƹyХkAnd`B@^
         self.target_label = tb.Label(
             log_title_frame, text="",
             font=font_tuple(9),
             foreground="#FF9500",
             anchor="w",
-            width=25,  # 限制最大寬度
-            cursor="hand2"  # 滑鼠懸停時顯示手型游標
+            width=25,  # ̤je
+            cursor="hand2"  # ƹaܤ⫬
         )
         self.target_label.pack(side="left", padx=(0, 4))
-        # 綁定左鍵點擊事件來刷新相同視窗
+        # jwIƥӨsۦP
         self.target_label.bind("<Button-1>", self._refresh_target_window)
-        # 綁定右鍵點擊事件來取消視窗選擇
+        # jwkIƥӨ
         self.target_label.bind("<Button-3>", self._clear_target_window)
 
-        # 錄製時間（使用 Frame 包裹多個 Label 實現部分變色）
+        # sɶ]ϥ Frame ]qh Label {ܦ^
         time_frame = tb.Frame(log_title_frame)
         time_frame.pack(side="right", padx=0)
-        self.time_label_prefix = tb.Label(time_frame, text="錄製: ", font=font_tuple(12, monospace=True), foreground="#15D3BD")
+        self.time_label_prefix = tb.Label(time_frame, text="s: ", font=font_tuple(12, monospace=True), foreground="#15D3BD")
         self.time_label_prefix.pack(side="left", padx=0)
-        # 分段顯示：時:分:秒 (可獨立設置顏色)
+        # qܡG:: (iW߳]mC)
         self.time_label_h = tb.Label(time_frame, text="00", font=font_tuple(12, monospace=True), foreground="#888888")
         self.time_label_h.pack(side="left", padx=0)
         tb.Label(time_frame, text=":", font=font_tuple(12, monospace=True), foreground="#888888").pack(side="left", padx=0)
@@ -796,10 +821,10 @@ class RecorderApp(tb.Window):
         self.time_label_s = tb.Label(time_frame, text="00", font=font_tuple(12, monospace=True), foreground="#888888")
         self.time_label_s.pack(side="left", padx=0)
 
-        # 單次剩餘（使用 Frame 包裹多個 Label 實現部分變色）
+        # 榸Ѿl]ϥ Frame ]qh Label {ܦ^
         countdown_frame = tb.Frame(log_title_frame)
         countdown_frame.pack(side="right", padx=0)
-        self.countdown_label_prefix = tb.Label(countdown_frame, text="單次: ", font=font_tuple(12, monospace=True), foreground="#DB0E59")
+        self.countdown_label_prefix = tb.Label(countdown_frame, text="榸: ", font=font_tuple(12, monospace=True), foreground="#DB0E59")
         self.countdown_label_prefix.pack(side="left", padx=0)
         self.countdown_label_h = tb.Label(countdown_frame, text="00", font=font_tuple(12, monospace=True), foreground="#888888")
         self.countdown_label_h.pack(side="left", padx=0)
@@ -810,10 +835,10 @@ class RecorderApp(tb.Window):
         self.countdown_label_s = tb.Label(countdown_frame, text="00", font=font_tuple(12, monospace=True), foreground="#888888")
         self.countdown_label_s.pack(side="left", padx=0)
 
-        # 總運作（使用 Frame 包裹多個 Label 實現部分變色）
+        # `B@]ϥ Frame ]qh Label {ܦ^
         total_frame = tb.Frame(log_title_frame)
         total_frame.pack(side="right", padx=0)
-        self.total_time_label_prefix = tb.Label(total_frame, text="總運作: ", font=font_tuple(12, monospace=True), foreground="#FF95CA")
+        self.total_time_label_prefix = tb.Label(total_frame, text="`B@: ", font=font_tuple(12, monospace=True), foreground="#FF95CA")
         self.total_time_label_prefix.pack(side="left", padx=0)
         self.total_time_label_h = tb.Label(total_frame, text="00", font=font_tuple(12, monospace=True), foreground="#888888")
         self.total_time_label_h.pack(side="left", padx=0)
@@ -824,127 +849,127 @@ class RecorderApp(tb.Window):
         self.total_time_label_s = tb.Label(total_frame, text="00", font=font_tuple(12, monospace=True), foreground="#888888")
         self.total_time_label_s.pack(side="left", padx=0)
 
-        # ====== row5 分頁區域 ======
+        # ====== row5 ϰ ======
         frm_page = tb.Frame(self, padding=(10, 0, 10, 10))
         frm_page.pack(fill="both", expand=True)
         frm_page.grid_rowconfigure(0, weight=1)
-        frm_page.grid_columnconfigure(0, weight=0)  # 左側選單固定寬度
-        frm_page.grid_columnconfigure(1, weight=1)  # 右側內容區彈性擴展
+        frm_page.grid_columnconfigure(0, weight=0)  # Twe
+        frm_page.grid_columnconfigure(1, weight=1)  # keϼuXi
 
-        # 左側選單
-        lang_map = LANG_MAP.get(saved_lang, LANG_MAP["繁體中文"])
+        # 
+        lang_map = LANG_MAP.get(saved_lang, LANG_MAP["c餤"])
         self.page_menu = tk.Listbox(frm_page, width=18, font=("Microsoft JhengHei", 11), height=5)
-        self.page_menu.insert(0, lang_map["1.日誌顯示"])
-        self.page_menu.insert(1, lang_map["2.腳本編輯器"])
-        self.page_menu.insert(2, lang_map["3.腳本設定"])
-        self.page_menu.insert(3, lang_map["4.整體設定"])
+        self.page_menu.insert(0, lang_map["1.x"])
+        self.page_menu.insert(1, lang_map["2.}s边"])
+        self.page_menu.insert(2, lang_map["3.}]w"])
+        self.page_menu.insert(3, lang_map["4.]w"])
         self.page_menu.grid(row=0, column=0, sticky="ns", padx=(0, 8), pady=4)
         self.page_menu.bind("<<ListboxSelect>>", self.on_page_selected)
 
-        # 右側內容區（隨視窗大小調整）
+        # keϡ]Hjpվ^
         self.page_content_frame = tb.Frame(frm_page)
         self.page_content_frame.grid(row=0, column=1, sticky="nsew")
         self.page_content_frame.grid_rowconfigure(0, weight=1)
         self.page_content_frame.grid_columnconfigure(0, weight=1)
 
-        # 日誌顯示區（彈性調整）
+        # xܰϡ]uʽվ^
         self.log_text = tb.Text(self.page_content_frame, state="disabled", font=font_tuple(9))
         self.log_text.grid(row=0, column=0, sticky="nsew")
         log_scroll = tb.Scrollbar(self.page_content_frame, command=self.log_text.yview)
         log_scroll.grid(row=0, column=1, sticky="ns")
         self.log_text.config(yscrollcommand=log_scroll.set)
 
-        # 腳本設定區（彈性調整）
+        # }]wϡ]uʽվ^
         self.script_setting_frame = tb.Frame(self.page_content_frame)
         self.script_setting_frame.grid_rowconfigure(0, weight=1)
-        self.script_setting_frame.grid_columnconfigure(0, weight=1)  # 列表區自適應
-        self.script_setting_frame.grid_columnconfigure(1, weight=0)  # 右側控制固定
+        self.script_setting_frame.grid_columnconfigure(0, weight=1)  # CϦ۾A
+        self.script_setting_frame.grid_columnconfigure(1, weight=0)  # kTw
 
-        # 左側腳本列表區（使用 Text 顯示檔名和快捷鍵）
+        # }Cϡ]ϥ Text ɦWMֱ^
         list_frame = tb.Frame(self.script_setting_frame)
         list_frame.grid(row=0, column=0, sticky="nsew", padx=(8,0), pady=8)
         list_frame.grid_rowconfigure(0, weight=1)
         list_frame.grid_columnconfigure(0, weight=1)
         
-        # 使用 Treeview 來顯示三欄（腳本名稱 | 快捷鍵 | 定時）
+        # ϥ Treeview ܤT]}W | ֱ | wɡ^
         from tkinter import ttk
         self.script_treeview = ttk.Treeview(
             list_frame,
             columns=("name", "hotkey", "schedule"),
             show="headings",
             height=15,
-            selectmode="extended"  # 支援多選（Ctrl+點擊 或 Shift+點擊）
+            selectmode="extended"  # 䴩h]Ctrl+I  Shift+I^
         )
-        self.script_treeview.heading("name", text="腳本名稱")
-        self.script_treeview.heading("hotkey", text="快捷鍵")
-        self.script_treeview.heading("schedule", text="定時")
+        self.script_treeview.heading("name", text="}W")
+        self.script_treeview.heading("hotkey", text="ֱ")
+        self.script_treeview.heading("schedule", text="w")
         self.script_treeview.column("name", width=250, anchor="w")
         self.script_treeview.column("hotkey", width=80, anchor="center")
         self.script_treeview.column("schedule", width=120, anchor="center")
         self.script_treeview.grid(row=0, column=0, sticky="nsew")
         
-        # 加入捲軸
+        # [Jb
         list_scroll = tb.Scrollbar(list_frame, command=self.script_treeview.yview)
         list_scroll.grid(row=0, column=1, sticky="ns")
         self.script_treeview.config(yscrollcommand=list_scroll.set)
         
-        # 綁定選擇事件
+        # jwܨƥ
         self.script_treeview.bind("<<TreeviewSelect>>", self.on_script_treeview_select)
         
-        # 儲存當前選中的腳本
+        # xse襤}
         self.selected_script_line = None
 
-        # 右側控制區（垂直排列，填滿剩餘空間）
+        # kϡ]ƦCA񺡳ѾlŶ^
         self.script_right_frame = tb.Frame(self.script_setting_frame, padding=6)
         self.script_right_frame.grid(row=0, column=1, sticky="nsew", padx=(6,8), pady=8)
 
-        # 快捷鍵捕捉（可捕捉任意按鍵或組合鍵）
+        # ֱ䮷]iNβզX^
         self.hotkey_capture_var = tk.StringVar(value="")
-        self.hotkey_capture_label = tb.Label(self.script_right_frame, text="捕捉快捷鍵：", style="My.TLabel")
+        self.hotkey_capture_label = tb.Label(self.script_right_frame, text="ֱG", style="My.TLabel")
         self.hotkey_capture_label.pack(anchor="w", pady=(2,2))
         hotkey_entry = tb.Entry(self.script_right_frame, textvariable=self.hotkey_capture_var, font=font_tuple(10, monospace=True), width=16)
         hotkey_entry.pack(anchor="w", pady=(0,8))
-        # 改用 KeyPress 事件以正確捕捉組合鍵
+        #  KeyPress ƥHTզX
         hotkey_entry.bind("<KeyPress>", self.on_hotkey_entry_key)
-        hotkey_entry.bind("<FocusIn>", lambda e: self.hotkey_capture_var.set("輸入按鍵"))
+        hotkey_entry.bind("<FocusIn>", lambda e: self.hotkey_capture_var.set("J"))
         hotkey_entry.bind("<FocusOut>", lambda e: None)
 
-        # a) 設定快捷鍵按鈕：將捕捉到的快捷鍵寫入選定腳本並註冊
-        self.set_hotkey_btn = tb.Button(self.script_right_frame, text="設定快捷鍵", width=16, bootstyle=SUCCESS, command=self.set_script_hotkey)
+        # a) ]wֱsGN쪺ֱgJw}õU
+        self.set_hotkey_btn = tb.Button(self.script_right_frame, text="]wֱ", width=16, bootstyle=SUCCESS, command=self.set_script_hotkey)
         self.set_hotkey_btn.pack(anchor="w", pady=4)
 
-        # b) 直接開啟腳本資料夾（輔助功能）
-        self.open_dir_btn = tb.Button(self.script_right_frame, text="開啟資料夾", width=16, bootstyle=SECONDARY, command=self.open_scripts_dir)
+        # b) }Ҹ}Ƨ]U\^
+        self.open_dir_btn = tb.Button(self.script_right_frame, text="}ҸƧ", width=16, bootstyle=SECONDARY, command=self.open_scripts_dir)
         self.open_dir_btn.pack(anchor="w", pady=4)
 
-        # c) 刪除按鈕：直接刪除檔案並取消註冊其快捷鍵（若有）
-        self.del_script_btn = tb.Button(self.script_right_frame, text="刪除腳本", width=16, bootstyle=DANGER, command=self.delete_selected_script)
+        # c) RsGRɮרèUֱ]Y^
+        self.del_script_btn = tb.Button(self.script_right_frame, text="R}", width=16, bootstyle=DANGER, command=self.delete_selected_script)
         self.del_script_btn.pack(anchor="w", pady=4)
         
-        # d) 排程按鈕：設定腳本定時執行
-        self.schedule_btn = tb.Button(self.script_right_frame, text="排程", width=16, bootstyle=INFO, command=self.open_schedule_settings)
+        # d) Ƶ{sG]w}wɰ
+        self.schedule_btn = tb.Button(self.script_right_frame, text="Ƶ{", width=16, bootstyle=INFO, command=self.open_schedule_settings)
         self.schedule_btn.pack(anchor="w", pady=4)
         
-        # e) 合併腳本按鈕：將多個腳本合併為一個
-        self.merge_btn = tb.Button(self.script_right_frame, text=lang_map["合併腳本"], width=16, bootstyle=SUCCESS, command=self.merge_scripts)
+        # e) Xָ}sGNhӸ}X֬@
+        self.merge_btn = tb.Button(self.script_right_frame, text=lang_map["Xָ}"], width=16, bootstyle=SUCCESS, command=self.merge_scripts)
         self.merge_btn.pack(anchor="w", pady=4)
 
-        # 初始化清單
+        # lƲM
         self.refresh_script_listbox()
 
-        # ====== 整體設定頁面 ======
+        # ====== ]w ======
         self.global_setting_frame = tb.Frame(self.page_content_frame)
         
-        self.btn_hotkey = tb.Button(self.global_setting_frame, text="快捷鍵", command=self.open_hotkey_settings, bootstyle=SECONDARY, width=15, style="My.TButton")
+        self.btn_hotkey = tb.Button(self.global_setting_frame, text="ֱ", command=self.open_hotkey_settings, bootstyle=SECONDARY, width=15, style="My.TButton")
         self.btn_hotkey.pack(anchor="w", pady=4, padx=8)
         
-        self.about_btn = tb.Button(self.global_setting_frame, text="關於", width=15, style="My.TButton", command=self.show_about_dialog, bootstyle=SECONDARY)
+        self.about_btn = tb.Button(self.global_setting_frame, text="", width=15, style="My.TButton", command=self.show_about_dialog, bootstyle=SECONDARY)
         self.about_btn.pack(anchor="w", pady=4, padx=8)
         
-        # 版本資訊按鈕
+        # Ts
         self.version_info_btn = tb.Button(
             self.global_setting_frame,
-            text="版本資訊",
+            text="T",
             width=15,
             style="My.TButton",
             command=self.show_version_info,
@@ -952,10 +977,10 @@ class RecorderApp(tb.Window):
         )
         self.version_info_btn.pack(anchor="w", pady=4, padx=8)
         
-        # 官網連結按鈕
+        # xss
         self.website_btn = tb.Button(
             self.global_setting_frame, 
-            text="Mimic官網", 
+            text="Mimicx", 
             width=15, 
             style="My.TButton", 
             command=self.open_website, 
@@ -969,7 +994,7 @@ class RecorderApp(tb.Window):
         lang_combo_global = tb.Combobox(
             self.global_setting_frame,
             textvariable=self.language_display_var,
-            values=["繁體中文", "日本語", "English"],
+            values=["c餤", "饻y", "English"],
             state="readonly",
             width=12,
             style="My.TCombobox"
@@ -978,73 +1003,73 @@ class RecorderApp(tb.Window):
         lang_combo_global.bind("<<ComboboxSelected>>", self.change_language)
         self.language_combo = lang_combo_global
 
-        # ====== 初始化設定 ======
+        # ====== lƳ]w ======
         self.page_menu.selection_set(0)
         self.show_page(0)
 
         self.refresh_script_list()
         if self.script_var.get():
             self.on_script_selected()
-        # self._init_language(saved_lang)  # 此方法不存在，已移除
+        # self._init_language(saved_lang)  # ksbAw
         self.after(1500, self._delayed_init)
 
     def _show_admin_warning(self):
-        """顯示管理員權限警告"""
+        """ܺ޲zvĵi"""
         try:
             import tkinter.messagebox as messagebox
             result = messagebox.askquestion(
-                "管理員權限警告",
-                "⚠️ 檢測到程式未以管理員身份執行！\n\n"
-                "錄製功能需要管理員權限才能正常工作。\n"
-                "鍵盤和滑鼠監聽可能會失敗。\n\n"
-                "是否要以管理員身份重新啟動程式？\n"
-                "（選擇「否」將繼續執行，但錄製功能可能無法使用）",
+                "޲zvĵi",
+                "?? ˴{H޲zI\n\n"
+                "s\ݭn޲zv~ॿ`u@C\n"
+                "LMƹťi|ѡC\n\n"
+                "O_nH޲zsҰʵ{H\n"
+                "]ܡu_vN~As\iLkϥΡ^",
                 icon='warning'
             )
             
             if result == 'yes':
-                # 重新以管理員身份啟動
+                # sH޲zҰ
                 self._restart_as_admin()
         except Exception as e:
-            self.log(f"顯示管理員警告時發生錯誤: {e}")
+            self.log(f"ܺ޲zĵiɵoͿ~: {e}")
     
     def _restart_as_admin(self):
-        """以管理員身份重新啟動程式"""
+        """H޲zsҰʵ{"""
         try:
             import sys
             if getattr(sys, 'frozen', False):
-                # 打包後的 exe
+                # ]᪺ exe
                 script = sys.executable
             else:
-                # 開發環境
+                # }o
                 script = os.path.abspath(sys.argv[0])
             
             params = ' '.join([script] + sys.argv[1:])
             
-            # 使用 ShellExecute 以管理員身份執行
+            # ϥ ShellExecute H޲z
             ctypes.windll.shell32.ShellExecuteW(
                 None, 
-                "runas",  # 以管理員身份執行
+                "runas",  # H޲z
                 sys.executable if getattr(sys, 'frozen', False) else sys.executable,
                 f'"{script}"' if not getattr(sys, 'frozen', False) else None,
                 None, 
                 1
             )
             
-            # 關閉當前程式
+            # e{
             self.quit()
             sys.exit(0)
         except Exception as e:
-            self.log(f"重新啟動為管理員時發生錯誤: {e}")
+            self.log(f"sҰʬ޲zɵoͿ~: {e}")
 
     def _delayed_init(self):
-        # 初始化 core_recorder（需要在 self.log 可用之後）
+        # l core_recorder]ݭnb self.log iΤ^
         self.core_recorder = CoreRecorder(logger=self.log)
         
-        # 強化焦點獲取和快捷鍵註冊時序
-        self.after(50, self._force_focus)   # 主動獲得焦點
-        self.after(200, self._force_focus)  # 再次確認焦點
-        self.after(300, self._register_hotkeys)  # 註冊快捷鍵
+        # jƵJIMֱUɧ
+        self.after(50, self._force_focus)   # DoJI
+        self.after(200, self._force_focus)  # AT{JI
+        self.after(300, self._register_hotkeys)  # Uֱ
         self.after(400, self._register_script_hotkeys)
         # ✅ 新增：定期檢查快捷鍵健康狀態（每30秒）
         self.after(30000, self._check_hotkey_health)
@@ -1052,80 +1077,80 @@ class RecorderApp(tb.Window):
         self.after(600, self.load_last_script)
         self.after(700, self.update_mouse_pos)
         self.after(800, self._init_background_mode)
-        self.after(900, self._load_all_schedules)  # 載入所有排程
+        self.after(900, self._load_all_schedules)  # JҦƵ{
 
     def _force_focus(self):
-        """主動獲得焦點，確保鍵盤鉤子正常工作"""
+        """DoJIATOL_l`u@"""
         try:
-            # 強化焦點獲取機制（不使用topmost避免蓋過其他視窗）
-            self.lift()  # 提升視窗
-            self.focus_force()  # 強制獲得焦點
-            self.update()  # 強制更新
+            # jƵJI]ϥtopmostקK\LL^
+            self.lift()  # ɵ
+            self.focus_force()  # joJI
+            self.update()  # js
             
-            # ✅ 额外觸發一次鍵盤事件來激活鉤子
+            # ? ?~Ĳo@LƥӿE_l
             self.event_generate('<KeyPress>', keysym='Shift_L')
             self.event_generate('<KeyRelease>', keysym='Shift_L')
         except Exception as e:
-            pass  # 靜默處理錯誤
+            pass  # RqBz~
 
     def _init_background_mode(self):
-        """初始化後台模式設定（固定使用智能模式）"""
+        """lƫxҦ]w]TwϥδҦ^"""
         mode = "smart"
         if hasattr(self.core_recorder, 'set_background_mode'):
             self.core_recorder.set_background_mode(mode)
-        # 靜默設定，不顯示日誌
+        # Rq]wAܤx
 
-    # ====== 系統托盤相關方法 ======
+    # ====== tΦLk ======
     def _on_minimize(self, event):
-        """當視窗最小化時觸發"""
+        """̤pƮĲo"""
         if not self.hide_to_tray_var.get():
-            return  # 沒有勾選「隱藏」，不做任何事
+            return  # SĿuávA
         
-        # 檢查是否真的是最小化（不是隱藏或其他事件）
+        # ˬdO_uO̤pơ]OéΨLƥ^
         if self.state() == "iconic":
             self._hide_to_tray()
     
     def _hide_to_tray(self):
-        """完全隱藏視窗到系統托盤"""
+        """õtΦL"""
         if not PYSTRAY_AVAILABLE:
             return
         
-        # 隱藏主視窗
+        # åD
         self.withdraw()
         
-        # 建立托盤圖示（如果還沒建立）
+        # إߦLϥܡ]pG٨Sإߡ^
         if self.tray_icon is None:
             self._create_tray_icon()
     
     def _create_tray_icon(self):
-        """建立系統托盤圖示"""
+        """إߨtΦLϥ"""
         if not PYSTRAY_AVAILABLE:
             return
         
-        # 載入圖示
+        # Jϥ
         icon_path = get_icon_path()
         try:
             if os.path.exists(icon_path):
                 image = PILImage.open(icon_path)
             else:
-                # 建立預設圖示（藍色方塊）
+                # إ߹w]ϥܡ]Ŧ^
                 image = PILImage.new('RGB', (64, 64), color=(66, 133, 244))
         except Exception:
             image = PILImage.new('RGB', (64, 64), color=(66, 133, 244))
         
-        # 取得當前語言的選單文字
+        # oeyr
         lang = self.language_var.get()
-        lang_map = LANG_MAP.get(lang, LANG_MAP["繁體中文"])
-        show_text = lang_map.get("顯示主視窗", "顯示主視窗")
-        exit_text = lang_map.get("退出", "退出")
+        lang_map = LANG_MAP.get(lang, LANG_MAP["c餤"])
+        show_text = lang_map.get("ܥD", "ܥD")
+        exit_text = lang_map.get("hX", "hX")
         
-        # 建立選單
+        # إ߿
         menu = pystray.Menu(
             pystray.MenuItem(show_text, self._show_from_tray),
             pystray.MenuItem(exit_text, self._quit_from_tray)
         )
         
-        # 建立托盤圖示
+        # إߦLϥ
         self.tray_icon = pystray.Icon(
             "ChroLens_Mimic",
             image,
@@ -1133,16 +1158,16 @@ class RecorderApp(tb.Window):
             menu
         )
         
-        # 設定點擊事件（左鍵點擊顯示視窗）
+        # ]wIƥ]Iܵ^
         self.tray_icon.default = pystray.MenuItem(show_text, self._show_from_tray)
         
-        # 在背景執行緒執行托盤圖示
+        # bI榫Lϥ
         tray_thread = threading.Thread(target=self.tray_icon.run, daemon=True)
         tray_thread.start()
     
     def _show_from_tray(self, icon=None, item=None):
-        """從系統托盤顯示主視窗"""
-        # 停止托盤圖示
+        """qtΦLܥD"""
+        # Lϥ
         if self.tray_icon is not None:
             try:
                 self.tray_icon.stop()
@@ -1150,18 +1175,18 @@ class RecorderApp(tb.Window):
                 pass
             self.tray_icon = None
         
-        # 使用 after 確保在主執行緒執行
+        # ϥ after TObD
         self.after(0, self._restore_window)
     
     def _restore_window(self):
-        """還原視窗（在主執行緒中執行）"""
-        self.deiconify()  # 顯示視窗
-        self.lift()       # 提升到最上層
-        self.focus_force()  # 獲得焦點
+        """٭]bD^"""
+        self.deiconify()  # ܵ
+        self.lift()       # ɨ̤Wh
+        self.focus_force()  # oJI
     
     def _quit_from_tray(self, icon=None, item=None):
-        """從系統托盤退出程式"""
-        # 停止托盤圖示
+        """qtΦLhX{"""
+        # Lϥ
         if self.tray_icon is not None:
             try:
                 self.tray_icon.stop()
@@ -1169,23 +1194,23 @@ class RecorderApp(tb.Window):
                 pass
             self.tray_icon = None
         
-        # 在主執行緒中執行退出
+        # bDhX
         self.after(0, self.force_quit)
 
 
     def update_speed_tooltip(self):
         lang = self.language_var.get()
         tips = {
-            "繁體中文": "正常速度1倍=100,範圍1~1000",
-            "日本語": "標準速度1倍=100、範囲1～1000",
+            "c餤": "`t1=100,d1~1000",
+            "饻y": "зǳt1=100Bd?11000",
             "English": "Normal speed 1x=100, range 1~1000"
         }
-        tip_text = tips.get(lang, tips["繁體中文"])
+        tip_text = tips.get(lang, tips["c餤"])
         if hasattr(self, "speed_tooltip") and self.speed_tooltip:
             self.speed_tooltip.text = tip_text
 
     def _parse_time_to_seconds(self, t):
-        """將 00:00:00 或 00:00 格式字串轉為秒數"""
+        """N 00:00:00  00:00 榡rର"""
         if not t or not isinstance(t, str):
             return 0
         parts = t.strip().split(":")
@@ -1203,74 +1228,91 @@ class RecorderApp(tb.Window):
         return 0
     
     def _actions_to_events(self, actions):
-        """將視覺化編輯器的動作列表轉換為事件列表
+        """Nıƽs边ʧ@CഫƥC
         
+<<<<<<< Updated upstream
         增強穩定性:
         - 完整的資料驗證
         - 詳細的錯誤日誌
         - 自動修復異常資料
         - 跳過無效動作而非中斷
+=======
+        Wjíw:
+        - 㪺ƾ
+        - ԲӪ~x
+        - ۰ʭ״_`ƾ
+        - LLİʧ@ӫD_
+>>>>>>> Stashed changes
         """
         events = []
         current_time = 0.0
         skipped_count = 0
         
+<<<<<<< Updated upstream
         # 資料驗證
+=======
+        # ƾ
+>>>>>>> Stashed changes
         if not isinstance(actions, list):
-            self.log(f"[轉換錯誤] actions 不是列表類型: {type(actions)}")
+            self.log(f"[ഫ~] actions OC: {type(actions)}")
             return []
         
         if len(actions) == 0:
-            self.log("[轉換警告] 動作列表為空")
+            self.log("[ഫĵi] ʧ@C")
             return []
         
-        self.log(f"[轉換開始] 準備轉換 {len(actions)} 個動作為事件")
+        self.log(f"[ഫ}l] ǳഫ {len(actions)} Ӱʧ@ƥ")
         
         try:
             for idx, action in enumerate(actions):
-                # 驗證動作格式
+                # Ұʧ@榡
                 if not isinstance(action, dict):
-                    self.log(f"[跳過] 第 {idx+1} 個動作不是字典類型")
+                    self.log(f"[L]  {idx+1} Ӱʧ@Or")
                     skipped_count += 1
                     continue
                 
                 command = action.get("command", "")
                 if not command:
-                    self.log(f"[跳過] 第 {idx+1} 個動作缺少指令")
+                    self.log(f"[L]  {idx+1} Ӱʧ@ʤ֫O")
                     skipped_count += 1
                     continue
                 
                 params_str = action.get("params", "")
                 
-                # 安全解析延遲
+                # wѪR
                 try:
-                    delay = float(action.get("delay", 0)) / 1000.0  # 毫秒轉秒
+                    delay = float(action.get("delay", 0)) / 1000.0  # @
                     if delay < 0:
                         delay = 0
                 except (ValueError, TypeError) as e:
-                    self.log(f"[警告] 第 {idx+1} 個動作的延遲值無效: {e}")
+                    self.log(f"[ĵi]  {idx+1} Ӱʧ@ȵL: {e}")
                     delay = 0
                 
-                # 先加上延遲
+                # [W
                 current_time += delay
                 
-                # 根據指令類型創建事件
+                # ھګOЫبƥ
                 if command == "move_to" or command == "move_to_path":
-                    # 解析座標
+                    # ѪRy
                     try:
                         if command == "move_to_path":
-                            # move_to_path: params 是 JSON 字串格式的軌跡列表
+                            # move_to_path: params O JSON r榡yC
                             trajectory = None
                             
+<<<<<<< Updated upstream
                             # 嘗試解析軌跡資料
+=======
+                            # ոѪRyƾ
+>>>>>>> Stashed changes
                             try:
                                 trajectory = json.loads(params_str)
                             except json.JSONDecodeError:
-                                # 如果 json.loads 失敗,嘗試 ast.literal_eval
+                                # pG json.loads , ast.literal_eval
                                 try:
                                     import ast
                                     trajectory = ast.literal_eval(params_str)
                                 except Exception as ast_err:
+<<<<<<< Updated upstream
                                     self.log(f"[錯誤] 第 {idx+1} 個動作: 無法解析軌跡資料 - {ast_err}")
                                     skipped_count += 1
                                     continue
@@ -1278,23 +1320,32 @@ class RecorderApp(tb.Window):
                             # 驗證軌跡資料
                             if not isinstance(trajectory, list) or len(trajectory) == 0:
                                 self.log(f"[跳過] 第 {idx+1} 個動作: 軌跡資料格式錯誤或為空")
+=======
+                                    self.log(f"[~]  {idx+1} Ӱʧ@: LkѪRyƾ - {ast_err}")
+                                    skipped_count += 1
+                                    continue
+                            
+                            # ҭyƾ
+                            if not isinstance(trajectory, list) or len(trajectory) == 0:
+                                self.log(f"[L]  {idx+1} Ӱʧ@: yƾڮ榡~ά")
+>>>>>>> Stashed changes
                                 skipped_count += 1
                                 continue
                             
-                            # 驗證軌跡點格式
+                            # ҭyI榡
                             valid_points = []
                             for pt_idx, point in enumerate(trajectory):
                                 if isinstance(point, dict) and "x" in point and "y" in point:
                                     valid_points.append(point)
                                 else:
-                                    self.log(f"[警告] 軌跡點 {pt_idx+1} 格式錯誤,已跳過")
+                                    self.log(f"[ĵi] yI {pt_idx+1} 榡~,wL")
                             
                             if len(valid_points) == 0:
-                                self.log(f"[跳過] 第 {idx+1} 個動作: 無有效軌跡點")
+                                self.log(f"[L]  {idx+1} Ӱʧ@: LĭyI")
                                 skipped_count += 1
                                 continue
                             
-                            # 取最後一個點作為終點
+                            # ̫@I@I
                             last_point = valid_points[-1]
                             x = int(last_point.get("x", 0))
                             y = int(last_point.get("y", 0))
@@ -1307,28 +1358,34 @@ class RecorderApp(tb.Window):
                                 "time": current_time,
                                 "trajectory": valid_points
                             })
-                            self.log(f"[轉換] 軌跡移動: {len(valid_points)} 個點")
+                            self.log(f"[ഫ] y񲾰: {len(valid_points)} I")
                         else:
-                            # move_to: params 是 "x, y" 或 "x, y, trajectory"
+                            # move_to: params O "x, y"  "x, y, trajectory"
                             if not params_str:
-                                self.log(f"[跳過] 第 {idx+1} 個動作: move_to 缺少參數")
+                                self.log(f"[L]  {idx+1} Ӱʧ@: move_to ʤְѼ")
                                 skipped_count += 1
                                 continue
                             
-                            parts = [p.strip() for p in params_str.split(",", 2)]  # 最多分割為3部分
+                            parts = [p.strip() for p in params_str.split(",", 2)]  # ̦hά3
                             
-                            # 驗證並解析座標
+                            # ҨøѪRy
                             try:
                                 x = int(parts[0]) if len(parts) > 0 and parts[0] else 0
                                 y = int(parts[1]) if len(parts) > 1 and parts[1] else 0
                             except (ValueError, IndexError) as e:
-                                self.log(f"[跳過] 第 {idx+1} 個動作: 座標解析失敗 - {e}")
+                                self.log(f"[L]  {idx+1} Ӱʧ@: yиѪR - {e}")
                                 skipped_count += 1
                                 continue
                             
+<<<<<<< Updated upstream
                             # 檢查是否有軌跡資料
                             if len(parts) > 2 and parts[2]:
                                 # 有軌跡資料,嘗試解析
+=======
+                            # ˬdO_yƾ
+                            if len(parts) > 2 and parts[2]:
+                                # yƾ,ոѪR
+>>>>>>> Stashed changes
                                 try:
                                     trajectory = json.loads(parts[2])
                                     events.append({
@@ -1352,7 +1409,7 @@ class RecorderApp(tb.Window):
                                             "trajectory": trajectory
                                         })
                                     except Exception as traj_err:
-                                        self.log(f"[警告] 第 {idx+1} 個動作: 軌跡解析失敗,使用普通移動 - {traj_err}")
+                                        self.log(f"[ĵi]  {idx+1} Ӱʧ@: yѪR,ϥδq - {traj_err}")
                                         events.append({
                                             "type": "mouse",
                                             "event": "move",
@@ -1361,7 +1418,7 @@ class RecorderApp(tb.Window):
                                             "time": current_time
                                         })
                             else:
-                                # 普通移動
+                                # q
                                 events.append({
                                     "type": "mouse",
                                     "event": "move",
@@ -1370,9 +1427,9 @@ class RecorderApp(tb.Window):
                                     "time": current_time
                                 })
                     except Exception as e:
-                        self.log(f"[錯誤] 第 {idx+1} 個動作({command}): 處理失敗 - {e}")
+                        self.log(f"[~]  {idx+1} Ӱʧ@({command}): Bz - {e}")
                         import traceback
-                        self.log(f"詳細: {traceback.format_exc()}")
+                        self.log(f"Բ: {traceback.format_exc()}")
                         skipped_count += 1
                         continue
                 
@@ -1442,7 +1499,7 @@ class RecorderApp(tb.Window):
                     })
                 
                 elif command == "scroll":
-                    # 滾輪滾動
+                    # uu
                     try:
                         delta = int(params_str) if params_str and params_str.strip() else 1
                         events.append({
@@ -1452,14 +1509,14 @@ class RecorderApp(tb.Window):
                             "time": current_time
                         })
                     except (ValueError, TypeError) as e:
-                        self.log(f"[警告] 第 {idx+1} 個動作: scroll 參數無效 - {e}")
+                        self.log(f"[ĵi]  {idx+1} Ӱʧ@: scroll ѼƵL - {e}")
                         skipped_count += 1
                 
                 elif command == "type_text":
-                    # 輸入文字
+                    # Jr
                     text = params_str.strip() if params_str else ""
                     if not text:
-                        self.log(f"[跳過] 第 {idx+1} 個動作: type_text 缺少文字內容")
+                        self.log(f"[L]  {idx+1} Ӱʧ@: type_text ʤ֤re")
                         skipped_count += 1
                         continue
                     
@@ -1480,10 +1537,10 @@ class RecorderApp(tb.Window):
                         current_time += 0.05
                 
                 elif command == "press_key":
-                    # 按下按鍵
+                    # U
                     key = params_str.strip() if params_str else ""
                     if not key:
-                        self.log(f"[跳過] 第 {idx+1} 個動作: press_key 缺少按鍵名稱")
+                        self.log(f"[L]  {idx+1} Ӱʧ@: press_key ʤ֫W")
                         skipped_count += 1
                         continue
                     
@@ -1502,19 +1559,19 @@ class RecorderApp(tb.Window):
                     })
                 
                 elif command == "hotkey":
-                    # 快捷鍵組合
+                    # ֱզX
                     if not params_str or not params_str.strip():
-                        self.log(f"[跳過] 第 {idx+1} 個動作: hotkey 缺少按鍵組合")
+                        self.log(f"[L]  {idx+1} Ӱʧ@: hotkey ʤ֫զX")
                         skipped_count += 1
                         continue
                     
                     keys = [k.strip() for k in params_str.split("+") if k.strip()]
                     if len(keys) == 0:
-                        self.log(f"[跳過] 第 {idx+1} 個動作: hotkey 解析後無有效按鍵")
+                        self.log(f"[L]  {idx+1} Ӱʧ@: hotkey ѪRLī")
                         skipped_count += 1
                         continue
                     
-                    # 按下所有按鍵
+                    # UҦ
                     for key in keys:
                         events.append({
                             "type": "keyboard",
@@ -1523,7 +1580,7 @@ class RecorderApp(tb.Window):
                             "time": current_time
                         })
                         current_time += 0.02
-                    # 釋放所有按鍵（反向）
+                    # Ҧ]ϦV^
                     for key in reversed(keys):
                         events.append({
                             "type": "keyboard",
@@ -1534,35 +1591,35 @@ class RecorderApp(tb.Window):
                         current_time += 0.02
                 
                 elif command == "delay":
-                    # 延遲等待
+                    # 𵥫
                     try:
                         extra_delay = float(params_str) / 1000.0 if params_str and params_str.strip() else 0
                         if extra_delay > 0:
                             current_time += extra_delay
                     except (ValueError, TypeError) as e:
-                        self.log(f"[警告] 第 {idx+1} 個動作: delay 參數無效 - {e}")
+                        self.log(f"[ĵi]  {idx+1} Ӱʧ@: delay ѼƵL - {e}")
                         skipped_count += 1
                 
                 else:
-                    # 未知指令
-                    self.log(f"[跳過] 第 {idx+1} 個動作: 未知指令 '{command}'")
+                    # O
+                    self.log(f"[L]  {idx+1} Ӱʧ@: O '{command}'")
                     skipped_count += 1
         
         except Exception as e:
-            self.log(f"[轉換錯誤] 全局異常: {e}")
+            self.log(f"[ഫ~] `: {e}")
             import traceback
-            self.log(f"詳細: {traceback.format_exc()}")
+            self.log(f"Բ: {traceback.format_exc()}")
         
-        # 轉換完成統計
+        # ഫέp
         success_count = len(events)
         total_count = len(actions)
         
-        self.log(f"[轉換完成] 成功: {success_count}/{total_count} 個動作")
+        self.log(f"[ഫ] \: {success_count}/{total_count} Ӱʧ@")
         if skipped_count > 0:
-            self.log(f"[轉換警告] 跳過: {skipped_count} 個無效動作")
+            self.log(f"[ഫĵi] L: {skipped_count} ӵLİʧ@")
         
         if success_count == 0 and total_count > 0:
-            self.log(f"[轉換失敗] 所有動作轉換失敗,請檢查動作格式")
+            self.log(f"[ഫ] Ҧʧ@ഫ,ˬdʧ@榡")
         
         return events
 
@@ -1570,40 +1627,40 @@ class RecorderApp(tb.Window):
         try:
             about.show_about(self)
         except Exception as e:
-            print(f"顯示 about 視窗失敗: {e}")
+            print(f" about : {e}")
     
     def show_version_info(self):
-        """顯示版本資訊對話框"""
+        """ܪTܮ"""
         try:
             from version_manager import VersionManager
             from version_info_dialog import VersionInfoDialog
             
-            # 創建版本管理器
-            vm = VersionManager(VERSION, logger=self.log)
+            # Ыت޲z
+            vm = VersionManager(GITHUB_REPO, VERSION, logger=self.log)
             
-            # 顯示版本資訊對話框
+            # ܪTܮ
             def on_update_complete():
-                """更新完成後關閉主程式"""
-                self.log("準備關閉程式以進行更新...")
+                """sD{"""
+                self.log("ǳ{His...")
                 self.after(1000, self.force_quit)
             
             VersionInfoDialog(self, vm, VERSION, on_update_complete)
             
         except Exception as e:
-            self.log(f"顯示版本資訊失敗: {e}")
+            self.log(f"ܪT: {e}")
             import traceback
             traceback.print_exc()
-            messagebox.showerror("錯誤", f"無法顯示版本資訊：\n{e}")
+            messagebox.showerror("~", f"LkܪTG\n{e}")
     
     def open_website(self):
-        """開啟 ChroLens Mimic 官網"""
+        """} ChroLens Mimic x"""
         import webbrowser
         try:
             webbrowser.open("https://lucienwooo.github.io/ChroLens_Mimic/")
-            self.log("已開啟官方網站")
+            self.log("w}ҩx")
         except Exception as e:
-            self.log(f"開啟網站失敗: {e}")
-            messagebox.showerror("錯誤", f"無法開啟網站：\n{e}")
+            self.log(f"}Һ: {e}")
+            messagebox.showerror("~", f"Lk}ҺG\n{e}")
     
 
     def change_language(self, event=None):
@@ -1611,65 +1668,65 @@ class RecorderApp(tb.Window):
         if lang == "Language" or not lang:
             return
         
-        # 更新實際語言和顯示
+        # sڻyM
         self.actual_language = lang
         self.language_var.set(lang)
         
-        # 更新完後重置顯示為 "Language"
+        # s᭫mܬ "Language"
         self.after(100, lambda: self.language_display_var.set("Language"))
         
-        lang_map = LANG_MAP.get(lang, LANG_MAP["繁體中文"])
-        self.btn_start.config(text=lang_map["開始錄製"] + f" ({self.hotkey_map['start']})")
-        self.btn_pause.config(text=lang_map["暫停/繼續"] + f" ({self.hotkey_map['pause']})")
-        self.btn_stop.config(text=lang_map["停止"] + f" ({self.hotkey_map['stop']})")
-        self.btn_play.config(text=lang_map["執行"] + f" ({self.hotkey_map['play']})")
+        lang_map = LANG_MAP.get(lang, LANG_MAP["c餤"])
+        self.btn_start.config(text=lang_map["}ls"] + f" ({self.hotkey_map['start']})")
+        self.btn_pause.config(text=lang_map["Ȱ/~"] + f" ({self.hotkey_map['pause']})")
+        self.btn_stop.config(text=lang_map[""] + f" ({self.hotkey_map['stop']})")
+        self.btn_play.config(text=lang_map[""] + f" ({self.hotkey_map['play']})")
         self.mini_mode_btn.config(text=lang_map["MiniMode"])
-        self.about_btn.config(text=lang_map["關於"])
-        self.lbl_speed.config(text=lang_map["執行速度:"])
-        self.btn_hotkey.config(text=lang_map["快捷鍵"])
-        self.total_time_label_prefix.config(text=lang_map["總運作"])
-        self.countdown_label_prefix.config(text=lang_map["單次"])
-        self.time_label_prefix.config(text=lang_map["錄製"])
-        self.repeat_label.config(text=lang_map["重複次數:"])
-        self.repeat_time_label.config(text=lang_map["重複時間"])
-        self.repeat_interval_label.config(text=lang_map["重複間隔"])
+        self.about_btn.config(text=lang_map[""])
+        self.lbl_speed.config(text=lang_map["t:"])
+        self.btn_hotkey.config(text=lang_map["ֱ"])
+        self.total_time_label_prefix.config(text=lang_map["`B@"])
+        self.countdown_label_prefix.config(text=lang_map["榸"])
+        self.time_label_prefix.config(text=lang_map["s"])
+        self.repeat_label.config(text=lang_map["Ʀ:"])
+        self.repeat_time_label.config(text=lang_map["Ʈɶ"])
+        self.repeat_interval_label.config(text=lang_map["ƶj"])
         self.script_menu_label.config(text=lang_map["Script:"])
-        self.save_script_btn_text.set(lang_map["儲存"])
-        # 腳本設定區按鈕
+        self.save_script_btn_text.set(lang_map["xs"])
+        # }]wϫs
         if hasattr(self, 'rename_btn'):
-            self.rename_btn.config(text=lang_map["重新命名"])
+            self.rename_btn.config(text=lang_map["sRW"])
         if hasattr(self, 'merge_btn'):
-            self.merge_btn.config(text=lang_map["合併腳本"])
+            self.merge_btn.config(text=lang_map["Xָ}"])
         if hasattr(self, 'select_target_btn'):
-            self.select_target_btn.config(text=lang_map["選擇視窗"])
+            self.select_target_btn.config(text=lang_map["ܵ"])
         if hasattr(self, 'mouse_mode_check'):
-            self.mouse_mode_check.config(text=lang_map["滑鼠模式"])
+            self.mouse_mode_check.config(text=lang_map["ƹҦ"])
         if hasattr(self, 'hotkey_capture_label'):
-            self.hotkey_capture_label.config(text=lang_map["捕捉快捷鍵："])
+            self.hotkey_capture_label.config(text=lang_map["ֱG"])
         if hasattr(self, 'set_hotkey_btn'):
-            self.set_hotkey_btn.config(text=lang_map["設定快捷鍵"])
+            self.set_hotkey_btn.config(text=lang_map["]wֱ"])
         if hasattr(self, 'open_dir_btn'):
-            self.open_dir_btn.config(text=lang_map["開啟資料夾"])
+            self.open_dir_btn.config(text=lang_map["}ҸƧ"])
         if hasattr(self, 'del_script_btn'):
-            self.del_script_btn.config(text=lang_map["刪除腳本"])
+            self.del_script_btn.config(text=lang_map["R}"])
         if hasattr(self, 'edit_script_btn'):
-            self.edit_script_btn.config(text=lang_map["腳本編輯器"])
-        # Treeview 標題
+            self.edit_script_btn.config(text=lang_map["}s边"])
+        # Treeview D
         if hasattr(self, 'script_treeview'):
-            self.script_treeview.heading("name", text=lang_map["腳本名稱"])
-            self.script_treeview.heading("hotkey", text=lang_map["快捷鍵"])
-            self.script_treeview.heading("schedule", text=lang_map.get("定時", "定時"))
-        # 勾選框
+            self.script_treeview.heading("name", text=lang_map["}W"])
+            self.script_treeview.heading("hotkey", text=lang_map["ֱ"])
+            self.script_treeview.heading("schedule", text=lang_map.get("w", "w"))
+        # Ŀ
         if hasattr(self, 'random_interval_check'):
-            self.random_interval_check.config(text=lang_map["隨機"])
+            self.random_interval_check.config(text=lang_map["H"])
         if hasattr(self, 'main_auto_mini_check'):
-            self.main_auto_mini_check.config(text=lang_map["自動切換"])
-        # 更新左側選單
+            self.main_auto_mini_check.config(text=lang_map["۰ʤ"])
+        # s
         if hasattr(self, 'page_menu'):
             self.page_menu.delete(0, tk.END)
-            self.page_menu.insert(0, lang_map["1.日誌顯示"])
-            self.page_menu.insert(1, lang_map["2.腳本設定"])
-            self.page_menu.insert(2, lang_map["3.整體設定"])
+            self.page_menu.insert(0, lang_map["1.x"])
+            self.page_menu.insert(1, lang_map["2.}]w"])
+            self.page_menu.insert(2, lang_map["3.]w"])
         self.user_config["language"] = lang
         self.save_config()
         self.update_idletasks()
@@ -1681,26 +1738,26 @@ class RecorderApp(tb.Window):
         self.log_text.configure(state="disabled")
 
     def update_time_label(self, seconds):
-        """更新錄製時間顯示（動態顏色：非零數字顯示 #FF95CA）"""
+        """ssɶܡ]ʺACGDsƦr #FF95CA^"""
         h = int(seconds // 3600)
         m = int((seconds % 3600) // 60)
         s = int(seconds % 60)
         
-        # 設定顏色：非零數字顯示 #FF95CA，零顯示灰色 #888888
+        # ]wCGDsƦr #FF95CAAsܦǦ #888888
         h_color = "#FF95CA" if h > 0 else "#888888"
-        m_color = "#FF95CA" if m > 0 or h > 0 else "#888888"  # 如果小時>0，分鐘也要亮
-        s_color = "#FF95CA" if s > 0 or m > 0 or h > 0 else "#888888"  # 如果分鐘>0，秒也要亮
+        m_color = "#FF95CA" if m > 0 or h > 0 else "#888888"  # pGp>0A]nG
+        s_color = "#FF95CA" if s > 0 or m > 0 or h > 0 else "#888888"  # pG>0A]nG
         
         self.time_label_h.config(text=f"{h:02d}", foreground=h_color)
         self.time_label_m.config(text=f"{m:02d}", foreground=m_color)
         self.time_label_s.config(text=f"{s:02d}", foreground=s_color)
 
     def update_total_time_label(self, seconds):
-        """更新總運作時間顯示（動態顏色：非零數字顯示 #FF95CA）"""
-        # 處理無限重複的情況
+        """s`B@ɶܡ]ʺACGDsƦr #FF95CA^"""
+        # BzLƪp
         if seconds == float('inf') or (isinstance(seconds, float) and (seconds != seconds or seconds > 1e10)):
-            # NaN 或無限大，顯示 ∞
-            self.total_time_label_h.config(text="∞", foreground="#FF95CA")
+            # NaN εLjA 
+            self.total_time_label_h.config(text="", foreground="#FF95CA")
             self.total_time_label_m.config(text="", foreground="#888888")
             self.total_time_label_s.config(text="", foreground="#888888")
             return
@@ -1709,7 +1766,7 @@ class RecorderApp(tb.Window):
         m = int((seconds % 3600) // 60)
         s = int(seconds % 60)
         
-        # 設定顏色：非零數字顯示 #FF95CA，零顯示灰色 #888888
+        # ]wCGDsƦr #FF95CAAsܦǦ #888888
         h_color = "#FF95CA" if h > 0 else "#888888"
         m_color = "#FF95CA" if m > 0 or h > 0 else "#888888"
         s_color = "#FF95CA" if s > 0 or m > 0 or h > 0 else "#888888"
@@ -1719,11 +1776,11 @@ class RecorderApp(tb.Window):
         self.total_time_label_s.config(text=f"{s:02d}", foreground=s_color)
 
     def update_countdown_label(self, seconds):
-        """更新單次剩餘時間顯示（動態顏色：非零數字顯示 #FF95CA）"""
-        # 處理無限重複的情況
+        """s榸Ѿlɶܡ]ʺACGDsƦr #FF95CA^"""
+        # BzLƪp
         if seconds == float('inf') or (isinstance(seconds, float) and (seconds != seconds or seconds > 1e10)):
-            # NaN 或無限大，顯示 ∞
-            self.countdown_label_h.config(text="∞", foreground="#FF95CA")
+            # NaN εLjA 
+            self.countdown_label_h.config(text="", foreground="#FF95CA")
             self.countdown_label_m.config(text="", foreground="#888888")
             self.countdown_label_s.config(text="", foreground="#888888")
             return
@@ -1732,7 +1789,7 @@ class RecorderApp(tb.Window):
         m = int((seconds % 3600) // 60)
         s = int(seconds % 60)
         
-        # 設定顏色：非零數字顯示 #FF95CA，零顯示灰色 #888888
+        # ]wCGDsƦr #FF95CAAsܦǦ #888888
         h_color = "#FF95CA" if h > 0 else "#888888"
         m_color = "#FF95CA" if m > 0 or h > 0 else "#888888"
         s_color = "#FF95CA" if s > 0 or m > 0 or h > 0 else "#888888"
@@ -1742,173 +1799,173 @@ class RecorderApp(tb.Window):
         self.countdown_label_s.config(text=f"{s:02d}", foreground=s_color)
 
     def _update_play_time(self):
-        """更新執行時間顯示（強化版 - 使用實際時間確保準確倒數）"""
+        """sɶܡ]jƪ - ϥιڮɶTOǽT˼ơ^"""
         if self.playing:
-            # 檢查 core_recorder 是否仍在播放
+            # ˬd core_recorder O_b
             if not getattr(self.core_recorder, 'playing', False):
-                # 執行已結束，同步狀態
+                # wAPBA
                 self.playing = False
-                self.log(f"[{format_time(time.time())}] 執行完成")
+                self.log(f"[{format_time(time.time())}] 槹")
                 
-                # 釋放所有可能卡住的修飾鍵
+                # Ҧid׹
                 self._release_all_modifiers()
                 
                 self.update_time_label(0)
                 self.update_countdown_label(0)
                 self.update_total_time_label(0)
-                # MiniMode倒數歸零
+                # MiniMode˼ks
                 if hasattr(self, 'mini_window') and self.mini_window and self.mini_window.winfo_exists():
                     if hasattr(self, "mini_countdown_label"):
                         try:
                             lang = self.language_var.get()
-                            lang_map = LANG_MAP.get(lang, LANG_MAP["繁體中文"])
-                            self.mini_countdown_label.config(text=f"{lang_map['剩餘']}: 00:00:00")
+                            lang_map = LANG_MAP.get(lang, LANG_MAP["c餤"])
+                            self.mini_countdown_label.config(text=f"{lang_map['Ѿl']}: 00:00:00")
                         except Exception:
                             pass
                 return
             
-            # ✅ 修復：使用實際經過的時間而非事件索引
-            # 計算腳本的總長度（邏輯時間）
+            # ? ״_GϥιڸgLɶӫDƥ
+            # p}`ס]޿ɶ^
             if self.events and len(self.events) > 0:
                 script_duration = self.events[-1]['time'] - self.events[0]['time']
             else:
                 script_duration = 0
             
-            # 獲取當前循環計數
+            # e`p
             current_repeat = getattr(self.core_recorder, '_current_repeat_count', 0)
             
-            # 檢測循環變化（開始新的循環）
+            # ˴`ܤơ]}ls`^
             if not hasattr(self, '_last_repeat_count'):
                 self._last_repeat_count = 0
             
             if current_repeat != self._last_repeat_count:
-                # 循環變化，重置循環起始時間
+                # `ܤơAm`_lɶ
                 self._current_cycle_start_time = time.time()
                 self._last_repeat_count = current_repeat
             
-            # 獲取單次執行的起始時間
+            # 榸檺_lɶ
             if not hasattr(self, '_current_cycle_start_time') or self._current_cycle_start_time is None:
-                # 初始化當前循環起始時間
+                # lƷe`_lɶ
                 self._current_cycle_start_time = time.time()
             
-            # 計算當前循環內的實際經過時間
+            # pe`ڸgLɶ
             elapsed_real = time.time() - self._current_cycle_start_time
             
-            # 應用速度係數來計算邏輯時間
+            # γt׫Yƨӭp޿ɶ
             speed = getattr(self, 'speed', 1.0)
             elapsed = elapsed_real * speed
             
-            # 限制 elapsed 不超過腳本總長度（單次）
+            #  elapsed WL}`ס]榸^
             if script_duration > 0 and elapsed > script_duration:
                 elapsed = script_duration
                     
             self.update_time_label(elapsed)
             
-            # 計算單次剩餘時間（邏輯時間）
+            # p榸Ѿlɶ]޿ɶ^
             remain = max(0, script_duration - elapsed)
             self.update_countdown_label(remain)
             
-            # 計算總運作剩餘時間
+            # p`B@Ѿlɶ
             if hasattr(self, "_play_start_time") and self._play_start_time:
                 elapsed_real = time.time() - self._play_start_time
                 
-                # 處理無限重複的情況
+                # BzLƪp
                 if self._total_play_time == float('inf'):
                     total_remain = float('inf')
                 elif self._repeat_time_limit:
-                    # 使用時間限制模式
+                    # ϥήɶҦ
                     total_remain = max(0, self._repeat_time_limit - elapsed_real)
                 else:
-                    # 使用總播放時間模式
+                    # ϥ`ɶҦ
                     total_remain = max(0, self._total_play_time - elapsed_real)
                     
                 self.update_total_time_label(total_remain)
                 
-                # 更新 MiniMode 倒數
+                # s MiniMode ˼
                 if hasattr(self, 'mini_window') and self.mini_window and self.mini_window.winfo_exists():
                     if hasattr(self, "mini_countdown_label"):
                         try:
                             lang = self.language_var.get()
-                            lang_map = LANG_MAP.get(lang, LANG_MAP["繁體中文"])
+                            lang_map = LANG_MAP.get(lang, LANG_MAP["c餤"])
                             
-                            # 處理無限重複
+                            # BzL
                             if total_remain == float('inf'):
-                                time_str = "∞"
+                                time_str = ""
                             else:
                                 h = int(total_remain // 3600)
                                 m = int((total_remain % 3600) // 60)
                                 s = int(total_remain % 60)
                                 time_str = f"{h:02d}:{m:02d}:{s:02d}"
                             
-                            self.mini_countdown_label.config(text=f"{lang_map['剩餘']}: {time_str}")
+                            self.mini_countdown_label.config(text=f"{lang_map['Ѿl']}: {time_str}")
                         except Exception:
                             pass
             
-            # 持續更新（100ms 刷新率）
+            # s]100ms sv^
             self.after(100, self._update_play_time)
         else:
-            # 執行停止時重置所有時間顯示
+            # 氱ɭmҦɶ
             self.update_time_label(0)
             self.update_countdown_label(0)
             self.update_total_time_label(0)
-            # MiniMode倒數歸零
+            # MiniMode˼ks
             if hasattr(self, 'mini_window') and self.mini_window and self.mini_window.winfo_exists():
                 if hasattr(self, "mini_countdown_label"):
                     try:
                         lang = self.language_var.get()
-                        lang_map = LANG_MAP.get(lang, LANG_MAP["繁體中文"])
-                        self.mini_countdown_label.config(text=f"{lang_map['剩餘']}: 00:00:00")
+                        lang_map = LANG_MAP.get(lang, LANG_MAP["c餤"])
+                        self.mini_countdown_label.config(text=f"{lang_map['Ѿl']}: 00:00:00")
                     except Exception:
                         pass
 
     def start_record(self):
-        """開始錄製 (v2.6.5 - 簡化版，參考2.5穩定機制)"""
+        """}ls (v2.6.5 - ²ƪAѦ2.5íw)"""
         if self.recording:
             return
         
-        # 自動切換到 MiniMode（如果勾選）
+        # ۰ʤ MiniMode]pGĿ^
         if self.auto_mini_var.get() and not self.mini_mode_on:
             self.toggle_mini_mode()
         
-        # 每次按開始錄製時，重置「可儲存到腳本」的參數為預設值
+        # C}lsɡAmuixs}vѼƬw]
         try:
             self.reset_to_defaults()
         except Exception:
             pass
         
-        # 確保 core_recorder 知道目標視窗設定
+        # TO core_recorder Dؼе]w
         if hasattr(self, 'core_recorder') and hasattr(self.core_recorder, 'set_target_window'):
             self.core_recorder.set_target_window(self.target_hwnd)
         
-        # 記錄目標視窗的完整資訊（包含 DPI、解析度等）
+        # OؼеT]]t DPIBѪR׵^
         self.recorded_window_info = None
         if self.target_hwnd:
             try:
                 window_info = get_window_info(self.target_hwnd)
                 if window_info:
                     self.recorded_window_info = window_info
-                    self.log(f"記錄視窗資訊:")
-                    self.log(f"  大小: {window_info['size'][0]} x {window_info['size'][1]}")
-                    self.log(f"  位置: ({window_info['position'][0]}, {window_info['position'][1]})")
-                    self.log(f"  DPI 縮放: {window_info['dpi_scale']:.2f}x ({int(window_info['dpi_scale'] * 100)}%)")
-                    self.log(f"  螢幕解析度: {window_info['screen_resolution'][0]} x {window_info['screen_resolution'][1]}")
+                    self.log(f"OT:")
+                    self.log(f"  jp: {window_info['size'][0]} x {window_info['size'][1]}")
+                    self.log(f"  m: ({window_info['position'][0]}, {window_info['position'][1]})")
+                    self.log(f"  DPI Y: {window_info['dpi_scale']:.2f}x ({int(window_info['dpi_scale'] * 100)}%)")
+                    self.log(f"  ùѪR: {window_info['screen_resolution'][0]} x {window_info['screen_resolution'][1]}")
             except Exception as e:
-                self.log(f"無法記錄視窗資訊: {e}")
+                self.log(f"LkOT: {e}")
         
-        # ✅ 清空 events 並設定狀態
+        # ? M events ó]wA
         self.events = []
         self.recording = True
         self.paused = False
-        self.log(f"[{format_time(time.time())}] 開始錄製...")
+        self.log(f"[{format_time(time.time())}] }ls...")
         
-        # ✅ 修正：直接調用 core_recorder.start_record() 以確保完整初始化
+        # ? ץGե core_recorder.start_record() HTOl
         if hasattr(self, 'core_recorder'):
             self._record_start_time = self.core_recorder.start_record()
             if self._record_start_time is None:
                 self._record_start_time = time.time()
             self._record_thread_handle = self.core_recorder._record_thread
         else:
-            # 向後相容: 使用舊的 threading 方式
+            # Vۮe: ϥª threading 覡
             self._record_start_time = time.time()
             self._record_thread_handle = threading.Thread(target=self._record_thread, daemon=True)
             self._record_thread_handle.start()
@@ -1925,8 +1982,8 @@ class RecorderApp(tb.Window):
             self.update_time_label(0)
 
     def reset_to_defaults(self):
-        """將可被儲存的參數重置為預設（錄製時使用）"""
-        # UI 預設
+        """NiQxsѼƭmw]]sɨϥΡ^"""
+        # UI w]
         try:
             self.speed_var.set("100")
         except Exception:
@@ -1947,7 +2004,7 @@ class RecorderApp(tb.Window):
             self.random_interval_var.set(False)
         except Exception:
             pass
-        # 內部同步 speed
+        # PB speed
         try:
             speed_val = int(self.speed_var.get())
             speed_val = min(1000, max(1, speed_val))
@@ -1956,7 +2013,7 @@ class RecorderApp(tb.Window):
         except Exception:
             self.speed = 1.0
             self.speed_var.set("100")
-        # 更新顯示（僅更新 tooltip，不改 lbl_speed）
+        # sܡ]ȧs tooltipA lbl_speed^
         try:
             self.update_speed_tooltip()
             self.update_total_time_label(0)
@@ -1966,21 +2023,21 @@ class RecorderApp(tb.Window):
             pass
 
     def toggle_pause(self):
-        """切換暫停/繼續（v2.6.5 - 參考2.5簡化邏輯）"""
+        """Ȱ/~]v2.6.5 - Ѧ2.5²޿^"""
         if self.recording or self.playing:
-            # ✅ 優先使用 core_recorder 的暫停功能
+            # ? uϥ core_recorder Ȱ\
             if hasattr(self, 'core_recorder'):
                 is_paused = self.core_recorder.toggle_pause()
                 self.paused = is_paused
             else:
-                # 向後相容：直接切換狀態
+                # VۮeGA
                 self.paused = not self.paused
             
-            state = "暫停" if self.paused else "繼續"
-            mode = "錄製" if self.recording else "執行"
-            self.log(f"[{format_time(time.time())}] {mode}{state}。")
+            state = "Ȱ" if self.paused else "~"
+            mode = "s" if self.recording else ""
+            self.log(f"[{format_time(time.time())}] {mode}{state}C")
             
-            # ✅ 2.5 風格：暫停時停止 keyboard 錄製，暫存事件
+            # ? 2.5 GȰɰ keyboard sAȦsƥ
             if self.paused and self.recording:
                 try:
                     import keyboard
@@ -1991,85 +2048,93 @@ class RecorderApp(tb.Window):
                         self.core_recorder._paused_k_events.extend(k_events)
                         self.core_recorder._keyboard_recording = False
                 except Exception as e:
-                    self.log(f"[警告] 暫停時停止keyboard錄製失敗: {e}")
+                    self.log(f"[ĵi] Ȱɰkeyboards: {e}")
             elif self.recording:
-                # 繼續時重新開始 keyboard 錄製
+                # ~ɭs}l keyboard s
                 try:
                     import keyboard
                     keyboard.start_recording()
                     if hasattr(self.core_recorder, "_keyboard_recording"):
                         self.core_recorder._keyboard_recording = True
                 except Exception as e:
-                    self.log(f"[警告] 繼續錄製時啟動keyboard失敗: {e}")
+                    self.log(f"[ĵi] ~sɱҰkeyboard: {e}")
 
     def stop_record(self):
-        """停止錄製（簡化版 - v2.1 風格）"""
+        """s]²ƪ - v2.1 ^"""
         if not self.recording:
             return
         
-        # 告訴 core_recorder 停止錄製
+        # iD core_recorder s
         self.recording = False
         self.core_recorder.stop_record()
-        self.log(f"[{format_time(time.time())}] 停止錄製（等待寫入事件...）。")
+        self.log(f"[{format_time(time.time())}] s]ݼgJƥ...^C")
         
-        # 等待 core_recorder 的錄製執行緒結束
+        #  core_recorder s
         self._wait_record_thread_finish()
         
 
     def play_record(self):
-        """開始執行"""
+        """}l"""
         if self.playing:
             return
         if not self.events:
-            self.log("沒有可執行的事件，請先錄製或載入腳本。")
+            self.log("Si檺ƥAХsθJ}C")
             return
         
-        # 自動切換到 MiniMode（如果勾選）
+        # ۰ʤ MiniMode]pGĿ^
         if self.auto_mini_var.get() and not self.mini_mode_on:
             self.toggle_mini_mode()
         
-        # 初始化座標偏移量（用於相對座標執行）
+        # lƮyаq]Ω۹yа^
         self.playback_offset_x = 0
         self.playback_offset_y = 0
         
-        # 檢查視窗狀態（大小、位置、DPI、解析度）
+        # ˬdA]jpBmBDPIBѪRס^
         if self.target_hwnd:
             try:
                 from tkinter import messagebox
                 
-                # 獲取當前視窗資訊
+                # eT
                 current_info = get_window_info(self.target_hwnd)
                 if not current_info:
-                    self.log("無法獲取視窗資訊")
+                    self.log("LkT")
                     return
                 
-                # 獲取錄製時的視窗資訊
+                # sɪT
                 recorded_info = getattr(self, 'recorded_window_info', None)
                 
                 if recorded_info:
-                    # 檢查各項差異
+                    # ˬdUt
                     size_mismatch = (current_info['size'] != recorded_info['size'])
                     pos_mismatch = (current_info['position'] != recorded_info['position'])
                     dpi_mismatch = abs(current_info['dpi_scale'] - recorded_info['dpi_scale']) > 0.01
                     resolution_mismatch = (current_info['screen_resolution'] != recorded_info['screen_resolution'])
                     
                     if size_mismatch or pos_mismatch or dpi_mismatch or resolution_mismatch:
-                        # 創建詳細的對話框
+                        # ЫظԲӪܮ
                         dialog = tk.Toplevel(self)
+<<<<<<< Updated upstream
                         dialog.title("視窗狀態檢測")
                         dialog.geometry("720x820")
                         dialog.resizable(True, True)
                         dialog.minsize(600, 650)  # 設定最小尺寸
+=======
+                        dialog.title("A˴")
+                        dialog.geometry("650x550")
+                        dialog.resizable(True, True)
+                        dialog.minsize(550, 450)  # ]w̤pؤo
+>>>>>>> Stashed changes
                         dialog.grab_set()
                         dialog.transient(self)
                         set_window_icon(dialog)
                         
-                        # 居中顯示
+                        # ~
                         dialog.update_idletasks()
                         x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
                         y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
                         dialog.geometry(f"+{x}+{y}")
                         
+<<<<<<< Updated upstream
                         # 主框架
                         outer_frame = tb.Frame(dialog)
                         outer_frame.pack(fill="both", expand=True, padx=20, pady=20)
@@ -2103,36 +2168,61 @@ class RecorderApp(tb.Window):
                         
                         # 訊息內容
                         msg = "📊 錄製時 vs 目前狀態比較：\n\n"
+=======
+                        # Dج[
+                        main_frame = tb.Frame(dialog)
+                        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+                        
+                        # D
+                        title_label = tb.Label(main_frame, 
+                            text="?? API", 
+                            font=("Microsoft JhengHei", 12, "bold"))
+                        title_label.pack(pady=(0, 15))
+                        
+                        # Te
+                        msg_frame = tb.Frame(main_frame)
+                        msg_frame.pack(fill="both", expand=True)
+                        
+                        msg = "?? s vs ثeAG\n\n"
+>>>>>>> Stashed changes
                         
                         if size_mismatch:
-                            msg += f"🖼️ 視窗大小：\n"
-                            msg += f"   錄製時: {recorded_info['size'][0]} x {recorded_info['size'][1]}\n"
-                            msg += f"   目前: {current_info['size'][0]} x {current_info['size'][1]}\n\n"
+                            msg += f"??? jpG\n"
+                            msg += f"   s: {recorded_info['size'][0]} x {recorded_info['size'][1]}\n"
+                            msg += f"   ثe: {current_info['size'][0]} x {current_info['size'][1]}\n\n"
                         
                         if pos_mismatch:
-                            msg += f"📍 視窗位置：\n"
-                            msg += f"   錄製時: ({recorded_info['position'][0]}, {recorded_info['position'][1]})\n"
-                            msg += f"   目前: ({current_info['position'][0]}, {current_info['position'][1]})\n\n"
+                            msg += f"?? mG\n"
+                            msg += f"   s: ({recorded_info['position'][0]}, {recorded_info['position'][1]})\n"
+                            msg += f"   ثe: ({current_info['position'][0]}, {current_info['position'][1]})\n\n"
                         
                         if dpi_mismatch:
-                            msg += f"🔍 DPI 縮放：\n"
-                            msg += f"   錄製時: {recorded_info['dpi_scale']:.2f}x ({int(recorded_info['dpi_scale'] * 100)}%)\n"
-                            msg += f"   目前: {current_info['dpi_scale']:.2f}x ({int(current_info['dpi_scale'] * 100)}%)\n\n"
+                            msg += f"?? DPI YG\n"
+                            msg += f"   s: {recorded_info['dpi_scale']:.2f}x ({int(recorded_info['dpi_scale'] * 100)}%)\n"
+                            msg += f"   ثe: {current_info['dpi_scale']:.2f}x ({int(current_info['dpi_scale'] * 100)}%)\n\n"
                         
                         if resolution_mismatch:
-                            msg += f"🖥️ 螢幕解析度：\n"
-                            msg += f"   錄製時: {recorded_info['screen_resolution'][0]} x {recorded_info['screen_resolution'][1]}\n"
-                            msg += f"   目前: {current_info['screen_resolution'][0]} x {current_info['screen_resolution'][1]}\n\n"
+                            msg += f"??? ùѪRסG\n"
+                            msg += f"   s: {recorded_info['screen_resolution'][0]} x {recorded_info['screen_resolution'][1]}\n"
+                            msg += f"   ثe: {current_info['screen_resolution'][0]} x {current_info['screen_resolution'][1]}\n\n"
                         
                         msg_label = tb.Label(scroll_content, text=msg, font=("Microsoft JhengHei", 10), justify="left")
                         msg_label.pack(anchor="w", padx=10, pady=5, fill="x")
                         
+<<<<<<< Updated upstream
                         # 3. 按鈕區 (固定底部)
                         bottom_frame = tb.Frame(outer_frame)
                         bottom_frame.pack(fill="x", pady=(10, 0))
                         
                         tb.Separator(bottom_frame, orient="horizontal").pack(fill="x", pady=10)
                         
+=======
+                        # ju
+                        separator = tb.Separator(main_frame, orient="horizontal")
+                        separator.pack(fill="x", pady=10)
+                        
+                        # ϥΪ̿
+>>>>>>> Stashed changes
                         user_choice = {"action": None}
                         
                         def on_force_adjust():
@@ -2150,6 +2240,7 @@ class RecorderApp(tb.Window):
                         tb.Button(bottom_frame, text="🔧 強制歸位（將目前視窗調整回錄製狀態）", bootstyle=PRIMARY, 
                                  command=on_force_adjust).pack(pady=5, fill="x")
                         
+<<<<<<< Updated upstream
                         tb.Button(bottom_frame, text="✨ 智能適配（推薦：保留目前狀態並自動縮放）", bootstyle=SUCCESS, 
                                  command=on_auto_scale).pack(pady=5, fill="x")
                         
@@ -2159,6 +2250,21 @@ class RecorderApp(tb.Window):
                         # 添加說明
                         info_label = tb.Label(bottom_frame, 
                             text="💡 提示：「智能適配」會自動調整座標以適應當前環境，適用於不同解析度、DPI 縮放和視窗大小的跨設備跑本。", 
+=======
+                        tb.Button(btn_frame, text="?? jk]վ^", bootstyle=PRIMARY, 
+                                 command=on_force_adjust, width=25).pack(pady=5, fill="x")
+                        
+                        tb.Button(btn_frame, text="? At]ˡ^", bootstyle=SUCCESS, 
+                                 command=on_auto_scale, width=25).pack(pady=5, fill="x")
+                        
+                        tb.Button(btn_frame, text="? ", bootstyle=DANGER, 
+                                 command=on_cancel, width=25).pack(pady=5, fill="x")
+                        
+                        # K[
+                        info_label = tb.Label(main_frame, 
+                            text="?? ܡGuAtv|۰ʽվyХHAe\n"
+                                 "AΩ󤣦PѪRסBDPI YMjp", 
+>>>>>>> Stashed changes
                             font=("Microsoft JhengHei", 9), 
                             foreground="#666",
                             wraplength=650)
@@ -2166,12 +2272,12 @@ class RecorderApp(tb.Window):
                         
                         dialog.wait_window()
                         
-                        # 處理使用者選擇
+                        # BzϥΪ̿
                         if user_choice["action"] == "cancel":
-                            self.log("已取消執行")
+                            self.log("w")
                             return
                         elif user_choice["action"] == "adjust":
-                            # 強制歸位
+                            # jk
                             try:
                                 target_width, target_height = recorded_info['size']
                                 target_x, target_y = recorded_info['position']
@@ -2184,46 +2290,46 @@ class RecorderApp(tb.Window):
                                     0x0240  # SWP_SHOWWINDOW | SWP_ASYNCWINDOWPOS
                                 )
                                 
-                                self.log(f"已調整視窗至錄製時狀態")
-                                self.log("將在 2 秒後開始執行...")
+                                self.log(f"wվܿsɪA")
+                                self.log("Nb 2 }l...")
                                 
-                                # 延遲 2 秒後繼續
+                                #  2 ~
                                 self.after(2000, self._continue_play_record)
                                 return
                             except Exception as e:
-                                self.log(f"無法調整視窗: {e}")
+                                self.log(f"Lkվ: {e}")
                         elif user_choice["action"] == "auto_scale":
-                            # 智能適配模式
-                            self.log(f"使用智能適配模式進行執行")
-                            self.log(f"將自動調整座標以適應當前環境")
-                            # 設定縮放比例（用於後續座標轉換）
+                            # AtҦ
+                            self.log(f"ϥδAtҦi")
+                            self.log(f"N۰ʽվyХHAe")
+                            # ]wYҡ]Ωyഫ^
                             self._scale_ratio = {
                                 'x': current_info['size'][0] / recorded_info['size'][0] if recorded_info['size'][0] > 0 else 1.0,
                                 'y': current_info['size'][1] / recorded_info['size'][1] if recorded_info['size'][1] > 0 else 1.0,
                                 'dpi': current_info['dpi_scale'] / recorded_info['dpi_scale'] if recorded_info['dpi_scale'] > 0 else 1.0
                             }
-                            self.log(f"縮放比例 - X: {self._scale_ratio['x']:.3f}, Y: {self._scale_ratio['y']:.3f}, DPI: {self._scale_ratio['dpi']:.3f}")
+                            self.log(f"Y - X: {self._scale_ratio['x']:.3f}, Y: {self._scale_ratio['y']:.3f}, DPI: {self._scale_ratio['dpi']:.3f}")
             except Exception as e:
-                self.log(f"檢查視窗狀態時發生錯誤: {e}")
+                self.log(f"ˬdAɵoͿ~: {e}")
                 import traceback
-                self.log(f"錯誤詳情: {traceback.format_exc()}")
+                self.log(f"~Ա: {traceback.format_exc()}")
         
-        # 直接開始執行
+        # }l
         self._continue_play_record()
     
     def play_script(self):
-        """✅ 新增：供編輯器調用的播放方法別名"""
+        """? sWGѽs边եΪkOW"""
         self.play_record()
     
     def _continue_play_record(self):
-        """實際執行執行的內部方法（支援智能縮放）"""
-        # ✅ 設定圖片辨識目錄
+        """ڰ檺k]䴩Y^"""
+        # ? ]wϤѥؿ
         images_dir = os.path.join(self.script_dir, "images")
         if os.path.exists(images_dir):
             self.core_recorder.set_images_directory(images_dir)
-            self.log(f"[圖片辨識] 已設定圖片目錄: {images_dir}")
+            self.log(f"[Ϥ] w]wϤؿ: {images_dir}")
         
-        # 獲取當前視窗位置（如果有目標視窗）
+        # em]pGؼе^
         current_window_x = 0
         current_window_y = 0
         if self.target_hwnd:
@@ -2232,63 +2338,63 @@ class RecorderApp(tb.Window):
                 rect = win32gui.GetWindowRect(self.target_hwnd)
                 current_window_x, current_window_y = rect[0], rect[1]
             except Exception as e:
-                self.log(f"無法獲取視窗位置: {e}")
+                self.log(f"Lkm: {e}")
         
-        # 檢查是否有縮放比例設定（智能適配模式）
+        # ˬdO_Yҳ]w]AtҦ^
         has_scale_ratio = hasattr(self, '_scale_ratio') and self._scale_ratio
         
-        # 轉換事件座標
+        # ഫƥy
         adjusted_events = []
-        scaled_count = 0  # 記錄縮放事件數量
+        scaled_count = 0  # OYƥƶq
         
         for event in self.events:
             event_copy = event.copy()
             
-            # 處理滑鼠事件的座標
+            # Bzƹƥ󪺮y
             if event.get('type') == 'mouse' and 'x' in event and 'y' in event:
-                # 檢查是否為視窗相對座標
+                # ˬdO_۹y
                 if event.get('relative_to_window', False):
-                    # 取得相對座標
+                    # o۹y
                     rel_x = event['x']
                     rel_y = event['y']
                     
-                    # 如果有智能縮放，應用縮放比例
+                    # pGYAY
                     if has_scale_ratio:
-                        # 應用視窗大小縮放
+                        # εjpY
                         rel_x = int(rel_x * self._scale_ratio['x'])
                         rel_y = int(rel_y * self._scale_ratio['y'])
                         scaled_count += 1
                     
-                    # 轉換為當前螢幕絕對座標
+                    # ഫeùy
                     event_copy['x'] = rel_x + current_window_x
                     event_copy['y'] = rel_y + current_window_y
                 else:
-                    # 螢幕絕對座標，不做轉換
+                    # ùyСAഫ
                     pass
             
             adjusted_events.append(event_copy)
         
-        # 顯示縮放資訊（僅顯示一次）
+        # YT]ܤ@^
         if has_scale_ratio and scaled_count > 0:
-            self.log(f"[智能適配] 已縮放 {scaled_count} 個座標事件")
-            # 清除縮放比例（避免影響下次執行）
+            self.log(f"[At] wY {scaled_count} ӮyШƥ")
+            # MYҡ]קKvTU^
             del self._scale_ratio
         
-        # 設定 core_recorder 的事件
+        # ]w core_recorder ƥ
         self.core_recorder.events = adjusted_events
         
-        # 設定滑鼠模式
+        # ]wƹҦ
         if hasattr(self.core_recorder, 'set_mouse_mode'):
             mouse_mode = self.mouse_mode_var.get()
             self.core_recorder.set_mouse_mode(mouse_mode)
             if mouse_mode:
-                self.log("執行模式：滑鼠模式（將控制真實滑鼠游標）")
+                self.log("ҦGƹҦ]NuƹС^")
             else:
-                self.log("執行模式：後台模式（智能自動適應）")
+                self.log("ҦGxҦ]۰ʾA^")
         
         if self.target_hwnd and any(e.get('relative_to_window', False) for e in self.events):
             relative_count = sum(1 for e in self.events if e.get('relative_to_window', False))
-            self.log(f"[座標轉換] {relative_count} 個視窗相對座標 → 當前螢幕座標")
+            self.log(f"[yഫ] {relative_count} ӵ۹y  eùy")
 
         try:
             speed_val = int(self.speed_var.get())
@@ -2308,17 +2414,17 @@ class RecorderApp(tb.Window):
         except:
             repeat = 1
         
-        # 重複次數 = 0 表示無限重複，傳入 -1 給 core_recorder
+        # Ʀ = 0 ܵLơAǤJ -1  core_recorder
         if repeat == 0:
-            repeat = -1  # 無限重複
-            self.log(f"[{format_time(time.time())}] 設定為無限重複模式")
+            repeat = -1  # L
+            self.log(f"[{format_time(time.time())}] ]wLƼҦ")
         elif repeat < 0:
-            repeat = 1  # 負數視為1次
+            repeat = 1  # tƵ1
 
-        # 計算總運作時間
+        # p`B@ɶ
         single_time = (self.events[-1]['time'] - self.events[0]['time']) / self.speed if self.events else 0
         if repeat == -1:
-            # 無限重複模式
+            # LƼҦ
             total_time = float('inf') if not self._repeat_time_limit else self._repeat_time_limit
         elif self._repeat_time_limit and repeat > 0:
             total_time = self._repeat_time_limit
@@ -2327,17 +2433,17 @@ class RecorderApp(tb.Window):
         self._total_play_time = total_time
 
         self._play_start_time = time.time()
-        self._current_cycle_start_time = time.time()  # ✅ 初始化當前循環起始時間
+        self._current_cycle_start_time = time.time()  # ? lƷe`_lɶ
         self.update_total_time_label(self._total_play_time)
         self.playing = True
         self.paused = False
 
-        # 初始化事件索引（用於 UI 更新）
+        # lƨƥޡ]Ω UI s^
         self._current_play_index = 0
 
         def on_event(event):
-            """執行事件的回調函數（確保索引同步更新）"""
-            # 從 core_recorder 獲取最新索引
+            """ƥ󪺦^ըơ]TOަPBs^"""
+            # q core_recorder ̷s
             try:
                 idx = getattr(self.core_recorder, "_current_play_index", 0)
                 self._current_play_index = idx
@@ -2353,23 +2459,23 @@ class RecorderApp(tb.Window):
         )
 
         if success:
-            # 修正日誌顯示，不要把 ratio 字串插入 lbl，保留數值顯示與內部倍率
-            self.log(f"[{format_time(time.time())}] 開始執行，速度倍率: {self.speed:.2f} ({self.speed_var.get()})")
+            # ץxܡAn ratio r괡J lblAOdƭܻPv
+            self.log(f"[{format_time(time.time())}] }lAt׭v: {self.speed:.2f} ({self.speed_var.get()})")
             self.after(100, self._update_play_time)
         else:
-            self.log("沒有可執行的事件，請先錄製或載入腳本。")
+            self.log("Si檺ƥAХsθJ}C")
 
     def stop_all(self):
-        """停止所有動作（全新實作 - 更穩健的處理）"""
+        """Ҧʧ@]s@ - íBz^"""
         stopped = False
         
-        # ✅ 立即設定狀態
+        # ? ߧY]wA
         if self.recording:
             self.recording = False
             stopped = True
-            self.log(f"[{format_time(time.time())}] 停止錄製。")
+            self.log(f"[{format_time(time.time())}] sC")
             
-            # 停止 core_recorder
+            #  core_recorder
             if hasattr(self, 'core_recorder'):
                 try:
                     if hasattr(self.core_recorder, 'recording'):
@@ -2379,44 +2485,44 @@ class RecorderApp(tb.Window):
                     if hasattr(self.core_recorder, 'events'):
                         self.events = self.core_recorder.events
                 except Exception as e:
-                    self.log(f"[警告] 停止 core_recorder 時發生錯誤: {e}")
-                    # ✅ 強制重置狀態
+                    self.log(f"[ĵi]  core_recorder ɵoͿ~: {e}")
+                    # ? jmA
                     self.core_recorder.recording = False
             
-            # 等待錄製執行緒結束
+            # ݿs
             try:
                 self._wait_record_thread_finish()
             except Exception as e:
-                self.log(f"[警告] 等待錄製結束時發生錯誤: {e}")
+                self.log(f"[ĵi] ݿsɵoͿ~: {e}")
             
         
         if self.playing:
             self.playing = False
             stopped = True
-            self.log(f"[{format_time(time.time())}] 停止執行。")
+            self.log(f"[{format_time(time.time())}] C")
             
-            # 停止 core_recorder 播放
+            #  core_recorder 
             if hasattr(self, 'core_recorder') and hasattr(self.core_recorder, 'stop_play'):
                 try:
                     self.core_recorder.stop_play()
                 except Exception as e:
-                    self.log(f"[警告] 停止執行時發生錯誤: {e}")
+                    self.log(f"[ĵi] ɵoͿ~: {e}")
             
-            # 釋放所有可能卡住的修飾鍵
+            # Ҧid׹
             try:
                 self._release_all_modifiers()
             except Exception as e:
-                self.log(f"[警告] 釋放修飾鍵時發生錯誤: {e}")
+                self.log(f"[ĵi] ׹ɵoͿ~: {e}")
         
         if not stopped:
-            self.log(f"[{format_time(time.time())}] 無進行中動作可停止。")
+            self.log(f"[{format_time(time.time())}] Li椤ʧ@iC")
         
-        # ✅ 立即刷新顯示
+        # ? ߧYs
         self.update_time_label(0)
         self.update_countdown_label(0)
         self.update_total_time_label(0)
         
-        # 強制更新時間顯示
+        # jsɶ
         try:
             self._update_play_time()
             self._update_record_time()
@@ -2427,31 +2533,31 @@ class RecorderApp(tb.Window):
 
     def force_quit(self):
         """
-        強制停止所有動作並關閉程式（v2.6.5+ 精確清理版）
+        jҦʧ@{]v2.6.5+ TMz^
         
-        ✅ 重構改進：
-        - 只移除本程式註冊的快捷鍵
-        - 不使用 keyboard.unhook_all()
-        - 保護其他程式的全域熱鍵
+        ? ciG
+        - u{Uֱ
+        - ϥ keyboard.unhook_all()
+        - O@L{
         
-        【執行順序】
-        1. 立即停止所有錄製和執行
-        2. 釋放所有按鍵和 hooks
-        3. 清理本程式註冊的快捷鍵（不影響其他程式）
-        4. 強制終止程式
+        i涶ǡj
+        1. ߧYҦsM
+        2. ҦM hooks
+        3. Mz{Uֱ]vTL{^
+        4. jפ{
         """
         try:
-            self.log("[系統] 🔴 強制停止：立即終止所有動作...")
+            self.log("[t] ?? jGߧYפҦʧ@...")
         except:
             pass
 
-        # ✅ 步驟1：立即停止所有動作
+        # ? BJ1GߧYҦʧ@
         try:
             self.recording = False
             self.playing = False
             self.paused = False
             
-            # 停止 core_recorder
+            #  core_recorder
             if hasattr(self, 'core_recorder'):
                 try:
                     self.core_recorder.recording = False
@@ -2462,21 +2568,21 @@ class RecorderApp(tb.Window):
                     pass
         except Exception as e:
             try:
-                self.log(f"[警告] 停止動作錯誤: {e}")
+                self.log(f"[ĵi] ʧ@~: {e}")
             except:
                 pass
 
-        # ✅ 步驟2：釋放所有按鍵（避免卡鍵）
+        # ? BJ2GҦ]קKd^
         try:
             self._release_all_modifiers()
         except:
             pass
 
-        # ✅ 步驟3：精確清理本程式的快捷鍵（不影響其他程式）
+        # ? BJ3GTMz{ֱ]vTL{^
         try:
             import keyboard
             
-            # 移除系統快捷鍵
+            # tΧֱ
             for handler in self._hotkey_handlers.values():
                 try:
                     keyboard.remove_hotkey(handler)
@@ -2484,7 +2590,7 @@ class RecorderApp(tb.Window):
                     pass
             self._hotkey_handlers.clear()
             
-            # 移除腳本快捷鍵
+            # }ֱ
             for handler in self._script_hotkey_handlers.values():
                 try:
                     keyboard.remove_hotkey(handler)
@@ -2492,19 +2598,19 @@ class RecorderApp(tb.Window):
                     pass
             self._script_hotkey_handlers.clear()
             
-            # ❌ 禁止：keyboard.unhook_all() 
-            # 原因：會移除所有程式的熱鍵，包括使用者的其他工具
+            # ? TGkeyboard.unhook_all() 
+            # ]G|Ҧ{A]AϥΪ̪Lu
             
         except Exception:
             pass
 
-        # 嘗試關閉視窗與退出
+        # PhX
         try:
-            self.log("[系統] 即將結束程式")
+            self.log("[t] YN{")
         except:
             pass
         try:
-            # 直接使用 os._exit 以確保立即終止
+            # ϥ os._exit HTOߧYפ
             import os, sys
             try:
                 self.quit()
@@ -2525,12 +2631,12 @@ class RecorderApp(tb.Window):
                 pass
     
     def _release_all_modifiers(self):
-        """釋放所有修飾鍵以防止卡住（v2.6.5 修復版 - 不移除快捷鍵）"""
+        """Ҧ׹Hd]v2.6.5 ״_ - ֱ^"""
         try:
             import keyboard
-            # 釋放常見的修飾鍵與常用按鍵，盡量避免卡鍵
+            # `׹P`ΫAɶqקKd
             keys_to_release = ['ctrl', 'shift', 'alt', 'win']
-            # 加入功能鍵與字母數字
+            # [J\PrƦr
             keys_to_release += [f'f{i}' for i in range(1, 13)]
             keys_to_release += [chr(c) for c in range(ord('a'), ord('z')+1)]
             keys_to_release += [str(d) for d in range(0, 10)]
@@ -2541,6 +2647,7 @@ class RecorderApp(tb.Window):
                 except:
                     pass
 
+<<<<<<< Updated upstream
             # ✅ v2.7.6 強制透過 Windows API 釋放核心修飾鍵 (防止 keyboard 模組失效)
             try:
                 import win32api, win32con
@@ -2560,70 +2667,75 @@ class RecorderApp(tb.Window):
             # 不再呼叫 unhook_all/unhook_all_hotkeys
             # 這些會移除系統快捷鍵 (F9/F10 等)，導致 3-5 次後失效
             # 只需釋放按鍵本身即可，快捷鍵保持註冊狀態
+=======
+            # AIs unhook_all/unhook_all_hotkeys
+            # oǷ|tΧֱ (F9/F10 )AɭP 3-5 ᥢ
+            # u䥻YiAֱOUA
+>>>>>>> Stashed changes
 
-            self.log("[系統] 已釋放常見按鍵")
+            self.log("[t] w`")
         except Exception as e:
-            self.log(f"[警告] 釋放修飾鍵時發生錯誤: {e}")
+            self.log(f"[ĵi] ׹ɵoͿ~: {e}")
 
     def _wait_record_thread_finish(self):
-        """等待錄製執行緒由 core_recorder 結束，結束後同步 events 並 auto_save"""
-        # 優先檢查 core_recorder 的 thread
+        """ݿs core_recorder APB events  auto_save"""
+        # uˬd core_recorder  thread
         t = getattr(self.core_recorder, "_record_thread", None)
         if t and getattr(t, "is_alive", lambda: False)():
-            # 還沒結束，繼續等待
+            # ٨SA~򵥫
             self.after(100, self._wait_record_thread_finish)
             return
 
-        # 如果 core_recorder 已完成，從 core_recorder 取回 events 並存檔
+        # pG core_recorder wAq core_recorder ^ events æs
         try:
             self.events = getattr(self.core_recorder, "events", []) or []
             
-            # 若使用者選定了目標視窗，處理視窗相對座標
+            # YϥΪ̿wFؼеABz۹y
             if getattr(self, "target_hwnd", None):
                 try:
                     rect = win32gui.GetWindowRect(self.target_hwnd)
                     l, t, r, b = rect
                     window_x, window_y = l, t
                     
-                    # 轉換為視窗內相對座標並過濾視窗外的事件
+                    # ഫ۹yШùLo~ƥ
                     converted_events = []
                     for e in self.events:
                         if not isinstance(e, dict):
                             continue
                         
-                        # 檢查是否有座標
+                        # ˬdO_y
                         x = y = None
                         if 'x' in e and 'y' in e:
                             x, y = e.get('x'), e.get('y')
                         elif 'pos' in e and isinstance(e.get('pos'), (list, tuple)) and len(e.get('pos')) >= 2:
                             x, y = e.get('pos')[0], e.get('pos')[1]
                         
-                        # 若找不到座標則視為非滑鼠事件，直接保留
+                        # Y䤣yЫhDƹƥAOd
                         if x is None or y is None:
                             converted_events.append(e)
                             continue
                         
-                        # 檢查是否在視窗內
+                        # ˬdO_b
                         if (l <= int(x) <= r) and (t <= int(y) <= b):
-                            # 轉換為視窗內相對座標
+                            # ഫ۹y
                             event_copy = e.copy()
                             event_copy['x'] = int(x) - window_x
                             event_copy['y'] = int(y) - window_y
-                            # 標記這是視窗內相對座標
+                            # аOoO۹y
                             event_copy['relative_to_window'] = True
                             converted_events.append(event_copy)
                     
-                    self.log(f"[{format_time(time.time())}] 錄製完成，原始事件數：{len(self.events)}，轉換為視窗相對座標：{len(converted_events)}")
+                    self.log(f"[{format_time(time.time())}] sAlƥơG{len(self.events)}Aഫ۹yСG{len(converted_events)}")
                     self.events = converted_events
                 except Exception as ex:
-                    self.log(f"[{format_time(time.time())}] 轉換視窗相對座標時發生錯誤: {ex}")
+                    self.log(f"[{format_time(time.time())}] ഫ۹yЮɵoͿ~: {ex}")
             else:
-                self.log(f"[{format_time(time.time())}] 錄製執行緒已完成，取得事件數：{len(self.events)}")
+                self.log(f"[{format_time(time.time())}] swAoƥơG{len(self.events)}")
             
-            # 再次確保不會在尚未寫入時呼叫 auto_save
+            # ATO|b|gJɩIs auto_save
             self.auto_save_script()
         except Exception as ex:
-            self.log(f"[{format_time(time.time())}] 同步錄製事件發生錯誤: {ex}")
+            self.log(f"[{format_time(time.time())}] PBsƥoͿ~: {ex}")
 
     def get_events_json(self):
         return json.dumps(self.events, ensure_ascii=False, indent=2)
@@ -2632,25 +2744,25 @@ class RecorderApp(tb.Window):
         try:
             data = json.loads(json_str)
             
-            # 處理兩種格式：
-            # 1. 完整格式: {"events": [...], "settings": {...}}
-            # 2. 簡化格式: [...] (直接是事件列表)
+            # Bzخ榡G
+            # 1. 榡: {"events": [...], "settings": {...}}
+            # 2. ²Ʈ榡: [...] (OƥC)
             if isinstance(data, dict) and "events" in data:
                 self.events = data["events"]
             elif isinstance(data, list):
                 self.events = data
             else:
-                raise ValueError("不支援的 JSON 格式")
+                raise ValueError("䴩 JSON 榡")
             
-            self.log(f"[{format_time(time.time())}] 已從 JSON 載入 {len(self.events)} 筆事件。")
+            self.log(f"[{format_time(time.time())}] wq JSON J {len(self.events)} ƥC")
         except Exception as e:
-            self.log(f"[{format_time(time.time())}] JSON 載入失敗: {e}")
+            self.log(f"[{format_time(time.time())}] JSON J: {e}")
 
     def save_config(self):
-        # theme_var 已被移除，使用當前 theme
+        # theme_var wQAϥηe theme
         current_theme = self.style.theme_use()
         self.user_config["skin"] = current_theme
-        # 確保儲存時加上副檔名
+        # TOxsɥ[WɦW
         script_name = self.script_var.get()
         if script_name and not script_name.endswith('.json'):
             script_name = script_name + '.json'
@@ -2661,14 +2773,14 @@ class RecorderApp(tb.Window):
         self.user_config["language"] = self.language_var.get()
         self.user_config["repeat_time"] = self.repeat_time_var.get()
         self.user_config["hotkey_map"] = self.hotkey_map
-        self.user_config["auto_mini_mode"] = self.auto_mini_var.get()  # 儲存自動切換設定
-        self.user_config["mouse_mode"] = self.mouse_mode_var.get()  # 儲存滑鼠模式設定
+        self.user_config["auto_mini_mode"] = self.auto_mini_var.get()  # xs۰ʤ]w
+        self.user_config["mouse_mode"] = self.mouse_mode_var.get()  # xsƹҦ]w
         save_user_config(self.user_config)
-        self.log("【整體設定已更新】")  # 新增：日誌顯示
+        self.log("i]wwsj")  # sWGx
 
     def auto_save_script(self):
         try:
-            # 使用 script_io 的 auto_save_script
+            # ϥ script_io  auto_save_script
             settings = {
                 "speed": self.speed_var.get(),
                 "repeat": self.repeat_var.get(),
@@ -2676,145 +2788,152 @@ class RecorderApp(tb.Window):
                 "repeat_interval": self.repeat_interval_var.get(),
                 "random_interval": self.random_interval_var.get()
             }
-            # 儲存完整的視窗資訊（包含 DPI、解析度等）
+            # xs㪺T]]t DPIBѪR׵^
             if hasattr(self, 'recorded_window_info') and self.recorded_window_info:
                 settings["window_info"] = self.recorded_window_info
-                self.log(f"[儲存] 視窗資訊已包含在腳本中")
+                self.log(f"[xs] Tw]tb}")
             
             filename = sio_auto_save_script(self.script_dir, self.events, settings)
-            # 去除 .json 副檔名以顯示在 UI
+            # h .json ɦWHܦb UI
             display_name = os.path.splitext(filename)[0] if filename.endswith('.json') else filename
-            self.log(f"[{format_time(time.time())}] 自動存檔：{filename}，事件數：{len(self.events)}")
+            self.log(f"[{format_time(time.time())}] ۰ʦsɡG{filename}AƥơG{len(self.events)}")
             self.refresh_script_list()
-            self.refresh_script_listbox()  # 同時更新腳本列表
-            self.script_var.set(display_name)  # 使用去除副檔名的名稱
+            self.refresh_script_listbox()  # Pɧs}C
+            self.script_var.set(display_name)  # ϥΥhɦWW
             with open(LAST_SCRIPT_FILE, "w", encoding="utf-8") as f:
-                f.write(filename)  # 仍然儲存完整檔名以供讀取
+                f.write(filename)  # MxsɦWHŪ
         except Exception as ex:
-            self.log(f"[{format_time(time.time())}] 存檔失敗: {ex}")
+            self.log(f"[{format_time(time.time())}] sɥ: {ex}")
 
-    # --- 儲存腳本設定 ---
+    # --- xs}]w ---
     def save_script_settings(self):
-        """將目前 speed/repeat/repeat_time/repeat_interval/random_interval 寫入當前腳本檔案
+        """Nثe speed/repeat/repeat_time/repeat_interval/random_interval gJe}ɮ
         
+<<<<<<< Updated upstream
         增強穩定性:
         - 完整的錯誤處理
         - 資料驗證
         - 清晰的用戶反饋
+=======
+        Wjíw:
+        - 㪺~Bz
+        - ƾ
+        - MΤX
+>>>>>>> Stashed changes
         """
         script = self.script_var.get()
         
-        # 驗證是否選擇腳本
+        # ҬO_ܸ}
         if not script or not script.strip():
-            self.log("儲存失敗: 請先選擇一個腳本")
-            messagebox.showwarning("警告", "請先在腳本選單中選擇一個腳本")
+            self.log("xs: Хܤ@Ӹ}")
+            messagebox.showwarning("ĵi", "Хb}椤ܤ@Ӹ}")
             return
         
-        # 確保腳本名稱包含 .json 副檔名
+        # TO}W٥]t .json ɦW
         if not script.endswith('.json'):
             script_file = script + '.json'
         else:
             script_file = script
         
-        # 建立完整路徑
+        # إߧ|
         path = os.path.join(self.script_dir, script_file)
         
-        # 檢查檔案是否存在
+        # ˬdɮ׬O_sb
         if not os.path.exists(path):
-            self.log(f"儲存失敗: 找不到腳本檔案 '{script_file}'")
-            messagebox.showerror("錯誤", f"找不到腳本檔案:\n{script_file}\n\n請確認腳本是否存在")
+            self.log(f"xs: 䤣}ɮ '{script_file}'")
+            messagebox.showerror("~", f"䤣}ɮ:\n{script_file}\n\nнT{}O_sb")
             return
         
         try:
-            # 收集設定（加入驗證）
+            # ]w][Jҡ^
             settings = {}
             
-            # 驗證速度
+            # ҳt
             try:
                 speed_val = self.speed_var.get().strip()
                 speed_int = int(speed_val)
                 if speed_int < 1 or speed_int > 1000:
-                    raise ValueError(f"速度值 {speed_int} 超出範圍 (1-1000)")
+                    raise ValueError(f"t׭ {speed_int} WXd (1-1000)")
                 settings["speed"] = speed_val
             except Exception as e:
-                self.log(f"警告: 速度值無效,使用預設值 100: {e}")
+                self.log(f"ĵi: t׭ȵL,ϥιw] 100: {e}")
                 settings["speed"] = "100"
             
-            # 驗證重複次數
+            # ҭƦ
             try:
                 repeat_val = self.repeat_var.get().strip()
                 repeat_int = int(repeat_val)
                 if repeat_int < 0:
-                    raise ValueError(f"重複次數 {repeat_int} 不可為負數")
+                    raise ValueError(f"Ʀ {repeat_int} it")
                 settings["repeat"] = repeat_val
             except Exception as e:
-                self.log(f"警告: 重複次數無效,使用預設值 1: {e}")
+                self.log(f"ĵi: ƦƵL,ϥιw] 1: {e}")
                 settings["repeat"] = "1"
             
-            # 驗證時間格式
+            # Үɶ榡
             for time_var_name, var, default in [
-                ("重複時間", self.repeat_time_var, "00:00:00"),
-                ("重複間隔", self.repeat_interval_var, "00:00:00")
+                ("Ʈɶ", self.repeat_time_var, "00:00:00"),
+                ("ƶj", self.repeat_interval_var, "00:00:00")
             ]:
                 try:
                     time_val = var.get().strip()
-                    # 驗證時間格式
+                    # Үɶ榡
                     if time_val and not self._validate_time_format(time_val):
-                        raise ValueError(f"時間格式不正確: {time_val}")
-                    settings[time_var_name.replace("重複", "repeat_").replace("時間", "time").replace("間隔", "interval")] = time_val if time_val else default
+                        raise ValueError(f"ɶ榡T: {time_val}")
+                    settings[time_var_name.replace("", "repeat_").replace("ɶ", "time").replace("j", "interval")] = time_val if time_val else default
                 except Exception as e:
-                    self.log(f"警告: {time_var_name}格式無效,使用預設值 {default}: {e}")
-                    settings[time_var_name.replace("重複", "repeat_").replace("時間", "time").replace("間隔", "interval")] = default
+                    self.log(f"ĵi: {time_var_name}榡L,ϥιw] {default}: {e}")
+                    settings[time_var_name.replace("", "repeat_").replace("ɶ", "time").replace("j", "interval")] = default
             
-            # 隨機間隔
+            # Hj
             try:
                 settings["random_interval"] = bool(self.random_interval_var.get())
             except:
                 settings["random_interval"] = False
             
-            # 使用 script_io 儲存
+            # ϥ script_io xs
             sio_save_script_settings(path, settings)
             
-            # 成功回饋
-            self.log(f"設定已儲存到腳本: {script}")
-            self.log(f"   速度: {settings['speed']}, 重複: {settings['repeat']}, " +
-                    f"時間: {settings.get('repeat_time', '00:00:00')}, " +
-                    f"間隔: {settings.get('repeat_interval', '00:00:00')}")
-            self.log("提示: 使用快捷鍵執行時將套用這些參數")
+            # \^X
+            self.log(f"]wwxs}: {script}")
+            self.log(f"   t: {settings['speed']}, : {settings['repeat']}, " +
+                    f"ɶ: {settings.get('repeat_time', '00:00:00')}, " +
+                    f"j: {settings.get('repeat_interval', '00:00:00')}")
+            self.log(": ϥΧֱɱNMγoǰѼ")
             
         except Exception as ex:
-            # 詳細錯誤報告
+            # Բӿ~i
             error_msg = str(ex)
-            self.log(f"儲存腳本設定失敗: {error_msg}")
+            self.log(f"xs}]w: {error_msg}")
             
             import traceback
             detailed_error = traceback.format_exc()
-            self.log(f"錯誤詳情:\n{detailed_error}")
+            self.log(f"~Ա:\n{detailed_error}")
             
-            messagebox.showerror("儲存失敗", 
-                               f"無法儲存腳本設定:\n\n{error_msg}\n\n請查看日誌獲取詳細資訊")
+            messagebox.showerror("xs", 
+                               f"Lkxs}]w:\n\n{error_msg}\n\nЬdݤxԲӸT")
     
     def _validate_time_format(self, time_str):
-        """驗證時間格式 HH:MM:SS"""
+        """Үɶ榡 HH:MM:SS"""
         import re
         pattern = r'^\d{1,2}:\d{2}:\d{2}$'
         return re.match(pattern, time_str) is not None
 
-    # --- 讀取腳本設定 ---
+    # --- Ū}]w ---
     def on_script_selected(self, event=None):
-        """載入選中的腳本及其設定
+        """J襤}Ψ]w
         
-        增強穩定性:
-        - 完整的檔案驗證
-        - 自動格式轉換 (視覺化編輯器 → events)
-        - 詳細的錯誤報告
-        - 智能視窗資訊處理
+        Wjíw:
+        - 㪺ɮ
+        - ۰ʮ榡ഫ (ıƽs边  events)
+        - ԲӪ~i
+        - TBz
         """
         script = self.script_var.get()
         if not script or not script.strip():
             return
         
-        # 如果沒有副檔名，加上 .json
+        # pGSɦWA[W .json
         if not script.endswith('.json'):
             script_file = script + '.json'
         else:
@@ -2822,61 +2941,68 @@ class RecorderApp(tb.Window):
         
         path = os.path.join(self.script_dir, script_file)
         
-        # ✅ 檢查檔案是否存在
+        # ? ˬdɮ׬O_sb
         if not os.path.exists(path):
-            self.log(f"❌ 載入失敗: 腳本檔案不存在 '{script_file}'")
-            messagebox.showwarning("警告", f"找不到腳本檔案:\n{script_file}")
+            self.log(f"? J: }ɮפsb '{script_file}'")
+            messagebox.showwarning("ĵi", f"䤣}ɮ:\n{script_file}")
             return
         
-        # ✅ 檢查檔案大小 (防止空檔案)
+        # ? ˬdɮפjp (ɮ)
         try:
             file_size = os.path.getsize(path)
             if file_size == 0:
-                self.log(f"載入失敗: 腳本檔案為空 '{script_file}'")
-                messagebox.showerror("錯誤", f"腳本檔案已損壞或為空:\n{script_file}")
+                self.log(f"J: }ɮ׬ '{script_file}'")
+                messagebox.showerror("~", f"}ɮפwlaά:\n{script_file}")
                 return
             elif file_size > 50 * 1024 * 1024:  # 50MB
-                self.log(f"警告: 腳本檔案過大 ({file_size / 1024 / 1024:.1f} MB)")
-                if not messagebox.askyesno("確認", f"腳本檔案較大 ({file_size / 1024 / 1024:.1f} MB)\n確定要載入嗎?"):
+                self.log(f"ĵi: }ɮ׹Lj ({file_size / 1024 / 1024:.1f} MB)")
+                if not messagebox.askyesno("T{", f"}ɮ׸j ({file_size / 1024 / 1024:.1f} MB)\nTwnJ?"):
                     return
         except Exception as e:
-            self.log(f"警告: 檢查檔案時發生錯誤: {e}")
+            self.log(f"ĵi: ˬdɮ׮ɵoͿ~: {e}")
         
         try:
+<<<<<<< Updated upstream
             # 載入腳本資料
             data = sio_load_script(path)
             
             # ✅ 檢查資料完整性
+=======
+            # J}ƾ
+            data = sio_load_script(path)
+            
+            # ? ˬdƾڧ
+>>>>>>> Stashed changes
             if not isinstance(data, dict):
-                raise ValueError("腳本格式錯誤: 不是有效的 JSON 物件")
+                raise ValueError("}榡~: OĪ JSON ")
             
             events = data.get("events", [])
             settings = data.get("settings", {})
             
-            # ✅ 特殊處理: 視覺化編輯器格式轉換
+            # ? SBz: ıƽs边榡ഫ
             if not events or len(events) == 0:
                 if "script_actions" in settings and settings["script_actions"]:
-                    self.log("偵測到視覺化編輯器腳本,開始轉換...")
+                    self.log("ıƽs边},}lഫ...")
                     try:
                         events = self._actions_to_events(settings["script_actions"])
                         if len(events) == 0:
-                            raise ValueError("轉換後無有效事件")
-                        self.log(f"轉換完成: {len(events)} 筆事件")
+                            raise ValueError("ഫLĨƥ")
+                        self.log(f"ഫ: {len(events)} ƥ")
                     except Exception as convert_err:
-                        self.log(f"轉換失敗: {convert_err}")
-                        messagebox.showerror("轉換失敗", 
-                                           f"無法轉換視覺化編輯器腳本:\n\n{convert_err}")
+                        self.log(f"ഫ: {convert_err}")
+                        messagebox.showerror("ഫ", 
+                                           f"Lkഫıƽs边}:\n\n{convert_err}")
                         return
                 else:
-                    self.log(f"警告: 腳本無事件且無動作列表")
-                    if not messagebox.askyesno("確認", 
-                                               "此腳本沒有任何內容\n是否繼續載入?"):
+                    self.log(f"ĵi: }LƥBLʧ@C")
+                    if not messagebox.askyesno("T{", 
+                                               "}S󤺮e\nO_~J?"):
                         return
             
-            # 設定事件列表
+            # ]wƥC
             self.events = events
             
-            # 恢復參數 (帶預設值)
+            # _Ѽ (aw])
             self.speed_var.set(settings.get("speed", "100"))
             self.repeat_var.set(settings.get("repeat", "1"))
             self.repeat_time_var.set(settings.get("repeat_time", "00:00:00"))
@@ -2887,15 +3013,15 @@ class RecorderApp(tb.Window):
             except:
                 self.random_interval_var.set(False)
             
-            # ✅ 讀取視窗資訊 (新格式優先,兼容舊格式)
+            # ? ŪT (s榡u,ݮe®榡)
             if "window_info" in settings and isinstance(settings["window_info"], dict):
                 self.recorded_window_info = settings["window_info"]
-                self.log(f"📐 視窗資訊:")
-                self.log(f"   大小: {self.recorded_window_info.get('size', ('N/A', 'N/A'))[0]} x {self.recorded_window_info.get('size', ('N/A', 'N/A'))[1]}")
+                self.log(f"?? T:")
+                self.log(f"   jp: {self.recorded_window_info.get('size', ('N/A', 'N/A'))[0]} x {self.recorded_window_info.get('size', ('N/A', 'N/A'))[1]}")
                 self.log(f"   DPI: {self.recorded_window_info.get('dpi_scale', 1.0):.2f}x ({int(self.recorded_window_info.get('dpi_scale', 1.0) * 100)}%)")
-                self.log(f"   解析度: {self.recorded_window_info.get('screen_resolution', ('N/A', 'N/A'))[0]} x {self.recorded_window_info.get('screen_resolution', ('N/A', 'N/A'))[1]}")
+                self.log(f"   ѪR: {self.recorded_window_info.get('screen_resolution', ('N/A', 'N/A'))[0]} x {self.recorded_window_info.get('screen_resolution', ('N/A', 'N/A'))[1]}")
             elif "window_size" in settings:
-                # 兼容舊格式
+                # ݮe®榡
                 self.recorded_window_info = {
                     "size": tuple(settings["window_size"]),
                     "position": (0, 0),
@@ -2903,28 +3029,28 @@ class RecorderApp(tb.Window):
                     "screen_resolution": (1920, 1080),
                     "client_size": tuple(settings["window_size"])
                 }
-                self.log(f"舊格式視窗資訊 (已轉換)")
+                self.log(f"®榡T (wഫ)")
             else:
                 self.recorded_window_info = None
-                self.log(f"無視窗資訊 (可能為絕對座標腳本)")
+                self.log(f"LT (iରyи})")
             
-            # 顯示檔名時去除副檔名
+            # ɦWɥhɦW
             display_name = os.path.splitext(script_file)[0]
-            self.log(f"腳本已載入: {display_name} ({len(self.events)} 筆事件)")
-            self.log(f"   速度: {self.speed_var.get()}, 重複: {self.repeat_var.get()}")
+            self.log(f"}wJ: {display_name} ({len(self.events)} ƥ)")
+            self.log(f"   t: {self.speed_var.get()}, : {self.repeat_var.get()}")
             
-            # 儲存到設定檔
+            # xs]w
             with open(LAST_SCRIPT_FILE, "w", encoding="utf-8") as f:
                 f.write(script_file)
             
-            # ✅ 計算並顯示預估時間
+            # ? pܹwɶ
             if self.events and len(self.events) > 0:
                 try:
-                    # 單次時間
+                    # 榸ɶ
                     single_time = self.events[-1]['time'] - self.events[0]['time']
                     self.update_countdown_label(single_time)
                     
-                    # 計算總運作時間
+                    # p`B@ɶ
                     speed_val = int(self.speed_var.get())
                     speed = speed_val / 100.0
                     repeat = int(self.repeat_var.get())
@@ -2933,7 +3059,7 @@ class RecorderApp(tb.Window):
                     
                     single_adjusted = single_time / speed
                     
-                    if repeat == 0:  # 無限重複
+                    if repeat == 0:  # L
                         total_time = float('inf') if not repeat_time_sec else repeat_time_sec
                     elif repeat_time_sec > 0:
                         total_time = repeat_time_sec
@@ -2942,13 +3068,13 @@ class RecorderApp(tb.Window):
                     
                     self.update_total_time_label(total_time)
                     
-                    # 顯示時間資訊
+                    # ܮɶT
                     if total_time == float('inf'):
-                        self.log(f"單次時間: {single_time:.1f}秒, 總運作: 無限重複")
+                        self.log(f"榸ɶ: {single_time:.1f}, `B@: L")
                     else:
-                        self.log(f"單次時間: {single_time:.1f}秒, 總運作: {total_time:.1f}秒")
+                        self.log(f"榸ɶ: {single_time:.1f}, `B@: {total_time:.1f}")
                 except Exception as time_err:
-                    self.log(f"計算時間時發生錯誤: {time_err}")
+                    self.log(f"pɶɵoͿ~: {time_err}")
                     self.update_countdown_label(0)
                     self.update_total_time_label(0)
             else:
@@ -2956,18 +3082,18 @@ class RecorderApp(tb.Window):
                 self.update_total_time_label(0)
                 
         except json.JSONDecodeError as e:
-            self.log(f"載入失敗: JSON 格式錯誤 - {e}")
-            messagebox.showerror("格式錯誤", 
-                               f"腳本檔案格式損壞:\n\n{e}\n\n請使用文字編輯器檢查檔案內容")
+            self.log(f"J: JSON 榡~ - {e}")
+            messagebox.showerror("榡~", 
+                               f"}ɮ׮榡la:\n\n{e}\n\nШϥΤrs边ˬdɮפe")
         except Exception as ex:
-            self.log(f"載入腳本失敗: {ex}")
+            self.log(f"J}: {ex}")
             import traceback
             detailed_error = traceback.format_exc()
-            self.log(f"錯誤詳情:\n{detailed_error}")
-            messagebox.showerror("載入失敗", 
-                               f"無法載入腳本:\n\n{ex}\n\n請查看日誌獲取詳細資訊")
+            self.log(f"~Ա:\n{detailed_error}")
+            messagebox.showerror("J", 
+                               f"LkJ}:\n\n{ex}\n\nЬdݤxԲӸT")
         
-        # 儲存設定
+        # xs]w
         self.save_config()
 
     def load_script(self):
@@ -2983,21 +3109,21 @@ class RecorderApp(tb.Window):
                 self.repeat_time_var.set(settings.get("repeat_time", "00:00:00"))
                 self.repeat_interval_var.set(settings.get("repeat_interval", "00:00:00"))
                 self.random_interval_var.set(settings.get("random_interval", False))
-                self.log(f"[{format_time(time.time())}] 腳本已載入：{os.path.basename(path)}，共 {len(self.events)} 筆事件。")
+                self.log(f"[{format_time(time.time())}] }wJG{os.path.basename(path)}A@ {len(self.events)} ƥC")
                 self.refresh_script_list()
                 self.script_var.set(os.path.basename(path))
                 with open(LAST_SCRIPT_FILE, "w", encoding="utf-8") as f:
                     f.write(os.path.basename(path))
                 self.save_config()
             except Exception as ex:
-                self.log(f"載入腳本失敗: {ex}")
+                self.log(f"J}: {ex}")
 
     def load_last_script(self):
         if os.path.exists(LAST_SCRIPT_FILE):
             with open(LAST_SCRIPT_FILE, "r", encoding="utf-8") as f:
                 last_script = f.read().strip()
             if last_script:
-                # 確保有副檔名
+                # TOɦW
                 if not last_script.endswith('.json'):
                     last_script = last_script + '.json'
                 
@@ -3013,11 +3139,11 @@ class RecorderApp(tb.Window):
                         self.repeat_interval_var.set(settings.get("repeat_interval", "00:00:00"))
                         self.random_interval_var.set(settings.get("random_interval", False))
                         
-                        # 讀取視窗資訊（新格式優先）
+                        # ŪT]s榡u^
                         if "window_info" in settings:
                             self.recorded_window_info = settings["window_info"]
                         elif "window_size" in settings:
-                            # 兼容舊格式
+                            # ݮe®榡
                             self.recorded_window_info = {
                                 "size": tuple(settings["window_size"]),
                                 "position": (0, 0),
@@ -3028,17 +3154,17 @@ class RecorderApp(tb.Window):
                         else:
                             self.recorded_window_info = None
                         
-                        # 顯示時去除副檔名
+                        # ܮɥhɦW
                         display_name = os.path.splitext(last_script)[0]
                         self.script_var.set(display_name)
-                        self.log(f"[{format_time(time.time())}] 自動載入腳本：{display_name}，共 {len(self.events)} 筆事件。")
+                        self.log(f"[{format_time(time.time())}] ۰ʸJ}G{display_name}A@ {len(self.events)} ƥC")
                     except Exception as ex:
-                        self.log(f"載入上次腳本失敗: {ex}")
+                        self.log(f"JW}: {ex}")
                         self.random_interval_var.set(settings.get("random_interval", False))
                         self.script_var.set(last_script)
-                        self.log(f"[{format_time(time.time())}] 已自動載入上次腳本：{last_script}，共 {len(self.events)} 筆事件。")
+                        self.log(f"[{format_time(time.time())}] w۰ʸJW}G{last_script}A@ {len(self.events)} ƥC")
                     except Exception as ex:
-                        self.log(f"載入上次腳本失敗: {ex}")
+                        self.log(f"JW}: {ex}")
 
     def update_mouse_pos(self):
         try:
@@ -3053,14 +3179,14 @@ class RecorderApp(tb.Window):
         old_name = self.script_var.get()
         new_name = self.rename_var.get().strip()
         if not old_name or not new_name:
-            self.log(f"[{format_time(time.time())}] 請選擇腳本並輸入新名稱。")
+            self.log(f"[{format_time(time.time())}] пܸ}ÿJsW١C")
             return
         
-        # 確保 old_name 有副檔名
+        # TO old_name ɦW
         if not old_name.endswith('.json'):
             old_name += '.json'
         
-        # 確保 new_name 有副檔名
+        # TO new_name ɦW
         if not new_name.endswith('.json'):
             new_name += '.json'
         
@@ -3068,63 +3194,73 @@ class RecorderApp(tb.Window):
         new_path = os.path.join(self.script_dir, new_name)
         
         if not os.path.exists(old_path):
-            self.log(f"[{format_time(time.time())}] 找不到原始腳本檔案。")
+            self.log(f"[{format_time(time.time())}] 䤣l}ɮסC")
             return
         
         if os.path.exists(new_path):
-            self.log(f"[{format_time(time.time())}] 檔案已存在，請換個名稱。")
+            self.log(f"[{format_time(time.time())}] ɮפwsbAдӦW١C")
             return
         
         try:
             os.rename(old_path, new_path)
-            # 更新 last_script.txt
+            # s last_script.txt
             new_display_name = os.path.splitext(new_name)[0]
-            self.log(f"[{format_time(time.time())}] 腳本已更名為：{new_display_name}")
+            self.log(f"[{format_time(time.time())}] }wWG{new_display_name}")
             self.refresh_script_list()
             self.refresh_script_listbox()
-            # 更新選擇（顯示時不含副檔名）
+            # sܡ]ܮɤtɦW^
             self.script_var.set(new_display_name)
             with open(LAST_SCRIPT_FILE, "w", encoding="utf-8") as f:
                 f.write(new_name)
         except Exception as e:
-            self.log(f"[{format_time(time.time())}] 更名失敗: {e}")
-        self.rename_var.set("")  # 更名後清空輸入框
+            self.log(f"[{format_time(time.time())}] W: {e}")
+        self.rename_var.set("")  # WMſJ
 
     def merge_scripts(self):
-        """開啟腳本合併對話框，允許將多個腳本按順序合併為一個新腳本"""
+        """}Ҹ}XֹܮءA\NhӸ}ǦX֬@ӷs}"""
         lang = self.language_var.get()
-        lang_map = LANG_MAP.get(lang, LANG_MAP["繁體中文"])
+        lang_map = LANG_MAP.get(lang, LANG_MAP["c餤"])
         
-        # 創建合併對話框
+        # ЫئXֹܮ
         merge_win = tb.Toplevel(self)
-        merge_win.title(lang_map.get("合併腳本", "合併腳本"))
+        merge_win.title(lang_map.get("Xָ}", "Xָ}"))
         merge_win.geometry("850x550")
         merge_win.resizable(True, True)
         merge_win.minsize(750, 500)
         
+<<<<<<< Updated upstream
         # 待合併腳本資料列表：儲存 {"name": str, "delay": float}
         self.merge_data_list = []
+=======
+        # ӧO}r]}W -> ơ^
+        script_delays = {}
+>>>>>>> Stashed changes
         
-        # 說明標籤
+        # 
         info_frame = tb.Frame(merge_win, padding=10)
         info_frame.pack(fill="x")
         info_label = tb.Label(
             info_frame, 
+<<<<<<< Updated upstream
             text="[合併] 選擇要合併的腳本，按順序執行（點兩下腳本設定延遲）",
             font=("微軟正黑體", 10),
+=======
+            text="?? ܭnX֪}Aǰ]IU}]w^",
+            font=("Ln", 10),
+>>>>>>> Stashed changes
             wraplength=800
         )
         info_label.pack()
         
-        # 主要內容區
+        # Dne
         main_content = tb.Frame(merge_win)
         main_content.pack(fill="both", expand=True, padx=10, pady=5)
         
-        # 可用腳本列表（左側）
-        left_frame = tb.LabelFrame(main_content, text=lang_map.get("所有Script", "所有腳本"), padding=10)
+        # iθ}C]^
+        left_frame = tb.LabelFrame(main_content, text=lang_map.get("ҦScript", "Ҧ}"), padding=10)
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
         
-        available_list = tk.Listbox(left_frame, height=12, selectmode=tk.EXTENDED, font=("微軟正黑體", 10))
+        available_list = tk.Listbox(left_frame, height=12, selectmode=tk.EXTENDED, font=("Ln", 10))
         available_list.pack(fill="both", expand=True)
         
         scripts = [f for f in os.listdir(self.script_dir) if f.endswith('.json')]
@@ -3132,7 +3268,7 @@ class RecorderApp(tb.Window):
             display_name = os.path.splitext(script)[0]
             available_list.insert(tk.END, display_name)
         
-        # 中間控制按鈕
+        # s
         middle_frame = tb.Frame(main_content, padding=5)
         middle_frame.pack(side="left", fill="y")
         
@@ -3140,9 +3276,15 @@ class RecorderApp(tb.Window):
             selected_indices = available_list.curselection()
             for idx in selected_indices:
                 script_name = available_list.get(idx)
+<<<<<<< Updated upstream
                 # 允許重複加入
                 self.merge_data_list.append({"name": script_name, "delay": 0})
             update_merge_list_display()
+=======
+                if script_name not in merge_list.get(0, tk.END):
+                    merge_list.insert(tk.END, script_name)
+                    script_delays[script_name] = 0  # w] 0 
+>>>>>>> Stashed changes
         
         def remove_from_merge():
             selected_indices = list(merge_list.curselection())
@@ -3178,22 +3320,22 @@ class RecorderApp(tb.Window):
                     merge_list.selection_set(idx + 1)
         
         def on_double_click(event):
-            """點兩下腳本設定延遲時間"""
+            """IU}]wɶ"""
             index = merge_list.nearest(event.y)
             if index < 0 or index >= len(self.merge_data_list):
                 return
             item_data = self.merge_data_list[index]
             script_name = item_data["name"]
             
-            # 創建輸入對話框
+            # ЫؿJܮ
             delay_win = tb.Toplevel(merge_win)
-            delay_win.title("設定延遲")
+            delay_win.title("]w")
             delay_win.geometry("300x150")
             delay_win.resizable(False, False)
             delay_win.transient(merge_win)
             delay_win.grab_set()
             
-            # 置中顯示
+            # m
             delay_win.update_idletasks()
             x = merge_win.winfo_x() + (merge_win.winfo_width() - 300) // 2
             y = merge_win.winfo_y() + (merge_win.winfo_height() - 150) // 2
@@ -3202,17 +3344,17 @@ class RecorderApp(tb.Window):
             frame = tb.Frame(delay_win, padding=20)
             frame.pack(fill="both", expand=True)
             
-            tb.Label(frame, text=f"腳本：{script_name}", font=("微軟正黑體", 10, "bold")).pack(pady=(0, 10))
-            tb.Label(frame, text="延遲執行秒數：", font=("微軟正黑體", 10)).pack()
+            tb.Label(frame, text=f"}G{script_name}", font=("Ln", 10, "bold")).pack(pady=(0, 10))
+            tb.Label(frame, text="ơG", font=("Ln", 10)).pack()
             
             current_delay = item_data["delay"]
             delay_var = tk.StringVar(value=str(current_delay))
-            delay_entry = tb.Entry(frame, textvariable=delay_var, width=15, font=("微軟正黑體", 11), justify="center")
+            delay_entry = tb.Entry(frame, textvariable=delay_var, width=15, font=("Ln", 11), justify="center")
             delay_entry.pack(pady=5)
             delay_entry.focus()
             delay_entry.select_range(0, tk.END)
             
-            # 只允許數字，最多 4 位
+            # u\ƦrA̦h 4 
             def validate_delay(P):
                 if P == "":
                     return True
@@ -3230,64 +3372,88 @@ class RecorderApp(tb.Window):
             def save_delay():
                 try:
                     delay_value = int(delay_var.get()) if delay_var.get() else 0
+<<<<<<< Updated upstream
                     self.merge_data_list[index]["delay"] = delay_value
                     # 更新顯示
+=======
+                    script_delays[script_name] = delay_value
+                    # s
+>>>>>>> Stashed changes
                     update_merge_list_display()
                     delay_win.destroy()
                 except:
-                    messagebox.showerror("錯誤", "請輸入有效的數字")
+                    messagebox.showerror("~", "пJĪƦr")
             
             btn_frame = tb.Frame(frame)
             btn_frame.pack(pady=10)
-            tb.Button(btn_frame, text="確定", command=save_delay, width=8, bootstyle=SUCCESS).pack(side="left", padx=5)
-            tb.Button(btn_frame, text="取消", command=delay_win.destroy, width=8, bootstyle=SECONDARY).pack(side="left", padx=5)
+            tb.Button(btn_frame, text="Tw", command=save_delay, width=8, bootstyle=SUCCESS).pack(side="left", padx=5)
+            tb.Button(btn_frame, text="", command=delay_win.destroy, width=8, bootstyle=SECONDARY).pack(side="left", padx=5)
             
-            # Enter 鍵確認
+            # Enter T{
             delay_entry.bind("<Return>", lambda e: save_delay())
         
         def update_merge_list_display():
+<<<<<<< Updated upstream
             """更新合併列表顯示（顯示延遲時間）"""
+=======
+            """sX֦Cܡ]ܩɶ^"""
+            current_items = list(merge_list.get(0, tk.END))
+>>>>>>> Stashed changes
             merge_list.delete(0, tk.END)
             for item in self.merge_data_list:
                 script_name = item["name"]
                 delay = item["delay"]
                 if delay > 0:
-                    display_text = f"{script_name}  [延遲 {delay}秒]"
+                    display_text = f"{script_name}  [ {delay}]"
                 else:
                     display_text = script_name
                 merge_list.insert(tk.END, display_text)
         
+<<<<<<< Updated upstream
         add_btn = tb.Button(middle_frame, text="加 入", command=add_to_merge, width=10, bootstyle=SUCCESS)
         add_btn.pack(pady=5)
         
         remove_btn = tb.Button(middle_frame, text="移 除", command=remove_from_merge, width=10, bootstyle=DANGER)
+=======
+        add_btn = tb.Button(middle_frame, text="? " + lang_map.get("[J", "[J"), command=add_to_merge, width=10, bootstyle=SUCCESS)
+        add_btn.pack(pady=5)
+        
+        remove_btn = tb.Button(middle_frame, text="? " + lang_map.get("", ""), command=remove_from_merge, width=10, bootstyle=DANGER)
+>>>>>>> Stashed changes
         remove_btn.pack(pady=5)
         
         tb.Label(middle_frame, text="").pack(pady=10)
         
+<<<<<<< Updated upstream
         up_btn = tb.Button(middle_frame, text="上 移", command=move_up, width=10, bootstyle=INFO)
         up_btn.pack(pady=5)
         
         down_btn = tb.Button(middle_frame, text="下 移", command=move_down, width=10, bootstyle=INFO)
+=======
+        up_btn = tb.Button(middle_frame, text="? W", command=move_up, width=10, bootstyle=INFO)
+        up_btn.pack(pady=5)
+        
+        down_btn = tb.Button(middle_frame, text="? U", command=move_down, width=10, bootstyle=INFO)
+>>>>>>> Stashed changes
         down_btn.pack(pady=5)
         
-        # 合併列表（右側）
-        right_frame = tb.LabelFrame(main_content, text="待合併腳本（執行順序）", padding=10)
+        # X֦C]k^
+        right_frame = tb.LabelFrame(main_content, text="ݦXָ}]涶ǡ^", padding=10)
         right_frame.pack(side="left", fill="both", expand=True, padx=(5, 0))
         
-        merge_list = tk.Listbox(right_frame, height=12, selectmode=tk.EXTENDED, font=("微軟正黑體", 10))
+        merge_list = tk.Listbox(right_frame, height=12, selectmode=tk.EXTENDED, font=("Ln", 10))
         merge_list.pack(fill="both", expand=True)
         merge_list.bind("<Double-Button-1>", on_double_click)
         
-        # 底部操作區
+        # ާ@
         bottom_frame = tb.Frame(merge_win, padding=15)
         bottom_frame.pack(fill="x", padx=10, pady=(5, 10))
         
-        tb.Label(bottom_frame, text="合併名稱：", 
-                font=("微軟正黑體", 10)).grid(row=0, column=0, sticky="w", padx=(0, 8))
+        tb.Label(bottom_frame, text="X֦W١G", 
+                font=("Ln", 10)).grid(row=0, column=0, sticky="w", padx=(0, 8))
         
         new_name_var = tk.StringVar(value="merged_script")
-        new_name_entry = tb.Entry(bottom_frame, textvariable=new_name_var, width=40, font=("微軟正黑體", 10))
+        new_name_entry = tb.Entry(bottom_frame, textvariable=new_name_var, width=40, font=("Ln", 10))
         new_name_entry.grid(row=0, column=1, sticky="ew", padx=(0, 20))
         
         button_frame = tb.Frame(bottom_frame)
@@ -3296,9 +3462,26 @@ class RecorderApp(tb.Window):
         bottom_frame.columnconfigure(1, weight=1)
         
         def do_merge():
+<<<<<<< Updated upstream
             """執行腳本合併"""
             if len(self.merge_data_list) < 2:
                 messagebox.showwarning("提示", "請至少選擇2個腳本進行合併")
+=======
+            """}X"""
+            script_names_display = list(merge_list.get(0, tk.END))
+            # u}W١]ܪаO^
+            script_names = []
+            for display_name in script_names_display:
+                #  [ X] аO
+                if "  [" in display_name:
+                    real_name = display_name.split("  [")[0]
+                else:
+                    real_name = display_name
+                script_names.append(real_name)
+            
+            if len(script_names) < 2:
+                messagebox.showwarning("", "Цܤֿ2Ӹ}iX")
+>>>>>>> Stashed changes
                 return
             
             script_names = [item["name"] for item in self.merge_data_list]
@@ -3306,7 +3489,7 @@ class RecorderApp(tb.Window):
             
             new_name = new_name_var.get().strip()
             if not new_name:
-                messagebox.showwarning("提示", "請輸入合併名稱")
+                messagebox.showwarning("", "пJX֦W")
                 return
             
             if not new_name.endswith('.json'):
@@ -3314,7 +3497,7 @@ class RecorderApp(tb.Window):
             
             new_path = os.path.join(self.script_dir, new_name)
             if os.path.exists(new_path):
-                if not messagebox.askyesno("確認", f"腳本 {new_name} 已存在，是否覆蓋？"):
+                if not messagebox.askyesno("T{", f"} {new_name} wsbAO_л\H"):
                     return
             
             try:
@@ -3325,7 +3508,7 @@ class RecorderApp(tb.Window):
                 for i, script_name in enumerate(script_names):
                     script_path = os.path.join(self.script_dir, script_name + '.json')
                     if not os.path.exists(script_path):
-                        self.log(f"[警告] 找不到腳本：{script_name}")
+                        self.log(f"[ĵi] 䤣}G{script_name}")
                         continue
                     
                     data = sio_load_script(script_path)
@@ -3333,7 +3516,11 @@ class RecorderApp(tb.Window):
                     
                     if i == 0:
                         first_script_settings = data.get("settings", {}).copy()
+<<<<<<< Updated upstream
                         self.log(f"[合併] 使用腳本A的參數設定：{script_name}")
+=======
+                        self.log(f"? ϥθ}AѼƳ]wG{script_name}")
+>>>>>>> Stashed changes
                     
                     if not events:
                         continue
@@ -3345,15 +3532,19 @@ class RecorderApp(tb.Window):
                         new_event['time'] = (event['time'] - script_base_time) + time_offset
                         merged_events.append(new_event)
                     
-                    # 更新時間偏移（加上本腳本持續時間 + 個別延遲）
+                    # sɶ][W}ɶ + ӧO^
                     if merged_events:
                         script_duration = events[-1]['time'] - script_base_time
                         individual_delay = script_delays_list[i]
                         time_offset = merged_events[-1]['time'] + individual_delay
                         if individual_delay > 0:
+<<<<<<< Updated upstream
                             self.log(f"[合併] 腳本 {script_name} 設定延遲 {individual_delay} 秒")
+=======
+                            self.log(f"? } {script_name} ]w {individual_delay} ")
+>>>>>>> Stashed changes
                 
-                # 儲存合併後的腳本
+                # xsX᪺֫}
                 merged_data = {
                     "events": merged_events,
                     "settings": first_script_settings or {}
@@ -3362,29 +3553,34 @@ class RecorderApp(tb.Window):
                 with open(new_path, "w", encoding="utf-8") as f:
                     json.dump(merged_data, f, ensure_ascii=False, indent=2)
                 
+<<<<<<< Updated upstream
                 self.log(f"[成功] 合併完成：{new_name}，共 {len(merged_events)} 筆事件")
                 messagebox.showinfo("成功", f"已合併 {len(script_names)} 個腳本為\n{new_name}")
+=======
+                self.log(f"? X֧G{new_name}A@ {len(merged_events)} ƥ")
+                messagebox.showinfo("\", f"wX {len(script_names)} Ӹ}\n{new_name}")
+>>>>>>> Stashed changes
                 
                 self.refresh_script_list()
                 self.script_var.set(os.path.splitext(new_name)[0])
                 merge_win.destroy()
                 
             except Exception as e:
-                self.log(f"合併失敗: {e}")
-                messagebox.showerror("錯誤", f"合併失敗：\n{e}")
+                self.log(f"X֥: {e}")
+                messagebox.showerror("~", f"X֥ѡG\n{e}")
                 import traceback
                 traceback.print_exc()
                 
-                # 刷新腳本列表
+                # s}C
                 self.refresh_script_list()
                 self.refresh_script_listbox()
                 
-                # 關閉對話框
+                # ܮ
                 merge_win.destroy()
                 
-                # 詢問是否載入新腳本
-                if messagebox.askyesno("提示", "是否載入新合併的腳本？"):
-                    # 載入新腳本
+                # ߰ݬO_Js}
+                if messagebox.askyesno("", "O_JsX֪}H"):
+                    # Js}
                     self.events = merged_events
                     self.script_settings = first_script_settings
                     self.script_var.set(os.path.splitext(new_name)[0])
@@ -3392,13 +3588,13 @@ class RecorderApp(tb.Window):
                         f.write(new_name)
                 
             except Exception as e:
-                messagebox.showerror("錯誤", f"合併失敗：{e}")
+                messagebox.showerror("~", f"X֥ѡG{e}")
                 import traceback
-                self.log(f"合併錯誤詳情: {traceback.format_exc()}")
+                self.log(f"Xֿ~Ա: {traceback.format_exc()}")
         
         merge_execute_btn = tb.Button(
             button_frame, 
-            text=lang_map.get("合併並儲存", "合併並儲存"), 
+            text=lang_map.get("X֨xs", "X֨xs"), 
             command=do_merge, 
             bootstyle=SUCCESS,
             width=15
@@ -3407,7 +3603,7 @@ class RecorderApp(tb.Window):
         
         cancel_btn = tb.Button(
             button_frame, 
-            text=lang_map.get("取消", "取消"), 
+            text=lang_map.get("", ""), 
             command=merge_win.destroy, 
             bootstyle=SECONDARY,
             width=10
@@ -3415,58 +3611,58 @@ class RecorderApp(tb.Window):
         cancel_btn.pack(side="left")
 
     def open_scripts_dir(self):
-        path = os.path.abspath(self.script_dir)  # 修正
+        path = os.path.abspath(self.script_dir)  # ץ
         os.startfile(path)
 
     def open_hotkey_settings(self):
         win = tb.Toplevel(self)
         win.title("Hotkey")
-        win.geometry("400x450")  # 增大尺寸以容納強制停止欄位
-        win.resizable(True, True)  # 允許調整大小
-        win.minsize(350, 400)  # 設置最小尺寸
-        # 設定視窗圖示
+        win.geometry("400x450")  # WjؤoHeǱj
+        win.resizable(True, True)  # \վjp
+        win.minsize(350, 400)  # ]m̤pؤo
+        # ]wϥ
         set_window_icon(win)
         
-        # 居中顯示
+        # ~
         win.update_idletasks()
         x = (win.winfo_screenwidth() // 2) - (win.winfo_width() // 2)
         y = (win.winfo_screenheight() // 2) - (win.winfo_height() // 2)
         win.geometry(f"+{x}+{y}")
 
-        # 建立主框架
+        # إߥDج[
         main_frame = tb.Frame(win)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-        # 依目前語言取得標籤
+        # ̥ثeyo
         lang = self.language_var.get()
-        lang_map = LANG_MAP.get(lang, LANG_MAP["繁體中文"])
+        lang_map = LANG_MAP.get(lang, LANG_MAP["c餤"])
         labels = {
-            "start": lang_map["開始錄製"],
-            "pause": lang_map["暫停/繼續"],
-            "stop": lang_map["停止"],
-            "play": lang_map["執行"],
+            "start": lang_map["}ls"],
+            "pause": lang_map["Ȱ/~"],
+            "stop": lang_map[""],
+            "play": lang_map[""],
             "mini": lang_map["MiniMode"],
-            "force_quit": lang_map["強制停止"]
+            "force_quit": lang_map["j"]
         }
         vars = {}
         entries = {}
         row = 0
 
         def on_entry_key(event, key, var):
-            """強化版快捷鍵捕捉 - v2.8.2 修復版
+            """jƪֱ䮷 - v2.8.2 ״_
             
-            修復問題：使用者只能設定 alt+按鍵 的組合
-            解決方案：正確分離修飾鍵偵測與主按鍵處理
+            ״_DGϥΪ̥u]w alt+ զX
+            ѨMסGT׹䰻PDBz
             
-            支援：
-            - 單獨按鍵：z, F7, F12
-            - 組合鍵：alt+z, ctrl+F3, shift+a
-            - 多修飾鍵：ctrl+alt+z, ctrl+shift+F5
+            䴩G
+            - WGz, F7, F12
+            - զXGalt+z, ctrl+F3, shift+a
+            - h׹Gctrl+alt+z, ctrl+shift+F5
             """
-            # 取得主按鍵名稱
+            # oDW
             key_name = event.keysym.lower()
             
-            # 修飾鍵映射（用於過濾）
+            # ׹Mg]ΩLo^
             modifier_keysyms = {
                 'shift_l', 'shift_r', 
                 'control_l', 'control_r',
@@ -3475,31 +3671,31 @@ class RecorderApp(tb.Window):
                 'meta_l', 'meta_r'
             }
             
-            # 如果只按了修飾鍵本身，先不設定（等待主按鍵）
+            # pGuF׹䥻A]w]ݥD^
             if key_name in modifier_keysyms:
                 return "break"
             
-            # 檢測真正按住的修飾鍵（排除修飾鍵本身的 keysym）
+            # ˴u׹]ư׹䥻 keysym^
             modifiers = []
             
-            # Ctrl 鍵：state bit 2 (0x0004)
+            # Ctrl Gstate bit 2 (0x0004)
             if event.state & 0x0004:
                 modifiers.append("ctrl")
             
-            # Shift 鍵：state bit 0 (0x0001)
+            # Shift Gstate bit 0 (0x0001)
             if event.state & 0x0001:
                 modifiers.append("shift")
             
-            # Alt 鍵：Windows 上 Alt 是 state bit 17 (0x20000)，也可能是 bit 3 (0x0008)
-            # 注意：只有在非 Alt 本身按鍵時才加入
+            # Alt GWindows W Alt O state bit 17 (0x20000)A]iO bit 3 (0x0008)
+            # `NGubD Alt ɤ~[J
             if event.state & 0x20000 or event.state & 0x0008:
                 modifiers.append("alt")
             
-            # Win 鍵：state bit 6 (0x0040)
+            # Win Gstate bit 6 (0x0040)
             if event.state & 0x0040:
                 modifiers.append("win")
             
-            # 特殊按鍵映射（將 Tkinter keysym 轉為 keyboard 模組格式）
+            # SMg]N Tkinter keysym ର keyboard Ҳծ榡^
             special_keys = {
                 'return': 'enter',
                 'prior': 'page_up',
@@ -3533,38 +3729,38 @@ class RecorderApp(tb.Window):
                 'slash': '/',
             }
             
-            # 處理主按鍵
+            # BzD
             main_key = None
             
-            # 功能鍵 F1-F24
+            # \ F1-F24
             if key_name.startswith('f') and len(key_name) >= 2 and key_name[1:].isdigit():
-                main_key = key_name.upper()  # F1, F12 等大寫
-            # 方向鍵
+                main_key = key_name.upper()  # F1, F12 jg
+            # V
             elif key_name in ('up', 'down', 'left', 'right'):
                 main_key = key_name
-            # 特殊按鍵
+            # S
             elif key_name in special_keys:
                 main_key = special_keys[key_name]
-            # 數字鍵盤
+            # ƦrL
             elif key_name.startswith('kp_'):
                 main_key = key_name.replace('kp_', 'num_')
-            # 一般按鍵（字母、數字）
+            # @]rBƦr^
             elif len(key_name) == 1 and key_name.isalnum():
                 main_key = key_name
-            # 其他按鍵
+            # L
             elif key_name not in modifier_keysyms:
                 main_key = key_name
             
-            # 組合最終結果
+            # զX̲׵G
             if main_key:
-                # 清除輸入框防止殘留字元
+                # MJبݯdr
                 entries[key].delete(0, tk.END)
                 
-                # 按照 ctrl, alt, shift, win 順序排列
+                #  ctrl, alt, shift, win ǱƦC
                 modifier_order = {'ctrl': 0, 'alt': 1, 'shift': 2, 'win': 3}
                 modifiers.sort(key=lambda x: modifier_order.get(x, 99))
                 
-                # 去除重複
+                # h
                 seen = set()
                 unique_modifiers = []
                 for m in modifiers:
@@ -3580,10 +3776,10 @@ class RecorderApp(tb.Window):
             return "break"
 
         def on_entry_focus_in(event, var):
-            var.set("輸入按鍵")
+            var.set("J")
 
         def on_entry_focus_out(event, key, var):
-            if var.get() == "輸入按鍵" or not var.get():
+            if var.get() == "J" or not var.get():
                 var.set(self.hotkey_map.get(key, ""))
 
         for key, label in labels.items():
@@ -3591,14 +3787,14 @@ class RecorderApp(tb.Window):
             entry_frame.pack(fill="x", pady=5)
             
             tb.Label(entry_frame, text=label, font=("Microsoft JhengHei", 11), width=12, anchor="w").pack(side="left", padx=5)
-            # 確保 hotkey_map 有此鍵，避免 KeyError
+            # TO hotkey_map AקK KeyError
             hotkey_value = self.hotkey_map.get(key, "")
             var = tk.StringVar(value=hotkey_value)
             entry = tb.Entry(entry_frame, textvariable=var, font=("Consolas", 10), state="normal")
             entry.pack(side="left", fill="x", expand=True, padx=5)
             vars[key] = var
             entries[key] = entry
-            # 強化版：只用 KeyPress 事件
+            # jƪGu KeyPress ƥ
             entry.bind("<KeyPress>", lambda e, k=key, v=var: on_entry_key(e, k, v))
             entry.bind("<FocusIn>", lambda e, v=var: on_entry_focus_in(e, v))
             entry.bind("<FocusOut>", lambda e, k=key, v=var: on_entry_focus_out(e, k, v))
@@ -3607,9 +3803,9 @@ class RecorderApp(tb.Window):
         def save_and_apply():
             for key in self.hotkey_map:
                 val = vars[key].get()
-                if val and val != "輸入按鍵":
+                if val and val != "J":
                     self.hotkey_map[key] = val.lower()
-            # 由 HotkeyManager 統一註冊（若存在），否則使用舊的 _register_hotkeys
+            #  HotkeyManager Τ@U]Ysb^A_hϥª _register_hotkeys
             if hasattr(self, 'hotkey_manager') and self.hotkey_manager:
                 try:
                     self.hotkey_manager.register_all()
@@ -3618,30 +3814,30 @@ class RecorderApp(tb.Window):
             else:
                 self._register_hotkeys()
             self._update_hotkey_labels()
-            self.save_config()  # 新增這行,確保儲存
-            self.log("快捷鍵設定已更新。")
+            self.save_config()  # sWo,TOxs
+            self.log("ֱ]wwsC")
             win.destroy()
 
-        # 按鈕框架
+        # sج[
         btn_frame = tb.Frame(main_frame)
         btn_frame.pack(fill="x", pady=15)
-        tb.Button(btn_frame, text="儲存", command=save_and_apply, width=15, bootstyle=SUCCESS).pack(pady=5)
+        tb.Button(btn_frame, text="xs", command=save_and_apply, width=15, bootstyle=SUCCESS).pack(pady=5)
 
 
     def _register_hotkeys(self):
         """
-        註冊系統快捷鍵
+        UtΧֱ
         
-        - 儲存每個快捷鍵的 handle
-        - 清理時只移除本程式註冊的快捷鍵
-        - 不影響其他程式的全域熱鍵
+        - xsCӧֱ䪺 handle
+        - Mzɥu{Uֱ
+        - vTL{
         
-        禁止：keyboard.unhook_all() - 會移除所有熱鍵（包括其他程式）
+        TGkeyboard.unhook_all() - |Ҧ]]AL{^
         """
         try:
             import keyboard
         except Exception as e:
-            self.log(f"[錯誤] keyboard 模組載入失敗: {e}")
+            self.log(f"[~] keyboard ҲոJ: {e}")
             return
         
         method_map = {
@@ -3653,15 +3849,15 @@ class RecorderApp(tb.Window):
             "force_quit": "force_quit"
         }
         
-        # ✅ 清除舊 handler（只移除本程式註冊的）
+        # ? M handler]u{U^
         for handler in self._hotkey_handlers.values():
             try:
                 keyboard.remove_hotkey(handler)
             except Exception:
-                pass  # 忽略移除失敗
+                pass  # 
         self._hotkey_handlers.clear()
         
-        # 註冊所有快捷鍵
+        # UҦֱ
         for key, hotkey in self.hotkey_map.items():
             method_name = method_map.get(key)
             if not method_name:
@@ -3683,6 +3879,7 @@ class RecorderApp(tb.Window):
                     )
                     self._hotkey_handlers[key] = handler
                     
+<<<<<<< Updated upstream
                     if self._is_first_run:
                         self.log(f"已註冊快捷鍵: {hotkey} → {key}")
                     break  # 成功則跳出重試迴圈
@@ -3691,43 +3888,66 @@ class RecorderApp(tb.Window):
                         self.log(f"快捷鍵 {hotkey} 註冊失敗 (已重試{max_retries}次): {ex}")
                     else:
                         time.sleep(0.1)  # 短暫延遲後重試
+=======
+                callback = getattr(self, method_name, None)
+                if not callable(callback):
+                    continue
+                
+                # ? Uxs handle
+                handler = keyboard.add_hotkey(
+                    hotkey, 
+                    callback,
+                    suppress=False,
+                    trigger_on_release=False
+                )
+                self._hotkey_handlers[key] = handler
+                
+                if self._is_first_run:
+                    self.log(f"wUֱ: {hotkey}  {key}")
+            except Exception as ex:
+                self.log(f"ֱ {hotkey} U: {ex}")
+>>>>>>> Stashed changes
         
-        # 提示：首次運行後不再顯示註冊訊息
+        # ܡGBᤣAܵUT
         if self._is_first_run:
+<<<<<<< Updated upstream
             self.log("✅ 系統快捷鍵註冊完成（錄製時仍然有效）")
         
         # ✅ 記錄註冊時間（用於健康檢查）
         self._last_hotkey_register_time = time.time()
+=======
+            self.log("? tΧֱU]sɤMġ^")
+>>>>>>> Stashed changes
 
 
     def _register_script_hotkeys(self):
         """
-        註冊所有腳本的快捷鍵（使用 keyboard 模組）
+        UҦ}ֱ]ϥ keyboard Ҳա^
         
-        【PyInstaller 兼容性增強】
-        - 添加 keyboard 模組載入檢查
-        - 詳細的錯誤處理和日誌
+        iPyInstaller ݮeʼWjj
+        - K[ keyboard ҲոJˬd
+        - ԲӪ~BzMx
         """
         try:
             import keyboard
         except ImportError as e:
-            self.log(f"[錯誤] 無法載入 keyboard 模組用於腳本快捷鍵: {e}")
+            self.log(f"[~] LkJ keyboard ҲեΩ}ֱ: {e}")
             return
         except Exception as e:
-            self.log(f"[錯誤] keyboard 模組初始化失敗: {e}")
+            self.log(f"[~] keyboard Ҳժlƥ: {e}")
             return
         
-        # 移除舊的腳本快捷鍵
+        # ª}ֱ
         for script, info in self._script_hotkey_handlers.items():
             try:
                 if "handler" in info:
                     keyboard.remove_hotkey(info["handler"])
             except Exception as ex:
-                # 忽略移除失敗
+                # 
                 pass
         self._script_hotkey_handlers.clear()
 
-        # 掃描所有腳本並註冊快捷鍵
+        # yҦ}õUֱ
         if not os.path.exists(self.script_dir):
             return
         
@@ -3741,7 +3961,7 @@ class RecorderApp(tb.Window):
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 
-                # 嘗試從 settings 讀取，如果沒有則從根讀取（兼容舊格式）
+                # ձq settings ŪApGShqŪ]ݮe®榡^
                 hotkey = ""
                 if "settings" in data and "script_hotkey" in data["settings"]:
                     hotkey = data["settings"]["script_hotkey"]
@@ -3750,7 +3970,7 @@ class RecorderApp(tb.Window):
                 
                 if hotkey:
                     try:
-                        # 使用 lambda 捕獲當前的 script 值
+                        # ϥ lambda e script 
                         handler = keyboard.add_hotkey(
                             hotkey,
                             lambda s=script: self._play_script_by_hotkey(s),
@@ -3764,16 +3984,16 @@ class RecorderApp(tb.Window):
                             "handler": handler
                         }
                         registered_scripts += 1
-                        self.log(f"已註冊腳本快捷鍵: {hotkey} → {script}")
+                        self.log(f"wU}ֱ: {hotkey}  {script}")
                     except Exception as ex:
                         failed_scripts += 1
-                        self.log(f"註冊腳本快捷鍵失敗 ({script}): {ex}")
+                        self.log(f"U}ֱ䥢 ({script}): {ex}")
             except Exception as ex:
-                self.log(f"讀取腳本檔案失敗 ({script}): {ex}")
+                self.log(f"Ū}ɮץ ({script}): {ex}")
         
-        # 總結註冊結果
+        # `UG
         if registered_scripts > 0 or failed_scripts > 0:
-            self.log(f"[腳本快捷鍵] 註冊完成: 成功 {registered_scripts}, 失敗 {failed_scripts}")
+            self.log(f"[}ֱ] U: \ {registered_scripts},  {failed_scripts}")
 
     def _check_hotkey_health(self):
         """
@@ -3834,52 +4054,52 @@ class RecorderApp(tb.Window):
                 pass  # 如果視窗已關閉，忽略錯誤
 
     def _play_script_by_hotkey(self, script):
-        """透過快捷鍵觸發腳本執行（使用腳本儲存的參數）"""
+        """zLֱĲo}]ϥθ}xsѼơ^"""
         if self.playing or self.recording:
-            self.log(f"目前正在錄製或執行中，無法執行腳本：{script}")
+            self.log(f"ثebsΰ椤ALk}G{script}")
             return
         
         path = os.path.join(self.script_dir, script)
         if not os.path.exists(path):
-            self.log(f"找不到腳本檔案：{script}")
+            self.log(f"䤣}ɮסG{script}")
             return
         
         try:
-            # 載入腳本及其設定
+            # J}Ψ]w
             data = sio_load_script(path)
             self.events = data.get("events", [])
             settings = data.get("settings", {})
             
-            # 套用腳本的參數設定
+            # Mθ}ѼƳ]w
             self.speed_var.set(settings.get("speed", "100"))
             self.repeat_var.set(settings.get("repeat", "1"))
             self.repeat_time_var.set(settings.get("repeat_time", "00:00:00"))
             self.repeat_interval_var.set(settings.get("repeat_interval", "00:00:00"))
             self.random_interval_var.set(settings.get("random_interval", False))
             
-            # 更新腳本選單顯示
+            # s}
             self.script_var.set(script)
             
-            self.log(f"透過快捷鍵載入腳本：{script}")
+            self.log(f"zLֱJ}G{script}")
             
-            # 開始執行
+            # }l
             self.play_record()
             
         except Exception as ex:
-            self.log(f"載入並執行腳本失敗：{ex}")
+            self.log(f"Jð}ѡG{ex}")
 
     def _update_hotkey_labels(self):
-        self.btn_start.config(text=f"開始錄製 ({self.hotkey_map['start']})")
-        self.btn_pause.config(text=f"暫停/繼續 ({self.hotkey_map['pause']})")
-        self.btn_stop.config(text=f"停止 ({self.hotkey_map['stop']})")
-        self.btn_play.config(text=f"執行 ({self.hotkey_map['play']})")
-        # MiniMode 按鈕同步更新
+        self.btn_start.config(text=f"}ls ({self.hotkey_map['start']})")
+        self.btn_pause.config(text=f"Ȱ/~ ({self.hotkey_map['pause']})")
+        self.btn_stop.config(text=f" ({self.hotkey_map['stop']})")
+        self.btn_play.config(text=f" ({self.hotkey_map['play']})")
+        # MiniMode sPBs
         if hasattr(self, "mini_btns") and self.mini_btns:
             for btn, icon, key in self.mini_btns:
                 btn.config(text=f"{icon} {self.hotkey_map[key]}")
 
     def toggle_mini_mode(self):
-        # 切換 MiniMode 狀態（參考 ChroLens_Mimic2.5.py 的 TinyMode）
+        #  MiniMode A]Ѧ ChroLens_Mimic2.5.py  TinyMode^
         if not hasattr(self, "mini_mode_on"):
             self.mini_mode_on = False
         if not hasattr(self, "mini_window"):
@@ -3895,32 +4115,32 @@ class RecorderApp(tb.Window):
                 self.mini_window.overrideredirect(True)
                 self.mini_window.resizable(False, False)
                 self.mini_window.attributes("-topmost", True)
-                # 設定視窗圖示
+                # ]wϥ
                 set_window_icon(self.mini_window)
                 
                 self.mini_btns = []
                 
-                # 新增倒數Label（多語系）
+                # sW˼Label]hyt^
                 lang = self.language_var.get()
-                lang_map = LANG_MAP.get(lang, LANG_MAP["繁體中文"])
+                lang_map = LANG_MAP.get(lang, LANG_MAP["c餤"])
                 self.mini_countdown_label = tb.Label(
                     self.mini_window,
-                    text=f"{lang_map['剩餘']}: 00:00:00",
+                    text=f"{lang_map['Ѿl']}: 00:00:00",
                     font=("Microsoft JhengHei", 12),
                     foreground="#FF95CA", width=13
                 )
                 self.mini_countdown_label.grid(row=0, column=0, padx=2, pady=5)
                 
-                # 拖曳功能
+                # 즲\
                 self.mini_window.bind("<ButtonPress-1>", self._start_move_mini)
                 self.mini_window.bind("<B1-Motion>", self._move_mini)
                 
                 btn_defs = [
-                    ("⏺", "start"),
-                    ("⏸", "pause"),
-                    ("⏹", "stop"),
-                    ("▶︎", "play"),
-                    ("⤴︎", "mini")
+                    ("?", "start"),
+                    ("?", "pause"),
+                    ("?", "stop"),
+                    ("??", "play"),
+                    ("??", "mini")
                 ]
                 
                 for i, (icon, key) in enumerate(btn_defs):
@@ -3940,17 +4160,17 @@ class RecorderApp(tb.Window):
                     btn.grid(row=0, column=i+1, padx=2, pady=5)
                     self.mini_btns.append((btn, icon, key))
                 
-                # 添加自動切換勾選框
+                # K[۰ʤĿ
                 self.mini_auto_check = tb.Checkbutton(
                     self.mini_window,
-                    text=lang_map["自動切換"],
+                    text=lang_map["۰ʤ"],
                     variable=self.auto_mini_var,
                     style="My.TCheckbutton"
                 )
                 self.mini_auto_check.grid(row=0, column=len(btn_defs)+1, padx=5, pady=5)
                 
-                # 添加 Tooltip
-                Tooltip(self.mini_auto_check, lang_map["勾選時，程式錄製/執行將自動轉換"])
+                # K[ Tooltip
+                Tooltip(self.mini_auto_check, lang_map["ĿɡA{s/N۰ഫ"])
                 
                 self.mini_window.protocol("WM_DELETE_WINDOW", self._close_mini_mode)
                 self.withdraw()
@@ -3958,7 +4178,7 @@ class RecorderApp(tb.Window):
             self._close_mini_mode()
     
     def _close_mini_mode(self):
-        """關閉 MiniMode"""
+        """ MiniMode"""
         if hasattr(self, 'mini_window') and self.mini_window and self.mini_window.winfo_exists():
             self.mini_window.destroy()
         self.mini_window = None
@@ -3966,12 +4186,12 @@ class RecorderApp(tb.Window):
         self.mini_mode_on = False
     
     def _start_move_mini(self, event):
-        """開始拖曳 MiniMode 視窗"""
+        """}l즲 MiniMode """
         self._mini_x = event.x
         self._mini_y = event.y
     
     def _move_mini(self, event):
-        """拖曳 MiniMode 視窗"""
+        """즲 MiniMode """
         if hasattr(self, 'mini_window') and self.mini_window:
             x = self.mini_window.winfo_x() + event.x - self._mini_x
             y = self.mini_window.winfo_y() + event.y - self._mini_y
@@ -3984,23 +4204,23 @@ class RecorderApp(tb.Window):
         self.refresh_script_list()
         self.save_config()
 
-        # 開啟資料夾
+        # }ҸƧ
         os.startfile(self.script_dir)
     
     def _on_script_combo_click(self, event=None):
-        """當點擊腳本下拉選單時，即時刷新列表"""
+        """I}UԿɡAYɨsC"""
         self.refresh_script_list()
 
     def refresh_script_list(self):
-        """刷新腳本下拉選單內容（去除副檔名顯示）"""
+        """s}UԿ椺e]hɦWܡ^"""
         if not os.path.exists(self.script_dir):
             os.makedirs(self.script_dir)
         scripts = [f for f in os.listdir(self.script_dir) if f.endswith('.json')]
-        # 顯示時去除副檔名，但實際儲存時仍使用完整檔名
+        # ܮɥhɦWAxsɤϥΧɦW
         display_scripts = [os.path.splitext(f)[0] for f in scripts]
         self.script_combo['values'] = display_scripts
         
-        # 若目前選擇的腳本不存在，則清空
+        # Yثeܪ}sbAhM
         current = self.script_var.get()
         if current.endswith('.json'):
             current_display = os.path.splitext(current)[0]
@@ -4013,9 +4233,9 @@ class RecorderApp(tb.Window):
             self.script_var.set(current_display)
 
     def refresh_script_listbox(self):
-        """刷新腳本設定區左側列表（顯示檔名、快捷鍵和定時）"""
+        """s}]wϥC]ɦWBֱMwɡ^"""
         try:
-            # 清空 Treeview
+            # M Treeview
             for item in self.script_treeview.get_children():
                 self.script_treeview.delete(item)
             
@@ -4024,12 +4244,12 @@ class RecorderApp(tb.Window):
             
             scripts = sorted([f for f in os.listdir(self.script_dir) if f.endswith('.json')])
             
-            # 建立顯示列表
+            # إܦC
             for script_file in scripts:
-                # 去除副檔名
+                # hɦW
                 script_name = os.path.splitext(script_file)[0]
                 
-                # 讀取快捷鍵和定時
+                # ŪֱMw
                 hotkey = ""
                 schedule_time = ""
                 try:
@@ -4044,7 +4264,7 @@ class RecorderApp(tb.Window):
                 except Exception:
                     pass
                 
-                # 插入到 Treeview（三欄：名稱、快捷鍵、定時）
+                # J Treeview]TGW١BֱBwɡ^
                 self.script_treeview.insert("", "end", values=(
                     script_name, 
                     hotkey if hotkey else "", 
@@ -4052,7 +4272,7 @@ class RecorderApp(tb.Window):
                 ))
                 
         except Exception as ex:
-            self.log(f"刷新腳本清單失敗: {ex}")
+            self.log(f"s}M楢: {ex}")
 
     def on_page_selected(self, event=None):
         idx = self.page_menu.curselection()
@@ -4061,99 +4281,99 @@ class RecorderApp(tb.Window):
         self.show_page(idx[0])
 
     def show_page(self, idx):
-        # 清空內容區
+        # MŤe
         for widget in self.page_content_frame.winfo_children():
             widget.grid_forget()
             widget.place_forget()
         if idx == 0:
-            # 日誌顯示
+            # x
             self.log_text.grid(row=0, column=0, sticky="nsew")
             for child in self.page_content_frame.winfo_children():
                 if isinstance(child, tb.Scrollbar):
                     child.grid(row=0, column=1, sticky="ns")
         elif idx == 1:
-            # 腳本編輯器 - 直接開啟編輯器視窗
+            # }s边 - }ҽs边
             self.open_visual_editor()
-            # 回到日誌顯示頁面
+            # ^xܭ
             self.page_menu.selection_clear(0, "end")
             self.page_menu.selection_set(0)
             self.show_page(0)
         elif idx == 2:
-            # 腳本設定
+            # }]w
             self.script_setting_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
             self.refresh_script_listbox()
         elif idx == 3:
-            # 整體設定
+            # ]w
             self.global_setting_frame.place(x=0, y=0, anchor="nw")
 
     def on_script_treeview_select(self, event=None):
-        """處理腳本 Treeview 選擇事件"""
+        """Bz} Treeview ܨƥ"""
         try:
             selection = self.script_treeview.selection()
             if not selection:
                 return
             
-            # 取得選中項目的值
+            # o襤ت
             item = selection[0]
             values = self.script_treeview.item(item, "values")
             if not values:
                 return
             
-            script_name = values[0]  # 腳本名稱（不含副檔名）
+            script_name = values[0]  # }W١]tɦW^
             
-            # 加回 .json 副檔名
+            # [^ .json ɦW
             script_file = script_name + ".json"
             
-            # 更新下拉選單
-            self.script_var.set(script_name)  # 下拉選單只顯示名稱
+            # sUԿ
+            self.script_var.set(script_name)  # UԿuܦW
             
-            # 載入腳本資訊
+            # J}T
             path = os.path.join(self.script_dir, script_file)
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 
-                # 顯示快捷鍵
+                # ܧֱ
                 if "settings" in data:
                     hotkey = data["settings"].get("script_hotkey", "")
                     self.hotkey_capture_var.set(hotkey)
                     
-                    # 載入其他設定
+                    # JL]w
                     self.speed_var.set(data["settings"].get("speed", "100"))
                     self.repeat_var.set(data["settings"].get("repeat", "1"))
                     self.repeat_time_var.set(data["settings"].get("repeat_time", "00:00:00"))
                     self.repeat_interval_var.set(data["settings"].get("repeat_interval", "00:00:00"))
                     self.random_interval_var.set(data["settings"].get("random_interval", False))
                 
-                # 載入事件
+                # Jƥ
                 self.events = data.get("events", [])
                 
             except Exception as ex:
-                self.log(f"載入腳本資訊失敗: {ex}")
+                self.log(f"J}T: {ex}")
                 self.hotkey_capture_var.set("")
         except Exception as ex:
-            self.log(f"處理點擊事件失敗: {ex}")
+            self.log(f"BzIƥ󥢱: {ex}")
 
     def on_script_listbox_select(self, event=None):
-        """保留舊的選擇處理（兼容性）"""
-        # 此方法已被 on_script_listbox_click 取代
+        """OdªܳBz]ݮeʡ^"""
+        # kwQ on_script_listbox_click N
         pass
 
     def on_hotkey_entry_key(self, event):
-        """強化版快捷鍵捕捉（用於腳本快捷鍵）- v2.8.2 修復版
+        """jƪֱ䮷]Ω}ֱ^- v2.8.2 ״_
         
-        修復問題：使用者只能設定 alt+按鍵 的組合
-        解決方案：正確分離修飾鍵偵測與主按鍵處理
+        ״_DGϥΪ̥u]w alt+ զX
+        ѨMסGT׹䰻PDBz
         
-        支援：
-        - 單獨按鍵：z, F7, F12
-        - 組合鍵：alt+z, ctrl+F3, shift+a
-        - 多修飾鍵：ctrl+alt+z, ctrl+shift+F5
+        䴩G
+        - WGz, F7, F12
+        - զXGalt+z, ctrl+F3, shift+a
+        - h׹Gctrl+alt+z, ctrl+shift+F5
         """
-        # 取得主按鍵名稱
+        # oDW
         key_name = event.keysym.lower()
         
-        # 修飾鍵映射（用於過濾）
+        # ׹Mg]ΩLo^
         modifier_keysyms = {
             'shift_l', 'shift_r', 
             'control_l', 'control_r',
@@ -4162,30 +4382,30 @@ class RecorderApp(tb.Window):
             'meta_l', 'meta_r'
         }
         
-        # 如果只按了修飾鍵本身，先不設定（等待主按鍵）
+        # pGuF׹䥻A]w]ݥD^
         if key_name in modifier_keysyms:
             return "break"
         
-        # 檢測真正按住的修飾鍵
+        # ˴u׹
         modifiers = []
         
-        # Ctrl 鍵：state bit 2 (0x0004)
+        # Ctrl Gstate bit 2 (0x0004)
         if event.state & 0x0004:
             modifiers.append("ctrl")
         
-        # Shift 鍵：state bit 0 (0x0001)
+        # Shift Gstate bit 0 (0x0001)
         if event.state & 0x0001:
             modifiers.append("shift")
         
-        # Alt 鍵：Windows 上 Alt 是 state bit 17 (0x20000)，也可能是 bit 3 (0x0008)
+        # Alt GWindows W Alt O state bit 17 (0x20000)A]iO bit 3 (0x0008)
         if event.state & 0x20000 or event.state & 0x0008:
             modifiers.append("alt")
         
-        # Win 鍵：state bit 6 (0x0040)
+        # Win Gstate bit 6 (0x0040)
         if event.state & 0x0040:
             modifiers.append("win")
         
-        # 特殊按鍵映射（將 Tkinter keysym 轉為 keyboard 模組格式）
+        # SMg]N Tkinter keysym ର keyboard Ҳծ榡^
         special_keys = {
             'return': 'enter',
             'prior': 'page_up',
@@ -4219,35 +4439,35 @@ class RecorderApp(tb.Window):
             'slash': '/',
         }
         
-        # 處理主按鍵
+        # BzD
         main_key = None
         
-        # 功能鍵 F1-F24
+        # \ F1-F24
         if key_name.startswith('f') and len(key_name) >= 2 and key_name[1:].isdigit():
-            main_key = key_name.upper()  # F1, F12 等大寫
-        # 方向鍵
+            main_key = key_name.upper()  # F1, F12 jg
+        # V
         elif key_name in ('up', 'down', 'left', 'right'):
             main_key = key_name
-        # 特殊按鍵
+        # S
         elif key_name in special_keys:
             main_key = special_keys[key_name]
-        # 數字鍵盤
+        # ƦrL
         elif key_name.startswith('kp_'):
             main_key = key_name.replace('kp_', 'num_')
-        # 一般按鍵（字母、數字）
+        # @]rBƦr^
         elif len(key_name) == 1 and key_name.isalnum():
             main_key = key_name
-        # 其他按鍵
+        # L
         elif key_name not in modifier_keysyms:
             main_key = key_name
         
-        # 組合最終結果
+        # զX̲׵G
         if main_key:
-            # 按照 ctrl, alt, shift, win 順序排列
+            #  ctrl, alt, shift, win ǱƦC
             modifier_order = {'ctrl': 0, 'alt': 1, 'shift': 2, 'win': 3}
             modifiers.sort(key=lambda x: modifier_order.get(x, 99))
             
-            # 去除重複
+            # h
             seen = set()
             unique_modifiers = []
             for m in modifiers:
@@ -4263,68 +4483,68 @@ class RecorderApp(tb.Window):
         return "break"
 
     def set_script_hotkey(self):
-        """為選中的腳本設定快捷鍵並註冊"""
+        """襤}]wֱõU"""
         script_name = self.script_var.get()
         hotkey = self.hotkey_capture_var.get().strip().lower()
         
-        if not script_name or not hotkey or hotkey == "輸入按鍵":
-            self.log("請先選擇腳本並輸入有效的快捷鍵。")
+        if not script_name or not hotkey or hotkey == "J":
+            self.log("Хܸ}ÿJĪֱC")
             return
         
-        # 確保有 .json 副檔名
+        # TO .json ɦW
         if not script_name.endswith('.json'):
             script_name = script_name + '.json'
         
         path = os.path.join(self.script_dir, script_name)
         
         if not os.path.exists(path):
-            self.log(f"找不到腳本檔案：{script_name}")
+            self.log(f"䤣}ɮסG{script_name}")
             return
         
         try:
-            # 讀取現有資料
+            # Ū{
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             
-            # 確保有 settings 區塊
+            # TO settings ϶
             if "settings" not in data:
                 data["settings"] = {}
             
-            # 儲存快捷鍵到腳本的 settings
+            # xsֱ} settings
             data["settings"]["script_hotkey"] = hotkey
             
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             
-            # 重新註冊所有腳本的快捷鍵
+            # sUҦ}ֱ
             self._register_script_hotkeys()
             
-            # 更新列表顯示
+            # sC
             self.refresh_script_listbox()
             
-            self.log(f"已設定腳本 {script_name} 的快捷鍵：{hotkey}")
-            self.log("提示：按下快捷鍵將使用腳本內儲存的參數直接執行")
+            self.log(f"w]w} {script_name} ֱG{hotkey}")
+            self.log("ܡGUֱNϥθ}xsѼƪ")
         except Exception as ex:
-            self.log(f"設定腳本快捷鍵失敗: {ex}")
+            self.log(f"]w}ֱ䥢: {ex}")
             import traceback
-            self.log(f"錯誤詳情: {traceback.format_exc()}")
+            self.log(f"~Ա: {traceback.format_exc()}")
 
     def delete_selected_script(self):
-        """刪除選中的腳本（支援多選）"""
-        # 從 Treeview 獲取所有選中的項目
+        """R襤}]䴩h^"""
+        # q Treeview Ҧ襤
         selection = self.script_treeview.selection()
         
         if not selection:
-            self.log("請先選擇要刪除的腳本。")
+            self.log("ХܭnR}C")
             return
         
-        # 收集要刪除的腳本名稱
+        # nR}W
         scripts_to_delete = []
         for item in selection:
             values = self.script_treeview.item(item, "values")
             if values:
-                script_name = values[0]  # 腳本名稱（不含副檔名）
-                # 確保有 .json 副檔名
+                script_name = values[0]  # }W١]tɦW^
+                # TO .json ɦW
                 if not script_name.endswith('.json'):
                     script_file = script_name + '.json'
                 else:
@@ -4335,22 +4555,22 @@ class RecorderApp(tb.Window):
                     scripts_to_delete.append((script_name, script_file, path))
         
         if not scripts_to_delete:
-            self.log("找不到可刪除的腳本檔案。")
+            self.log("䤣iR}ɮסC")
             return
         
-        # 確認刪除
+        # T{R
         import tkinter.messagebox as messagebox
         if len(scripts_to_delete) == 1:
-            # 單個腳本刪除
+            # Ӹ}R
             script_name = scripts_to_delete[0][0]
-            message = f"確定要刪除腳本「{script_name}」嗎？\n此操作無法復原！"
+            message = f"TwnR}u{script_name}vܡH\nާ@Lk_I"
         else:
-            # 多個腳本刪除
-            script_list = "\n".join([f"• {s[0]}" for s in scripts_to_delete])
-            message = f"確定要刪除以下 {len(scripts_to_delete)} 個腳本嗎？\n\n{script_list}\n\n此操作無法復原！"
+            # hӸ}R
+            script_list = "\n".join([f"E {s[0]}" for s in scripts_to_delete])
+            message = f"TwnRHU {len(scripts_to_delete)} Ӹ}ܡH\n\n{script_list}\n\nާ@Lk_I"
         
         result = messagebox.askyesno(
-            "確認刪除",
+            "T{R",
             message,
             icon='warning'
         )
@@ -4358,17 +4578,17 @@ class RecorderApp(tb.Window):
         if not result:
             return
         
-        # 執行刪除
+        # R
         deleted_count = 0
         failed_count = 0
         
         for script_name, script_file, path in scripts_to_delete:
             try:
                 os.remove(path)
-                self.log(f"✓ 已刪除腳本：{script_name}")
+                self.log(f"? wR}G{script_name}")
                 deleted_count += 1
                 
-                # 取消註冊此腳本的快捷鍵（如果有的話）
+                # U}ֱ]pGܡ^
                 if script_file in self._script_hotkey_handlers:
                     handler_info = self._script_hotkey_handlers[script_file]
                     try:
@@ -4378,19 +4598,19 @@ class RecorderApp(tb.Window):
                     del self._script_hotkey_handlers[script_file]
                     
             except Exception as ex:
-                self.log(f"✗ 刪除腳本失敗 [{script_name}]: {ex}")
+                self.log(f"? R} [{script_name}]: {ex}")
                 failed_count += 1
         
-        # 顯示總結
+        # `
         if deleted_count > 0:
-            self.log(f"[完成] 成功刪除 {deleted_count} 個腳本" + 
-                    (f"，{failed_count} 個失敗" if failed_count > 0 else ""))
+            self.log(f"[] \R {deleted_count} Ӹ}" + 
+                    (f"A{failed_count} ӥ" if failed_count > 0 else ""))
         
-        # 重新整理列表
+        # szC
         self.refresh_script_listbox()
         self.refresh_script_list()
         
-        # 清除相關 UI
+        # M UI
         self.script_var.set('')
         self.hotkey_capture_var.set('')
         if hasattr(self, 'selected_script_line'):
@@ -4398,44 +4618,44 @@ class RecorderApp(tb.Window):
 
 
     def open_visual_editor(self):
-        """開啟腳本編輯器"""
+        """}Ҹ}s边"""
         try:
-            # ✅ 檢查編輯器模組是否可用
+            # ? ˬds边ҲլO_i
             if VisualScriptEditor is None:
-                self.log("❌ 編輯器模組不可用，請檢查 text_script_editor.py 檔案")
-                messagebox.showerror("錯誤", "無法載入腳本編輯器模組")
+                self.log("? s边ҲդiΡAˬd text_script_editor.py ɮ")
+                messagebox.showerror("~", "LkJ}s边Ҳ")
                 return
             
-            # 獲取當前選中的腳本
+            # e襤}
             script_path = None
             current_script = self.script_var.get()
             if current_script:
                 script_path = os.path.join(self.script_dir, f"{current_script}.json")
                 if not os.path.exists(script_path):
-                    self.log(f"[警告] 找不到腳本檔案: {current_script}.json")
+                    self.log(f"[ĵi] 䤣}ɮ: {current_script}.json")
                     script_path = None
             
-            # 檢查是否已經有編輯器視窗開啟
+            # ˬdO_wgs边}
             if hasattr(self, 'visual_editor_window') and self.visual_editor_window and self.visual_editor_window.winfo_exists():
-                # 如果已存在，將焦點切到該視窗
+                # pGwsbANJIӵ
                 self.visual_editor_window.focus_force()
                 self.visual_editor_window.lift()
-                self.log("[資訊] 編輯器已開啟,切換至視窗")
+                self.log("[T] s边w},ܵ")
             else:
-                # 建立新視窗並儲存引用
+                # إ߷sxsޥ
                 self.visual_editor_window = VisualScriptEditor(self, script_path)
-                self.log("[資訊] 已開啟腳本編輯器")
-                # ✅ 延遲確保編輯器視窗在最上層（避免主視窗遮住編輯器）
+                self.log("[T] w}Ҹ}s边")
+                # ? TOs边b̤Wh]קKDBs边^
                 self.after(100, self._ensure_editor_on_top)
         except Exception as e:
-            self.log(f"[錯誤] 無法開啟編輯器：{e}")
+            self.log(f"[~] Lk}ҽs边G{e}")
             import traceback
             error_detail = traceback.format_exc()
-            self.log(f"錯誤詳情: {error_detail}")
-            messagebox.showerror("錯誤", f"無法開啟腳本編輯器：\n\n{e}\n\n請查看日誌獲取詳細資訊")
+            self.log(f"~Ա: {error_detail}")
+            messagebox.showerror("~", f"Lk}Ҹ}s边G\n\n{e}\n\nЬdݤxԲӸT")
 
     def _ensure_editor_on_top(self):
-        """確保編輯器視窗在最上層"""
+        """TOs边b̤Wh"""
         if hasattr(self, 'visual_editor_window') and self.visual_editor_window:
             try:
                 self.visual_editor_window.lift()
@@ -4444,11 +4664,11 @@ class RecorderApp(tb.Window):
                 pass
 
     def open_schedule_settings(self):
-        """開啟排程設定視窗"""
-        # 檢查是否有選中的腳本
+        """}ұƵ{]w"""
+        # ˬdO_襤}
         selection = self.script_treeview.selection()
         if not selection:
-            self.log("請先選擇一個腳本")
+            self.log("Хܤ@Ӹ}")
             return
         
         item = selection[0]
@@ -4458,10 +4678,10 @@ class RecorderApp(tb.Window):
         script_path = os.path.join(self.script_dir, script_file)
         
         if not os.path.exists(script_path):
-            self.log(f"腳本檔案不存在：{script_file}")
+            self.log(f"}ɮפsbG{script_file}")
             return
         
-        # 讀取現有排程
+        # Ū{Ƶ{
         current_schedule = ""
         try:
             with open(script_path, "r", encoding="utf-8") as f:
@@ -4469,39 +4689,39 @@ class RecorderApp(tb.Window):
                 if "settings" in data and "schedule_time" in data["settings"]:
                     current_schedule = data["settings"]["schedule_time"]
         except Exception as e:
-            self.log(f"讀取腳本失敗：{e}")
+            self.log(f"Ū}ѡG{e}")
             return
         
-        # 創建排程設定視窗
+        # ЫرƵ{]w
         schedule_win = tk.Toplevel(self)
-        schedule_win.title(f"設定排程 - {script_name}")
-        schedule_win.geometry("500x350")  # 增加尺寸避免按鈕被遮住
-        schedule_win.resizable(True, True)  # 允許調整大小
-        schedule_win.minsize(450, 320)  # 設定最小尺寸
+        schedule_win.title(f"]wƵ{ - {script_name}")
+        schedule_win.geometry("500x350")  # W[ؤoקKsQB
+        schedule_win.resizable(True, True)  # \վjp
+        schedule_win.minsize(450, 320)  # ]w̤pؤo
         schedule_win.grab_set()
         schedule_win.transient(self)
-        set_window_icon(schedule_win)  # 設定視窗圖示
+        set_window_icon(schedule_win)  # ]wϥ
         
-        # 居中顯示
+        # ~
         schedule_win.update_idletasks()
         x = (schedule_win.winfo_screenwidth() // 2) - (schedule_win.winfo_width() // 2)
         y = (schedule_win.winfo_screenheight() // 2) - (schedule_win.winfo_height() // 2)
         schedule_win.geometry(f"+{x}+{y}")
         
-        # 標題
+        # D
         title_frame = tb.Frame(schedule_win)
         title_frame.pack(fill="x", padx=20, pady=15)
-        tb.Label(title_frame, text=f"腳本：{script_name}", 
+        tb.Label(title_frame, text=f"}G{script_name}", 
                 font=("Microsoft JhengHei", 12, "bold")).pack(anchor="w")
         
-        # 時間選擇框架
+        # ɶܮج[
         time_frame = tb.Frame(schedule_win)
         time_frame.pack(fill="x", padx=20, pady=10)
         
-        tb.Label(time_frame, text="執行時間：", 
+        tb.Label(time_frame, text="ɶG", 
                 font=("Microsoft JhengHei", 11)).pack(side="left", padx=5)
         
-        # 小時下拉選單
+        # pɤUԿ
         hour_var = tk.StringVar()
         hour_combo = tb.Combobox(time_frame, textvariable=hour_var, 
                                  values=[f"{i:02d}" for i in range(24)], 
@@ -4510,14 +4730,14 @@ class RecorderApp(tb.Window):
         
         tb.Label(time_frame, text=":", font=("Microsoft JhengHei", 11)).pack(side="left")
         
-        # 分鐘下拉選單
+        # UԿ
         minute_var = tk.StringVar()
         minute_combo = tb.Combobox(time_frame, textvariable=minute_var,
                                    values=[f"{i:02d}" for i in range(60)],
                                    width=5, state="readonly")
         minute_combo.pack(side="left", padx=5)
         
-        # 設定當前值
+        # ]we
         if current_schedule:
             try:
                 parts = current_schedule.split(":")
@@ -4534,15 +4754,15 @@ class RecorderApp(tb.Window):
             hour_var.set("09")
             minute_var.set("00")
         
-        # 說明文字
+        # r
         info_frame = tb.Frame(schedule_win)
         info_frame.pack(fill="x", padx=20, pady=10)
-        info_text = "設定後，程式將在每天指定時間\n自動執行此腳本"
+        info_text = "]wA{NbCѫwɶ\n۰ʰ榹}"
         tb.Label(info_frame, text=info_text, 
                 font=("Microsoft JhengHei", 9), 
                 foreground="#666").pack(anchor="w")
         
-        # 按鈕框架
+        # sج[
         btn_frame = tb.Frame(schedule_win)
         btn_frame.pack(fill="x", padx=20, pady=20)
         
@@ -4551,12 +4771,12 @@ class RecorderApp(tb.Window):
             minute = minute_var.get()
             
             if not hour or not minute:
-                self.log("請選擇時間")
+                self.log("пܮɶ")
                 return
             
             schedule_time = f"{hour}:{minute}"
             
-            # 儲存到腳本
+            # xs}
             try:
                 with open(script_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
@@ -4569,7 +4789,7 @@ class RecorderApp(tb.Window):
                 with open(script_path, "w", encoding="utf-8") as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)
                 
-                # 更新排程管理器
+                # sƵ{޲z
                 if hasattr(self, 'schedule_manager') and self.schedule_manager:
                     schedule_id = f"script_{script_name}"
                     self.schedule_manager.add_schedule(schedule_id, {
@@ -4580,17 +4800,17 @@ class RecorderApp(tb.Window):
                         'enabled': True,
                         'callback': self._execute_scheduled_script
                     })
-                    self.log(f"✓ 已設定排程：{script_name} 每天 {schedule_time}")
+                    self.log(f"? w]wƵ{G{script_name} C {schedule_time}")
                 
-                # 刷新列表
+                # sC
                 self.refresh_script_listbox()
                 schedule_win.destroy()
                 
             except Exception as e:
-                self.log(f"儲存排程失敗：{e}")
+                self.log(f"xsƵ{ѡG{e}")
         
         def clear_schedule():
-            # 清除排程
+            # MƵ{
             try:
                 with open(script_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
@@ -4601,28 +4821,28 @@ class RecorderApp(tb.Window):
                 with open(script_path, "w", encoding="utf-8") as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)
                 
-                # 移除排程管理器中的排程
+                # Ƶ{޲zƵ{
                 if hasattr(self, 'schedule_manager') and self.schedule_manager:
                     schedule_id = f"script_{script_name}"
                     self.schedule_manager.remove_schedule(schedule_id)
-                    self.log(f"✓ 已清除排程：{script_name}")
+                    self.log(f"? wMƵ{G{script_name}")
                 
-                # 刷新列表
+                # sC
                 self.refresh_script_listbox()
                 schedule_win.destroy()
                 
             except Exception as e:
-                self.log(f"清除排程失敗：{e}")
+                self.log(f"MƵ{ѡG{e}")
         
-        tb.Button(btn_frame, text="確定", width=10, bootstyle=SUCCESS,
+        tb.Button(btn_frame, text="Tw", width=10, bootstyle=SUCCESS,
                  command=save_schedule).pack(side="left", padx=5)
-        tb.Button(btn_frame, text="清除排程", width=10, bootstyle=WARNING,
+        tb.Button(btn_frame, text="MƵ{", width=10, bootstyle=WARNING,
                  command=clear_schedule).pack(side="left", padx=5)
-        tb.Button(btn_frame, text="取消", width=10, bootstyle=SECONDARY,
+        tb.Button(btn_frame, text="", width=10, bootstyle=SECONDARY,
                  command=schedule_win.destroy).pack(side="left", padx=5)
 
     def _load_all_schedules(self):
-        """從所有腳本中載入排程設定"""
+        """qҦ}JƵ{]w"""
         if not hasattr(self, 'schedule_manager') or not self.schedule_manager:
             return
         
@@ -4655,39 +4875,53 @@ class RecorderApp(tb.Window):
                         loaded_count += 1
                         print(f"⏰ [系統啟動] 已載入排程: {script_name} @ {schedule_time}")
                 except Exception as e:
-                    self.log(f"載入排程失敗 ({script_file}): {e}")
+                    self.log(f"JƵ{ ({script_file}): {e}")
             
             if loaded_count > 0:
+<<<<<<< Updated upstream
                 self.log(f"💡 [排程系統] 已成功載入 {loaded_count} 個腳本排程")
             else:
                 print("ℹ️ [排程系統] 未發現任何設定排程的腳本")
+=======
+                self.log(f"? wJ {loaded_count} ӱƵ{")
+>>>>>>> Stashed changes
         except Exception as e:
-            self.log(f"載入排程失敗: {e}")
+            self.log(f"JƵ{: {e}")
     
     def _execute_scheduled_script(self, script_file):
-        """執行排程腳本的回調函數"""
+        """Ƶ{}^ը"""
         try:
             script_path = os.path.join(self.script_dir, script_file)
             if not os.path.exists(script_path):
-                self.log(f"排程腳本不存在：{script_file}")
+                self.log(f"Ƶ{}sbG{script_file}")
                 return
             
-            # 載入腳本
+            # J}
             with open(script_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             
             self.events = data.get("events", [])
             self.script_settings = data.get("settings", {})
             
+<<<<<<< Updated upstream
             # 更新 UI 設定（以便執行時使用正確參數）
             if "speed" in self.script_settings:
                 self.speed_var.set(str(self.script_settings["speed"]))
+=======
+            # s]w
+            if "loop_count" in self.script_settings:
+                try:
+                    self.loop_count_var.set(str(self.script_settings["loop_count"]))
+                except:
+                    pass
+>>>>>>> Stashed changes
             
             if "repeat" in self.script_settings:
                 # 支援舊版 loop_count 和新版 repeat
                 repeat_val = self.script_settings.get("repeat", self.script_settings.get("loop_count", "1"))
                 self.repeat_var.set(str(repeat_val))
             
+<<<<<<< Updated upstream
             if "repeat_interval" in self.script_settings:
                 # 支援舊版 interval 和新版 repeat_interval
                 interval_val = self.script_settings.get("repeat_interval", self.script_settings.get("interval", "00:00:00"))
@@ -4709,53 +4943,57 @@ class RecorderApp(tb.Window):
             self.log(f"⏰ [排程執行] 腳本: {script_file}")
             self.log(f"📊 執行條件: 速度 {self.speed_var.get()}, 重複 {self.repeat_var.get()} 次")
             self.log(f"📂 載入 {len(self.events)} 筆事件")
+=======
+            self.log(f"? [Ƶ{] {script_file}")
+            self.log(f"J {len(self.events)} ƥ")
+>>>>>>> Stashed changes
             
-            # 自動開始執行
+            # ۰ʶ}l
             self.after(500, self.play_record)
             
         except Exception as e:
-            self.log(f"執行排程腳本失敗：{e}")
+            self.log(f"Ƶ{}ѡG{e}")
             import traceback
-            self.log(f"錯誤詳情: {traceback.format_exc()}")
+            self.log(f"~Ա: {traceback.format_exc()}")
 
     def select_target_window(self):
-        """開啟視窗選擇器，選定後只錄製該視窗內的滑鼠動作"""
+        """}ҵܾAwusӵƹʧ@"""
         try:
             if WindowSelectorDialog is None:
-                self.log("❌ 視窗選擇器模組不可用，無法選擇視窗。")
-                messagebox.showerror("錯誤", "無法載入視窗選擇器模組")
+                self.log("? ܾҲդiΡALkܵC")
+                messagebox.showerror("~", "LkJܾҲ")
                 return
 
             def on_selected(hwnd, title):
-                # 清除先前 highlight
+                # Me highlight
                 try:
                     self.clear_window_highlight()
                 except Exception:
                     pass
                 if not hwnd:
-                    # 清除選定
+                    # Mw
                     self._clear_target_window()
                     return
-                # 驗證 hwnd 是否有效
+                #  hwnd O_
                 try:
                     if not win32gui.IsWindow(hwnd) or not win32gui.IsWindowVisible(hwnd):
-                        self.log("選取的視窗不可見或不存在。")
+                        self.log("iΤsbC")
                         return
                 except Exception:
                     pass
                 self.target_hwnd = hwnd
                 self.target_title = title
-                # 更新 UI 顯示（只顯示文字，不顯示圖示）
+                # s UI ܡ]uܤrAܹϥܡ^
                 short = title if len(title) <= 30 else title[:27] + "..."
-                self.target_label.config(text=f"[目標] {short}")
-                self.log(f"已選定目標視窗：{title} (hwnd={hwnd})")
-                self.log("💡 提示：右鍵點擊視窗名稱可取消選擇")
-                # 為使用者在畫面上畫出框框提示
+                self.target_label.config(text=f"[ؼ] {short}")
+                self.log(f"wwؼеG{title} (hwnd={hwnd})")
+                self.log("?? ܡGkIW٥i")
+                # ϥΪ̦beWeXخش
                 try:
                     self.show_window_highlight(hwnd)
                 except Exception:
                     pass
-                # 告訴 core_recorder（若支援）只捕捉該 hwnd
+                # iD core_recorder]Y䴩^u hwnd
                 if hasattr(self.core_recorder, 'set_target_window'):
                     self.core_recorder.set_target_window(hwnd)
                 try:
@@ -4765,37 +5003,37 @@ class RecorderApp(tb.Window):
 
             WindowSelectorDialog(self, on_selected)
         except Exception as e:
-            self.log(f"[錯誤] 無法開啟視窗選擇器：{e}")
+            self.log(f"[~] Lk}ҵܾG{e}")
             import traceback
-            self.log(f"錯誤詳情: {traceback.format_exc()}")
-            messagebox.showerror("錯誤", f"無法開啟視窗選擇器：\n\n{e}")
+            self.log(f"~Ա: {traceback.format_exc()}")
+            messagebox.showerror("~", f"Lk}ҵܾG\n\n{e}")
     
     def _clear_target_window(self, event=None):
-        """清除目標視窗設定（可由右鍵點擊觸發）"""
+        """Mؼе]w]iѥkIĲo^"""
         self.target_hwnd = None
         self.target_title = None
         self.target_label.config(text="")
-        # 告訴 core_recorder 取消視窗限定
+        # iD core_recorder w
         if hasattr(self.core_recorder, 'set_target_window'):
             self.core_recorder.set_target_window(None)
-        self.log("已清除目標視窗設定")
+        self.log("wMؼе]w")
 
     def _refresh_target_window(self, event=None):
-        """刷新目標視窗（可由左鍵點擊觸發）- 以相同視窗名稱重新指定"""
+        """sؼе]iѥIĲo^- HۦPW٭sw"""
         if not self.target_title:
-            self.log("沒有目標視窗可刷新")
+            self.log("Sؼеis")
             return
         
         original_title = self.target_title
-        self.log(f"正在搜尋視窗：{original_title}")
+        self.log(f"bjMG{original_title}")
         
-        # 搜尋所有可見視窗，找到符合標題的第一個
+        # jMҦiAŦXDĤ@
         found_hwnd = None
         
         def enum_callback(hwnd, _):
             nonlocal found_hwnd
             if found_hwnd:
-                return True  # 已經找到，繼續枚舉但不處理
+                return True  # wgA~T|Bz
             
             try:
                 if not win32gui.IsWindowVisible(hwnd):
@@ -4804,7 +5042,7 @@ class RecorderApp(tb.Window):
                 window_text = win32gui.GetWindowText(hwnd)
                 if window_text and window_text == original_title:
                     found_hwnd = hwnd
-                    return False  # 找到了，停止枚舉
+                    return False  # FAT|
             except Exception:
                 pass
             return True
@@ -4812,25 +5050,25 @@ class RecorderApp(tb.Window):
         try:
             win32gui.EnumWindows(enum_callback, None)
         except Exception as e:
-            self.log(f"枚舉視窗時發生錯誤：{e}")
+            self.log(f"T|ɵoͿ~G{e}")
         
         if found_hwnd:
-            # 更新視窗控制碼
+            # sX
             self.target_hwnd = found_hwnd
             self.target_title = original_title
-            self.target_label.config(text=f"視窗：{original_title}")
+            self.target_label.config(text=f"G{original_title}")
             
-            # 通知 core_recorder
+            # q core_recorder
             if hasattr(self.core_recorder, 'set_target_window'):
                 self.core_recorder.set_target_window(found_hwnd)
             
-            # 顯示高亮邊框
+            # ܰG
             self.show_window_highlight(found_hwnd)
-            self.log(f"已重新指定視窗：{original_title}")
+            self.log(f"wswG{original_title}")
         else:
-            self.log(f"找不到名為「{original_title}」的視窗，請檢查視窗是否已關閉或更名")
+            self.log(f"䤣Wu{original_title}vAˬdO_wΧW")
 
-    # 新增：在畫面上以 topmost 無邊框視窗顯示選定視窗的邊框提示
+    # sWGbeWH topmost Lصܿwش
     def show_window_highlight(self, hwnd):
         try:
             rect = win32gui.GetWindowRect(hwnd)
@@ -4839,19 +5077,19 @@ class RecorderApp(tb.Window):
         l, t, r, b = rect
         w = max(2, r - l)
         h = max(2, b - t)
-        # 清除已存在
+        # Mwsb
         self.clear_window_highlight()
         try:
             win = tk.Toplevel(self)
             win.overrideredirect(True)
             win.attributes("-topmost", True)
-            # 半透明背景，內側以 frame 畫出 border
+            # bzIAH frame eX border
             win.attributes("-alpha", 0.5)
             win.geometry(f"{w}x{h}+{l}+{t}")
-            # 設定視窗圖示
+            # ]wϥ
             set_window_icon(win)
             
-            # 設定視窗為 click-through（滑鼠事件穿透）
+            # ]w click-through]ƹƥz^
             hwnd_win = win.winfo_id()
             try:
                 # WS_EX_TRANSPARENT = 0x00000020, WS_EX_LAYERED = 0x00080000
@@ -4863,19 +5101,19 @@ class RecorderApp(tb.Window):
             except Exception:
                 pass
             
-            # 顯示邊框
+            # 
             frm = tk.Frame(win, bg="#00ff00", bd=4, relief="solid")
             frm.pack(fill="both", expand=True, padx=2, pady=2)
             
-            # 中央顯示提示文字（使用 Canvas 以避免被視窗大小限制）
+            # ܴܤr]ϥ Canvas HקKQjp^
             canvas = tk.Canvas(frm, bg="#000000", highlightthickness=0)
             canvas.pack(fill="both", expand=True)
             
-            # 計算適當的字體大小（根據視窗大小）
+            # pArjp]ھڵjp^
             font_size = max(12, min(24, min(w, h) // 20))
             
-            # 在 Canvas 上繪製文字（不受視窗大小限制）
-            text = "✓ 已設定目標視窗"
+            # b Canvas Wøsr]jp^
+            text = "? w]wؼе"
             canvas.create_text(
                 w // 2, h // 2,
                 text=text,
@@ -4886,14 +5124,14 @@ class RecorderApp(tb.Window):
             
             self._highlight_win = win
             
-            # 2秒後自動清除高亮框
+            # 2۰ʲMG
             self.after(2000, self.clear_window_highlight)
         except Exception as ex:
             self._highlight_win = None
-            self.log(f"顯示高亮框時發生錯誤: {ex}")
+            self.log(f"ܰGخɵoͿ~: {ex}")
 
     def clear_window_highlight(self):
-        """清除視窗高亮框"""
+        """MG"""
         w = getattr(self, "_highlight_win", None)
         if w:
             try:
@@ -4904,7 +5142,7 @@ class RecorderApp(tb.Window):
             finally:
                 self._highlight_win = None
 
-# ====== 設定檔讀寫 ======
+# ====== ]wŪg ======
 CONFIG_FILE = "user_config.json"
 
 def load_user_config():
@@ -4914,15 +5152,15 @@ def load_user_config():
                 return json.load(f)
         except Exception:
             pass
-    # 首次開啟才預設繁體中文
+    # }Ҥ~w]c餤
     return {
 
         "skin": "darkly",
         "last_script": "",
         "repeat": "1",
-        "speed": "100",  # 預設100
+        "speed": "100",  # w]100
         "script_dir": SCRIPTS_DIR,
-        "language": "繁體中文"
+        "language": "c餤"
     }
 
 def save_user_config(config):
@@ -4933,10 +5171,10 @@ def save_user_config(config):
         pass
 
 def format_time(ts):
-    """將 timestamp 轉為 HH:MM:SS 字串"""
+    """N timestamp ର HH:MM:SS r"""
     return datetime.datetime.fromtimestamp(ts).strftime("%H:%M:%S")
 
 if __name__ == "__main__":
-    # 正常啟動主程式
+    # `ҰʥD{
     app = RecorderApp()
     app.mainloop()

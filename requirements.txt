@@ -1,0 +1,21 @@
+# ChroLens-Mimic 依賴套件
+# 自動生成於 2026-01-19
+
+ChroLens_Mimic
+Pillow
+asyncio
+ctypes
+editor_utils
+keyboard
+keyboard_handler
+math
+mouse
+numpy
+opencv-python
+packaging
+pynput
+pytesseract
+pywin32
+requests
+ttkbootstrap
+webbrowser

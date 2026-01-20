@@ -94,7 +94,7 @@ LANG_MAP = {
         "3.腳本設定": "3.腳本設定",
         "4.整體設定": "4.整體設定",
         # 滑鼠模式警告
-        "滑鼠模式警告": "⚠️ 注意！\n\n取消勾選滑鼠模式將使用後台操作。\n遊戲可能會偵測外掛，請謹慎使用，後果自負！",
+        "滑鼠模式警告": "注意！\n\n取消勾選滑鼠模式將使用後台操作。\n遊戲可能會偵測外掛，請謹慎使用，後果自負！",
         # 編輯器專用
         "截圖辨識": "截圖辨識",
         "範圍辨識": "範圍辨識",
@@ -137,7 +137,7 @@ LANG_MAP = {
         # 指令說明
         "ChroLens 指令參考": "ChroLens 指令參考",
         "已複製": "已複製",
-        "點擊指令即自動複製到剪貼簿": "💡 點擊指令即自動複製到剪貼簿",
+        "點擊指令即自動複製到剪貼簿": "點擊指令即自動複製到剪貼簿",
         "提示說明": "提示：指令中的 T= 參數表示執行時間",
         "基本操作": "基本操作",
         "圖片辨識指令": "圖片辨識指令",
@@ -274,7 +274,7 @@ LANG_MAP = {
         "3.腳本設定": "3.スクリプト設定",
         "4.整體設定": "4.全体設定",
         # 滑鼠模式警告
-        "滑鼠模式警告": "⚠️ 注意！\n\nマウスモードを無効にすると、バックグラウンドモードになります。\nゲームがチートを検出する可能性があります。自己責任でご使用ください！",
+        "滑鼠模式警告": "注意！\n\nマウスモードを無効にすると、バックグラウンドモードになります。\nゲームがチートを検出する可能性があります。自己責任でご使用ください！",
         # 編輯器専用
         "截圖辨識": "スクリーンショット認識",
         "範圍辨識": "範囲認識",
@@ -398,7 +398,7 @@ LANG_MAP = {
         "3.腳本設定": "3.Script Settings",
         "4.整體設定": "4.Settings",
         # Mouse mode warning
-        "滑鼠模式警告": "⚠️ Warning!\n\nDisabling mouse mode will use background operations.\nGames may detect automation. Use at your own risk!",
+        "滑鼠模式警告": "Warning!\n\nDisabling mouse mode will use background operations.\nGames may detect automation. Use at your own risk!",
         # Editor Specific
         "截圖辨識": "Screenshot Recognition",
         "範圍辨識": "Area Recognition",
@@ -441,7 +441,7 @@ LANG_MAP = {
         # Command Reference
         "ChroLens 指令參考": "ChroLens Command Reference",
         "已複製": "Copied",
-        "點擊指令即自動複製到剪貼簿": "💡 Click command to copy to clipboard",
+        "點擊指令即自動複製到剪貼簿": "Click command to copy to clipboard",
         "提示說明": "Tip: T= parameter indicates execution time",
         "基本操作": "Basic Commands",
         "圖片辨識指令": "Image Recognition",

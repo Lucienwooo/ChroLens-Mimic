@@ -2,12 +2,12 @@
 # ChroLens Studio - Lucienwooo
 # python "C:\Users\Lucien\Documents\GitHub\ChroLens_Mimic\main\ChroLens_Mimic.py"
 #
-# ═══════════════════════════════════════════════════════════════════════════
-# 【⚠️ AI Agent 必讀】
-# ═══════════════════════════════════════════════════════════════════════════
+# ---------------------------------------------------------------------------
+# [ AI Agent 必讀 ]
+# ---------------------------------------------------------------------------
 # 在對本專案進行任何修改前，請先閱讀 AI_AGENT_NOTES.py
 # 該檔案包含所有開發規範、流程說明、版本管理規則和重要備註
-# ═══════════════════════════════════════════════════════════════════════════
+# ---------------------------------------------------------------------------
 
 VERSION = "2.7.6"
 
@@ -51,12 +51,12 @@ try:
 except Exception as e:
     print(f"無法匯入 CoreRecorder: {e}")
 
-# ✅ 使用文字指令式腳本編輯器（已移除舊版圖形化編輯器）
+# 使用文字指令式腳本編輯器（已移除舊版圖形化編輯器）
 try:
     from text_script_editor import TextCommandEditor as VisualScriptEditor
-    print("✓ 已載入文字指令編輯器")
+    print("[訊息] 已載入文字指令編輯器")
 except Exception as e:
-    print(f"❌ 無法匯入編輯器: {e}")
+    print(f"[錯誤] 無法匯入編輯器: {e}")
     import traceback
     traceback.print_exc()
     VisualScriptEditor = None
@@ -3102,15 +3102,15 @@ class RecorderApp(tb.Window):
         merge_win.resizable(True, True)
         merge_win.minsize(750, 500)
         
-        # 個別腳本延遲字典（腳本名稱 -> 延遲秒數）
-        script_delays = {}
+        # 待合併腳本資料列表：儲存 {"name": str, "delay": float}
+        self.merge_data_list = []
         
         # 說明標籤
         info_frame = tb.Frame(merge_win, padding=10)
         info_frame.pack(fill="x")
         info_label = tb.Label(
             info_frame, 
-            text="📋 選擇要合併的腳本，按順序執行（點兩下腳本設定延遲）",
+            text="[合併] 選擇要合併的腳本，按順序執行（點兩下腳本設定延遲）",
             font=("微軟正黑體", 10),
             wraplength=800
         )
@@ -3140,17 +3140,18 @@ class RecorderApp(tb.Window):
             selected_indices = available_list.curselection()
             for idx in selected_indices:
                 script_name = available_list.get(idx)
-                if script_name not in merge_list.get(0, tk.END):
-                    merge_list.insert(tk.END, script_name)
-                    script_delays[script_name] = 0  # 預設延遲 0 秒
+                # 允許重複加入
+                self.merge_data_list.append({"name": script_name, "delay": 0})
+            update_merge_list_display()
         
         def remove_from_merge():
             selected_indices = list(merge_list.curselection())
+            if not selected_indices:
+                return
             for idx in reversed(selected_indices):
-                script_name = merge_list.get(idx)
-                merge_list.delete(idx)
-                if script_name in script_delays:
-                    del script_delays[script_name]
+                if 0 <= idx < len(self.merge_data_list):
+                    self.merge_data_list.pop(idx)
+            update_merge_list_display()
         
         def move_up():
             selected_indices = merge_list.curselection()
@@ -3158,9 +3159,10 @@ class RecorderApp(tb.Window):
                 return
             for idx in selected_indices:
                 if idx > 0:
-                    item = merge_list.get(idx)
-                    merge_list.delete(idx)
-                    merge_list.insert(idx - 1, item)
+                    self.merge_data_list[idx], self.merge_data_list[idx-1] = self.merge_data_list[idx-1], self.merge_data_list[idx]
+            update_merge_list_display()
+            for idx in selected_indices:
+                if idx > 0:
                     merge_list.selection_set(idx - 1)
         
         def move_down():
@@ -3168,18 +3170,20 @@ class RecorderApp(tb.Window):
             if not selected_indices or selected_indices[-1] == merge_list.size() - 1:
                 return
             for idx in reversed(selected_indices):
-                if idx < merge_list.size() - 1:
-                    item = merge_list.get(idx)
-                    merge_list.delete(idx)
-                    merge_list.insert(idx + 1, item)
+                if idx < len(self.merge_data_list) - 1:
+                    self.merge_data_list[idx], self.merge_data_list[idx+1] = self.merge_data_list[idx+1], self.merge_data_list[idx]
+            update_merge_list_display()
+            for idx in selected_indices:
+                if idx < len(self.merge_data_list) - 1:
                     merge_list.selection_set(idx + 1)
         
         def on_double_click(event):
             """點兩下腳本設定延遲時間"""
             index = merge_list.nearest(event.y)
-            if index < 0:
+            if index < 0 or index >= len(self.merge_data_list):
                 return
-            script_name = merge_list.get(index)
+            item_data = self.merge_data_list[index]
+            script_name = item_data["name"]
             
             # 創建輸入對話框
             delay_win = tb.Toplevel(merge_win)
@@ -3201,7 +3205,7 @@ class RecorderApp(tb.Window):
             tb.Label(frame, text=f"腳本：{script_name}", font=("微軟正黑體", 10, "bold")).pack(pady=(0, 10))
             tb.Label(frame, text="延遲執行秒數：", font=("微軟正黑體", 10)).pack()
             
-            current_delay = script_delays.get(script_name, 0)
+            current_delay = item_data["delay"]
             delay_var = tk.StringVar(value=str(current_delay))
             delay_entry = tb.Entry(frame, textvariable=delay_var, width=15, font=("微軟正黑體", 11), justify="center")
             delay_entry.pack(pady=5)
@@ -3226,7 +3230,7 @@ class RecorderApp(tb.Window):
             def save_delay():
                 try:
                     delay_value = int(delay_var.get()) if delay_var.get() else 0
-                    script_delays[script_name] = delay_value
+                    self.merge_data_list[index]["delay"] = delay_value
                     # 更新顯示
                     update_merge_list_display()
                     delay_win.destroy()
@@ -3243,28 +3247,28 @@ class RecorderApp(tb.Window):
         
         def update_merge_list_display():
             """更新合併列表顯示（顯示延遲時間）"""
-            current_items = list(merge_list.get(0, tk.END))
             merge_list.delete(0, tk.END)
-            for script_name in current_items:
-                delay = script_delays.get(script_name, 0)
+            for item in self.merge_data_list:
+                script_name = item["name"]
+                delay = item["delay"]
                 if delay > 0:
                     display_text = f"{script_name}  [延遲 {delay}秒]"
                 else:
                     display_text = script_name
                 merge_list.insert(tk.END, display_text)
         
-        add_btn = tb.Button(middle_frame, text="➡ " + lang_map.get("加入", "加入"), command=add_to_merge, width=10, bootstyle=SUCCESS)
+        add_btn = tb.Button(middle_frame, text="加 入", command=add_to_merge, width=10, bootstyle=SUCCESS)
         add_btn.pack(pady=5)
         
-        remove_btn = tb.Button(middle_frame, text="⬅ " + lang_map.get("移除", "移除"), command=remove_from_merge, width=10, bootstyle=DANGER)
+        remove_btn = tb.Button(middle_frame, text="移 除", command=remove_from_merge, width=10, bootstyle=DANGER)
         remove_btn.pack(pady=5)
         
         tb.Label(middle_frame, text="").pack(pady=10)
         
-        up_btn = tb.Button(middle_frame, text="⬆ 上移", command=move_up, width=10, bootstyle=INFO)
+        up_btn = tb.Button(middle_frame, text="上 移", command=move_up, width=10, bootstyle=INFO)
         up_btn.pack(pady=5)
         
-        down_btn = tb.Button(middle_frame, text="⬇ 下移", command=move_down, width=10, bootstyle=INFO)
+        down_btn = tb.Button(middle_frame, text="下 移", command=move_down, width=10, bootstyle=INFO)
         down_btn.pack(pady=5)
         
         # 合併列表（右側）
@@ -3293,20 +3297,12 @@ class RecorderApp(tb.Window):
         
         def do_merge():
             """執行腳本合併"""
-            script_names_display = list(merge_list.get(0, tk.END))
-            # 提取真實腳本名稱（移除顯示的延遲標記）
-            script_names = []
-            for display_name in script_names_display:
-                # 移除 [延遲 X秒] 標記
-                if "  [" in display_name:
-                    real_name = display_name.split("  [")[0]
-                else:
-                    real_name = display_name
-                script_names.append(real_name)
-            
-            if len(script_names) < 2:
+            if len(self.merge_data_list) < 2:
                 messagebox.showwarning("提示", "請至少選擇2個腳本進行合併")
                 return
+            
+            script_names = [item["name"] for item in self.merge_data_list]
+            script_delays_list = [item["delay"] for item in self.merge_data_list]
             
             new_name = new_name_var.get().strip()
             if not new_name:
@@ -3337,7 +3333,7 @@ class RecorderApp(tb.Window):
                     
                     if i == 0:
                         first_script_settings = data.get("settings", {}).copy()
-                        self.log(f"✓ 使用腳本A的參數設定：{script_name}")
+                        self.log(f"[合併] 使用腳本A的參數設定：{script_name}")
                     
                     if not events:
                         continue
@@ -3352,10 +3348,10 @@ class RecorderApp(tb.Window):
                     # 更新時間偏移（加上本腳本持續時間 + 個別延遲）
                     if merged_events:
                         script_duration = events[-1]['time'] - script_base_time
-                        individual_delay = script_delays.get(script_name, 0)
+                        individual_delay = script_delays_list[i]
                         time_offset = merged_events[-1]['time'] + individual_delay
                         if individual_delay > 0:
-                            self.log(f"✓ 腳本 {script_name} 設定延遲 {individual_delay} 秒")
+                            self.log(f"[合併] 腳本 {script_name} 設定延遲 {individual_delay} 秒")
                 
                 # 儲存合併後的腳本
                 merged_data = {
@@ -3366,7 +3362,7 @@ class RecorderApp(tb.Window):
                 with open(new_path, "w", encoding="utf-8") as f:
                     json.dump(merged_data, f, ensure_ascii=False, indent=2)
                 
-                self.log(f"✅ 合併完成：{new_name}，共 {len(merged_events)} 筆事件")
+                self.log(f"[成功] 合併完成：{new_name}，共 {len(merged_events)} 筆事件")
                 messagebox.showinfo("成功", f"已合併 {len(script_names)} 個腳本為\n{new_name}")
                 
                 self.refresh_script_list()

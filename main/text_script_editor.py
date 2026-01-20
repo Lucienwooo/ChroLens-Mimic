@@ -18,7 +18,7 @@ import sys
 from typing import List, Dict, Any, Tuple
 from PIL import Image, ImageGrab, ImageTk
 
-# 🔥 優化：引入更快的螢幕截圖庫
+# 優化：引入更快的螢幕截圖庫
 try:
     import mss
     import numpy as np
@@ -111,7 +111,7 @@ class GlobalRouter:
     def __init__(self, nodes, scale=1.0):
         self.nodes = nodes
         self.scale = scale
-        # ✅ 基於縮放比例動態調整網格
+        # 基於縮放比例動態調整網格
         self.grid_size = max(2, int(PCB_GRID_SIZE * scale))
         self.h_segments = {}
         self.v_segments = {}
@@ -480,7 +480,7 @@ class TextCommandEditor(tk.Toplevel):
         for text, cmd, color in buttons:
             tk.Button(toolbar, text=text, command=cmd, bg=color, fg="white", font=font_tuple(9), padx=15, pady=5).pack(side="left", padx=5)
         
-        # ✅ 新增：指令說明按鈕（靠右對齊）
+        # 新增：指令說明按鈕（靠右對齊）
         tk.Button(
             toolbar, 
             text="指令說明", 
@@ -612,6 +612,7 @@ class TextCommandEditor(tk.Toplevel):
         simplify_check.pack(side="left", padx=5)
         
         # 圖形模式開關 (新的 Workflow 流程圖)
+        # 圖形模式開關 (新的 Workflow 流程圖)
         self.workflow_mode_var = tk.BooleanVar(value=False)
         workflow_mode_check = tk.Checkbutton(
             trajectory_control,
@@ -621,6 +622,21 @@ class TextCommandEditor(tk.Toplevel):
             font=font_tuple(9)
         )
         workflow_mode_check.pack(side="left", padx=15)
+        
+        # 擬真移動開關 (貝茲曲線)
+        self.bezier_mode_var = tk.BooleanVar(value=False)
+        # 初始化時從 recorder 獲取狀態 (如果有的話)
+        if hasattr(self, 'recorder') and self.recorder:
+            self.bezier_mode_var.set(self.recorder._use_bezier)
+            
+        bezier_mode_check = tk.Checkbutton(
+            trajectory_control,
+            text="擬真移動",
+            variable=self.bezier_mode_var,
+            command=self._toggle_bezier_mode,
+            font=font_tuple(9)
+        )
+        bezier_mode_check.pack(side="left", padx=5)
         
         # 使用 LINE Seed 字體
         editor_font = ("LINE Seed TW", 10) if LINE_SEED_FONT_LOADED else font_tuple(10, monospace=True)
@@ -634,10 +650,10 @@ class TextCommandEditor(tk.Toplevel):
             self.editor_container,
             font=editor_font,
             wrap="none",
-            bg="#1e1e1e",           # ✅ VS Code 深色背景
-            fg="#d4d4d4",           # ✅ VS Code 淺灰色（非指令文字）
+            bg="#1e1e1e",           # VS Code 深色背景
+            fg="#d4d4d4",           # VS Code 淺灰色（非指令文字）
             insertbackground="white",
-            selectbackground="#264f78",  # ✅ VS Code 選取背景色
+            selectbackground="#264f78",  # VS Code 選取背景色
             selectforeground="white",
             undo=True,
             maxundo=-1
@@ -710,7 +726,7 @@ class TextCommandEditor(tk.Toplevel):
         self.workflow_pan_start_x = 0  # 畫布拖移起點
         self.workflow_pan_start_y = 0
         self.workflow_is_panning = False
-        self.workflow_tooltip = None  # 💬 浮動提示框
+        self.workflow_tooltip = None  # 浮動提示框
         
         # 畫布事件綁定
         # 👆 啟用畫布拖移，但只能拖移畫布
@@ -720,7 +736,7 @@ class TextCommandEditor(tk.Toplevel):
         self.workflow_canvas.bind("<Button-3>", self._show_workflow_context_menu)
         self.workflow_canvas.bind("<MouseWheel>", self._on_workflow_zoom)
         
-        # ✅ 設定語法高亮標籤 (VS Code Dark+ 配色方案)
+        # 設定語法高亮標籤 (VS Code Dark+ 配色方案)
         self.text_editor.tag_config("syntax_symbol", foreground="#d4d4d4")      # 淺灰色 - 符號（,、>等）
         self.text_editor.tag_config("syntax_time", foreground="#ce9178")        # 橘色 - 時間參數
         self.text_editor.tag_config("syntax_label", foreground="#4ec9b0")       # 青綠色 - 標籤
@@ -735,7 +751,7 @@ class TextCommandEditor(tk.Toplevel):
         self.text_editor.tag_config("syntax_comment", foreground="#6a9955")     # 綠色 - 註解
         self.text_editor.tag_config("syntax_module_ref", foreground="#ffd700", font=font_tuple(10, "bold"))  # 金色 - 模組引用
         
-        # ✨ 新增：軌跡摺疊相關標籤和配置
+        # 新增：軌跡摺疊相關標籤和配置
         self.text_editor.tag_config("trajectory_summary", foreground="#00BFFF", font=font_tuple(10, "bold"))
         self.text_editor.tag_config("trajectory_hidden", elide=True)  # elide=True 會隱藏文字
         self.text_editor.tag_config("trajectory_clickable", foreground="#00BFFF", underline=1)
@@ -1020,7 +1036,7 @@ class TextCommandEditor(tk.Toplevel):
                 # 展開：移除 elide 標籤
                 self.text_editor.tag_remove("label_content_hidden", f"{start_line + 1}.0", f"{end_line}.0")
                 self.label_fold_state[label_name] = False
-                # ✅ 展開後重新套用語法高亮
+                # 展開後重新套用語法高亮
                 self._apply_syntax_highlighting()
             else:
                 # 收合：添加 elide 標籤
@@ -1057,6 +1073,14 @@ class TextCommandEditor(tk.Toplevel):
         else:
             # 切換回文字模式
             self._switch_to_text_mode_from_workflow()
+    
+    def _toggle_bezier_mode(self):
+        """切換擬真滑鼠移動模式"""
+        enabled = self.bezier_mode_var.get()
+        if hasattr(self, 'recorder') and self.recorder:
+            self.recorder.set_bezier_enabled(enabled)
+            status = "已啟用擬真移動 (貝茲曲線)" if enabled else "已停用擬真移動 (直線移動)"
+            self._update_status(status, "success")
     
     def _switch_to_workflow_mode(self):
         """切換到 Workflow 流程圖模式"""
@@ -2693,13 +2717,6 @@ class TextCommandEditor(tk.Toplevel):
         cmd_frame.pack(fill="both", expand=True, pady=(0, 10))
         
         self.button_categories = {
-            "⭐ 快速範例": [
-                ("無限找圖循環", "#E91E63", None, "# 🔄 無限找圖(直到找到為止)\n#開始找圖\n>if>需替換圖片, T=0s000\n  >>#找到圖片\n  >>>#開始找圖\n#找到圖片\n# 在此處添加找到後的動作"),
-                ("等待圖片消失", "#9C27B0", None, "# ⏳ 等待圖片消失(如Loading)\n#檢查消失\n>if>需替換圖片, T=0s000\n  >>#檢查消失\n  >>>#已消失\n#已消失\n# 圖片已不見,繼續後續動作"),
-                ("隨機三選一", "#3F51B5", None, "# 🎲 隨機執行三選一\n>隨機執行>33%, T=0s000\n  >>#動作1\n  >>>#檢查二\n#檢查二\n>隨機執行>50%, T=0s000\n  >>#動作2\n  >>>#動作3\n#動作1\n移動至(100,100), T=0s000\n>>#結束\n#動作2\n移動至(200,200), T=0s000\n>>#結束\n#動作3\n移動至(300,300), T=0s000\n#結束"),
-                ("定時文字監控", "#009688", None, "# 👁️ 定時偵測畫面文字\n#開始監控\n>等待文字>目標文字, 最長5s, T=0s000\n>點擊文字>目標文字, T=0s000\n>延遲1000ms, T=0s000\n>>#開始監控"),
-                ("連技按鍵序列", "#FF9800", None, "# ⌨️ 連續按鍵序列(循環10次)\n>重複>10次, T=0s000\n  按a, 延遲100ms, T=0s000\n  按b, 延遲100ms, T=0s000\n  按c, 延遲500ms, T=0s000\n>重複結束, T=0s000"),
-            ],
             "圖片辨識": [
                 ("圖片辨識", "#9C27B0", self._capture_and_recognize, None),
                 ("範圍辨識", "#7B1FA2", self._capture_region_for_recognition, None),
@@ -2708,8 +2725,10 @@ class TextCommandEditor(tk.Toplevel):
                 ("條件判斷", "#2196F3", None, ">if>pic01, T=0s000\n>>#標籤\n>>>#標籤"),
             ],
             "滑鼠鍵盤": [
-                ("左鍵點擊", "#03A9F4", self._capture_left_click_coordinate, None),
-                ("右鍵點擊", "#00BCD4", self._capture_right_click_coordinate, None),
+                ("座標左鍵點擊", "#03A9F4", self._capture_left_click_coordinate, None),
+                ("座標右鍵點擊", "#00BCD4", self._capture_right_click_coordinate, None),
+                ("左鍵點擊", "#0288D1", None, ">左鍵點擊, T=0s000"),
+                ("右鍵點擊", "#0097A7", None, ">右鍵點擊, T=0s000"),
                 ("滑鼠移動", "#009688", None, ">移動至(0,0), 延遲0ms, T=0s000"),
                 ("滑鼠滾輪", "#4CAF50", None, ">滾輪(1), 延遲0ms, T=0s000"),
                 ("按下按鍵", "#8BC34A", None, ">按下a, 延遲50ms, T=0s000"),

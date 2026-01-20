@@ -3,6 +3,7 @@ import mouse
 import time
 import threading
 import ctypes
+import ctypes.wintypes
 from pynput.mouse import Controller, Listener
 import pynput  # 加入這行
 import win32gui  # 新增：用於視窗檢測
@@ -464,7 +465,7 @@ class CoreRecorder:
         else:
             self._log("[優化] mss 不可用，將使用 PIL", "info")
         
-        # ✅ 貝茲曲線滑鼠移動器
+        # 貝茲曲線滑鼠移動器
         self._bezier_mover = BezierMouseMover() if BEZIER_AVAILABLE else None
         self._use_bezier = False  # 預設關閉（保持向下相容）
         
@@ -1697,7 +1698,18 @@ class CoreRecorder:
                 self.logger(f"鍵盤事件執行失敗: {e}")
                 
         elif event['type'] == 'mouse':
-            x, y = event.get('x', 0), event.get('y', 0)
+            # 解析座標，處理 None 的情況 (即目前位置點擊)
+            x = event.get('x')
+            y = event.get('y')
+            
+            if x is None or y is None:
+                # 獲取當前游標位置
+                point = ctypes.wintypes.POINT()
+                ctypes.windll.user32.GetCursorPos(ctypes.byref(point))
+                if x is None: x = point.x
+                if y is None: y = point.y
+            
+            x, y = int(x), int(y)
             
             # 如果有設定目標視窗，先確保視窗在前景並將座標限制在視窗內
             if self._target_hwnd:
@@ -1732,14 +1744,22 @@ class CoreRecorder:
                 y = max(virtual_top, min(virtual_bottom - 1, int(y)))
                 
                 if event['event'] == 'move':
-                    # 滑鼠移動（使用硬體級別的 SetCursorPos 確保精確）
-                    ctypes.windll.user32.SetCursorPos(x, y)
+                    # 滑鼠移動
+                    if self._use_bezier and self._bezier_mover:
+                        self._bezier_mover.move_to(x, y, duration=0.2)
+                    else:
+                        ctypes.windll.user32.SetCursorPos(x, y)
                     # 移動事件太頻繁，不輸出日誌
                     
                 elif event['event'] in ('down', 'up'):
                     # 點擊事件：先移動到正確位置
-                    ctypes.windll.user32.SetCursorPos(x, y)
-                    # 🔥 優化：移除延遲，SetCursorPos 是同步的無需等待
+                    if self._use_bezier and self._bezier_mover:
+                        self._bezier_mover.move_to(x, y, duration=0.2)
+                    else:
+                        ctypes.windll.user32.SetCursorPos(x, y)
+                    
+                    # ✅ 增加微小延遲確保系統更新位置狀態
+                    time.sleep(0.01)
                     
                     button = event.get('button', 'left')
                     self._mouse_event_enhanced(event['event'], button=button)
@@ -1759,7 +1779,7 @@ class CoreRecorder:
             except Exception as e:
                 self.logger(f"滑鼠事件執行失敗: {e}")
         
-        # ✅ 處理圖片辨識相關事件
+        # 處理圖片辨識相關事件
         elif event['type'] == 'recognize_image':
             # 辨識圖片（只是辨識，不做動作）
             try:
@@ -1925,11 +1945,21 @@ class CoreRecorder:
                                     self.logger(f"[彈性點擊] 追蹤預測偏移 ({offset_x}, {offset_y})")
                         # center 模式不偏移，直接使用中心點
                     
-                    # 🔥 極速優化：移除所有延遲，直接執行
-                    ctypes.windll.user32.SetCursorPos(x, y)
+                    # 🔥 修復點擊：增加擬真移動與合理延遲
+                    if self._use_bezier and self._bezier_mover:
+                        self._bezier_mover.move_to(x, y, duration=0.2)
+                    else:
+                        ctypes.windll.user32.SetCursorPos(x, y)
+                    
+                    # 增加微小延遲確保系統更新位置狀態
+                    time.sleep(0.02)
+                    
                     self._mouse_event_enhanced('down', button=button)
+                    # 增加 Down 和 Up 之間的延遲，解決部分 App 不響應點擊的問題
+                    time.sleep(0.05) 
                     self._mouse_event_enhanced('up', button=button)
-                    self.logger(f"[點擊圖片] ✅ 已點擊 {button} 於 ({x}, {y})")
+                    
+                    self.logger(f"[點擊圖片] 已點擊 {button} 於 ({x}, {y})")
                     
                     # ✅ 返回原位 (預設關閉,避免游標跳回原點)
                     if return_to_origin:
@@ -1967,7 +1997,7 @@ class CoreRecorder:
                 )
                 
                 if pos:
-                    self.logger(f"[條件判斷] ✅ 找到圖片於 ({pos[0]}, {pos[1]})")
+                    self.logger(f"[條件判斷] 找到圖片於 ({pos[0]}, {pos[1]})")
                     if on_success:
                         return self._handle_branch_action(on_success)
                 else:

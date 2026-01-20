@@ -4642,11 +4642,14 @@ class RecorderApp(tb.Window):
                             'callback': self._execute_scheduled_script
                         })
                         loaded_count += 1
+                        print(f"⏰ [系統啟動] 已載入排程: {script_name} @ {schedule_time}")
                 except Exception as e:
                     self.log(f"載入排程失敗 ({script_file}): {e}")
             
             if loaded_count > 0:
-                self.log(f"✓ 已載入 {loaded_count} 個排程")
+                self.log(f"💡 [排程系統] 已成功載入 {loaded_count} 個腳本排程")
+            else:
+                print("ℹ️ [排程系統] 未發現任何設定排程的腳本")
         except Exception as e:
             self.log(f"載入排程失敗: {e}")
     
@@ -4665,21 +4668,36 @@ class RecorderApp(tb.Window):
             self.events = data.get("events", [])
             self.script_settings = data.get("settings", {})
             
-            # 更新設定
-            if "loop_count" in self.script_settings:
-                try:
-                    self.loop_count_var.set(str(self.script_settings["loop_count"]))
-                except:
-                    pass
+            # 更新 UI 設定（以便執行時使用正確參數）
+            if "speed" in self.script_settings:
+                self.speed_var.set(str(self.script_settings["speed"]))
             
-            if "interval" in self.script_settings:
-                try:
-                    self.interval_var.set(str(self.script_settings["interval"]))
-                except:
-                    pass
+            if "repeat" in self.script_settings:
+                # 支援舊版 loop_count 和新版 repeat
+                repeat_val = self.script_settings.get("repeat", self.script_settings.get("loop_count", "1"))
+                self.repeat_var.set(str(repeat_val))
             
-            self.log(f"⏰ [排程執行] {script_file}")
-            self.log(f"載入 {len(self.events)} 筆事件")
+            if "repeat_interval" in self.script_settings:
+                # 支援舊版 interval 和新版 repeat_interval
+                interval_val = self.script_settings.get("repeat_interval", self.script_settings.get("interval", "00:00:00"))
+                self.repeat_interval_var.set(str(interval_val))
+
+            if "repeat_time" in self.script_settings:
+                self.repeat_time_var.set(str(self.script_settings["repeat_time"]))
+            
+            if "random_interval" in self.script_settings:
+                self.random_interval_var.set(bool(self.script_settings["random_interval"]))
+            
+            if "mouse_mode" in self.script_settings:
+                self.mouse_mode_var.set(bool(self.script_settings["mouse_mode"]))
+            
+            # 更新下拉選單顯示目前正在執行的腳本名稱
+            display_name = os.path.splitext(script_file)[0]
+            self.script_var.set(display_name)
+            
+            self.log(f"⏰ [排程執行] 腳本: {script_file}")
+            self.log(f"📊 執行條件: 速度 {self.speed_var.get()}, 重複 {self.repeat_var.get()} 次")
+            self.log(f"📂 載入 {len(self.events)} 筆事件")
             
             # 自動開始執行
             self.after(500, self.play_record)

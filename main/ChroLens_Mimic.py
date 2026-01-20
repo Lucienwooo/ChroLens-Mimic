@@ -2057,9 +2057,9 @@ class RecorderApp(tb.Window):
                         # 創建詳細的對話框
                         dialog = tk.Toplevel(self)
                         dialog.title("視窗狀態檢測")
-                        dialog.geometry("650x550")
+                        dialog.geometry("720x820")
                         dialog.resizable(True, True)
-                        dialog.minsize(550, 450)  # 設定最小尺寸
+                        dialog.minsize(600, 650)  # 設定最小尺寸
                         dialog.grab_set()
                         dialog.transient(self)
                         set_window_icon(dialog)
@@ -2071,19 +2071,37 @@ class RecorderApp(tb.Window):
                         dialog.geometry(f"+{x}+{y}")
                         
                         # 主框架
-                        main_frame = tb.Frame(dialog)
-                        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+                        outer_frame = tb.Frame(dialog)
+                        outer_frame.pack(fill="both", expand=True, padx=20, pady=20)
                         
-                        # 標題
-                        title_label = tb.Label(main_frame, 
+                        # 1. 標題區 (固定頂部)
+                        title_label = tb.Label(outer_frame, 
                             text="⚠️ 偵測到視窗狀態不同！", 
-                            font=("Microsoft JhengHei", 12, "bold"))
+                            font=("Microsoft JhengHei", 14, "bold"),
+                            bootstyle=WARNING)
                         title_label.pack(pady=(0, 15))
                         
-                        # 訊息內容
-                        msg_frame = tb.Frame(main_frame)
-                        msg_frame.pack(fill="both", expand=True)
+                        # 2. 訊息內容區 (自適應捲動)
+                        scroll_container = tb.Frame(outer_frame)
+                        scroll_container.pack(fill="both", expand=True)
                         
+                        canvas = tk.Canvas(scroll_container, highlightthickness=0, bg=None)
+                        scrollbar = tb.Scrollbar(scroll_container, orient="vertical", command=canvas.yview)
+                        scroll_content = tb.Frame(canvas)
+                        
+                        def _on_canvas_configure(e):
+                            canvas.itemconfig(canvas_window, width=e.width)
+                            
+                        canvas_window = canvas.create_window((0, 0), window=scroll_content, anchor="nw")
+                        canvas.configure(yscrollcommand=scrollbar.set)
+                        
+                        scroll_content.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+                        canvas.bind("<Configure>", _on_canvas_configure)
+                        
+                        scrollbar.pack(side="right", fill="y")
+                        canvas.pack(side="left", fill="both", expand=True)
+                        
+                        # 訊息內容
                         msg = "📊 錄製時 vs 目前狀態比較：\n\n"
                         
                         if size_mismatch:
@@ -2106,14 +2124,15 @@ class RecorderApp(tb.Window):
                             msg += f"   錄製時: {recorded_info['screen_resolution'][0]} x {recorded_info['screen_resolution'][1]}\n"
                             msg += f"   目前: {current_info['screen_resolution'][0]} x {current_info['screen_resolution'][1]}\n\n"
                         
-                        msg_label = tb.Label(msg_frame, text=msg, font=("Microsoft JhengHei", 10), justify="left")
-                        msg_label.pack(anchor="w", padx=10, pady=10)
+                        msg_label = tb.Label(scroll_content, text=msg, font=("Microsoft JhengHei", 10), justify="left")
+                        msg_label.pack(anchor="w", padx=10, pady=5, fill="x")
                         
-                        # 分隔線
-                        separator = tb.Separator(main_frame, orient="horizontal")
-                        separator.pack(fill="x", pady=10)
+                        # 3. 按鈕區 (固定底部)
+                        bottom_frame = tb.Frame(outer_frame)
+                        bottom_frame.pack(fill="x", pady=(10, 0))
                         
-                        # 使用者選擇
+                        tb.Separator(bottom_frame, orient="horizontal").pack(fill="x", pady=10)
+                        
                         user_choice = {"action": None}
                         
                         def on_force_adjust():
@@ -2128,25 +2147,21 @@ class RecorderApp(tb.Window):
                             user_choice["action"] = "cancel"
                             dialog.destroy()
                         
-                        btn_frame = tb.Frame(main_frame)
-                        btn_frame.pack(fill="x", pady=10)
+                        tb.Button(bottom_frame, text="🔧 強制歸位（將目前視窗調整回錄製狀態）", bootstyle=PRIMARY, 
+                                 command=on_force_adjust).pack(pady=5, fill="x")
                         
-                        tb.Button(btn_frame, text="🔧 強制歸位（調整視窗）", bootstyle=PRIMARY, 
-                                 command=on_force_adjust, width=25).pack(pady=5, fill="x")
+                        tb.Button(bottom_frame, text="✨ 智能適配（推薦：保留目前狀態並自動縮放）", bootstyle=SUCCESS, 
+                                 command=on_auto_scale).pack(pady=5, fill="x")
                         
-                        tb.Button(btn_frame, text="✨ 智能適配（推薦）", bootstyle=SUCCESS, 
-                                 command=on_auto_scale, width=25).pack(pady=5, fill="x")
-                        
-                        tb.Button(btn_frame, text="❌ 取消執行", bootstyle=DANGER, 
-                                 command=on_cancel, width=25).pack(pady=5, fill="x")
+                        tb.Button(bottom_frame, text="❌ 取消執行", bootstyle=DANGER, 
+                                 command=on_cancel).pack(pady=5, fill="x")
                         
                         # 添加說明
-                        info_label = tb.Label(main_frame, 
-                            text="💡 提示：「智能適配」會自動調整座標以適應當前環境\n"
-                                 "適用於不同解析度、DPI 縮放和視窗大小", 
+                        info_label = tb.Label(bottom_frame, 
+                            text="💡 提示：「智能適配」會自動調整座標以適應當前環境，適用於不同解析度、DPI 縮放和視窗大小的跨設備跑本。", 
                             font=("Microsoft JhengHei", 9), 
                             foreground="#666",
-                            wraplength=550)
+                            wraplength=650)
                         info_label.pack(pady=(10, 0))
                         
                         dialog.wait_window()

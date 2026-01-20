@@ -38,57 +38,48 @@ import random  # sW
 import tkinter.font as tkfont
 import sys
 
-# sWGtΦL䴩
+# 新增：系統托盤支援
 try:
     import pystray
     from PIL import Image as PILImage
     PYSTRAY_AVAILABLE = True
 except ImportError:
-    print("pystray  Pillow wˡAtΦL\N")
+    print("pystray 或 Pillow 未安裝，將停用系統托盤功能")
     PYSTRAY_AVAILABLE = False
 
 
 
 
-# ˬdO_H޲z
+# 檢查是否為管理員
 def is_admin():
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
     except:
         return False
 
-# sWGפJ Recorder / y / script IO 禡]ϥΰ fallback^
+# 新增：匯入 Recorder / 語言 / 腳本 IO 函式（使用 fallback 機制）
 try:
     from recorder import CoreRecorder
 except Exception as e:
-    print(f"LkפJ CoreRecorder: {e}")
+    print(f"無法匯入 CoreRecorder: {e}")
 
-<<<<<<< Updated upstream
 # 使用文字指令式腳本編輯器（已移除舊版圖形化編輯器）
 try:
     from text_script_editor import TextCommandEditor as VisualScriptEditor
     print("[訊息] 已載入文字指令編輯器")
 except Exception as e:
     print(f"[錯誤] 無法匯入編輯器: {e}")
-=======
-# ? ϥΤrO}s边]wªϧΤƽs边^
-try:
-    from text_script_editor import TextCommandEditor as VisualScriptEditor
-    print("? wJrOs边")
-except Exception as e:
-    print(f"? LkפJs边: {e}")
->>>>>>> Stashed changes
     import traceback
     traceback.print_exc()
     VisualScriptEditor = None
 try:
     from lang import LANG_MAP
 except Exception as e:
-    print(f"LkפJ LANG_MAP: {e}")
+    print(f"無法匯入 LANG_MAP: {e}")
 
-# եH`ΩRWפJAYѫh import module ˬd禡W١A̫ᴣ fallback @
+# 強化版函式匯入：嘗試匯入但若失敗則使用 module 屬性偵測，最後提供 fallback 函式
 try:
-    # uխwRWפJ
+    # 嘗試標準匯入
     from script_io import sio_auto_save_script, sio_load_script, sio_save_script_settings
 except Exception as _e:
     try:
@@ -97,9 +88,9 @@ except Exception as _e:
         sio_load_script = getattr(_sio_mod, "sio_load_script", getattr(_sio_mod, "load_script", None))
         sio_save_script_settings = getattr(_sio_mod, "sio_save_script_settings", getattr(_sio_mod, "save_script_settings", None))
         if not (sio_auto_save_script and sio_load_script and sio_save_script_settings):
-            raise ImportError("script_io Ҳկʤֹw禡")
+            raise ImportError("script_io 模組缺少必要函式")
     except Exception as e:
-        print(f"LkפJ script_io 禡: {e}")
+        print(f"無法匯入 script_io 函式: {e}")
         # ѳ̤p fallback @ATOD{B@]|^/gJ¦ JSON^
         def sio_auto_save_script(script_dir, events, settings):
             if not os.path.exists(script_dir):
@@ -135,26 +126,26 @@ except Exception as _e:
             except Exception as ex:
                 print(f"sio_save_script_settings fallback failed: {ex}")
 
-# sWGפJ about Ҳ
+# 新增：匯入 about 模組
 try:
     import about
 except Exception as e:
-    print(f"LkפJ about Ҳ: {e}")
+    print(f"無法匯入 about 模組: {e}")
 
-# sWGN MiniMode X mini.py
+# 新增：匯入 MiniMode 模組 mini.py
 try:
     import mini
 except Exception as e:
-    print(f"LkפJ mini Ҳ: {e}")
+    print(f"無法匯入 mini 模組: {e}")
 
-# sWGפJ window_selector Ҳ
+# 新增：匯入 window_selector 模組
 try:
     from window_selector import WindowSelectorDialog
 except Exception as e:
-    print(f"LkפJ window_selector Ҳ: {e}")
+    print(f"無法匯入 window_selector 模組: {e}")
     WindowSelectorDialog = None
 
-# sWGUMפ LINESeedTW TTF]Ysb^Aôѳq font_tuple() U禡
+# 新增：註冊私有 TTF 字體（若存在），優先供 font_tuple() 呼叫
 TTF_PATH = os.path.join(os.path.dirname(__file__), "TTF", "LINESeedTW_TTF_Rg.ttf")
 
 def _register_private_ttf(ttf_path):
@@ -163,16 +154,16 @@ def _register_private_ttf(ttf_path):
             FR_PRIVATE = 0x10
             ctypes.windll.gdi32.AddFontResourceExW(ttf_path, FR_PRIVATE, 0)
     except Exception as e:
-        print(f"Ur: {e}")
+        print(f"註冊字體失敗: {e}")
 
-# յU]|߿AѮɵ{i~^
+# 嘗試註冊（即使失敗也會繼續，避免程式中斷）
 _register_private_ttf(TTF_PATH)
 
 def font_tuple(size, weight=None, monospace=False):
     """
-    ^ (family, size)  (family, size, weight)  tupleA
-    u LINESeedTW]YiΡ^A_h^h Microsoft JhengHeiC
-    monospace=True ɨϥ ConsolasC
+    返回 (family, size) 或 (family, size, weight) 的 tuple，
+    優先選用 LINESeedTW（若已註冊），否則選用 Microsoft JhengHei。
+    monospace=True 時選用 Consolas。
     """
     fam = "Consolas" if monospace else "LINESeedTW_TTF_Rg"
     try:
@@ -198,21 +189,21 @@ def font_tuple(size, weight=None, monospace=False):
     return (fam, size)
 
 def get_icon_path():
-    """oϥɮ׸|]]M}oҳqΡ^"""
+    """獲取圖示路徑（包含打包後與開發環境的相容性）"""
     try:
         import sys
         if getattr(sys, 'frozen', False):
-            # ]᪺
+            # 打包後的 exe
             return os.path.join(sys._MEIPASS, "umi_.ico")
         else:
-            # }o
-            # ˬdO_b main Ƨ
+            # 開發環境
+            # 檢查是否在 main 資料夾
             if os.path.exists("umi_.ico"):
                 return "umi_.ico"
-            # ˬdWh pic ؿ
+            # 檢查上層 pic 資料夾
             elif os.path.exists("../pic/umi_.ico"):
                 return "../pic/umi_.ico"
-            # ˬdWhؿ]VUݮe^
+            # 檢查上層資料夾（相容舊版）
             elif os.path.exists("../umi_.ico"):
                 return "../umi_.ico"
             else:
@@ -221,13 +212,13 @@ def get_icon_path():
         return "umi_.ico"
 
 def set_window_icon(window):
-    """]wϥ"""
+    """設定視窗圖示"""
     try:
         icon_path = get_icon_path()
         if os.path.exists(icon_path):
             window.iconbitmap(icon_path)
     except Exception as e:
-        print(f"]wϥܥ: {e}")
+        print(f"設定視窗圖示失敗: {e}")
 
 def show_error_window(window_name):
     ctypes.windll.user32.MessageBoxW(
@@ -811,7 +802,7 @@ class RecorderApp(tb.Window):
         time_frame.pack(side="right", padx=0)
         self.time_label_prefix = tb.Label(time_frame, text="s: ", font=font_tuple(12, monospace=True), foreground="#15D3BD")
         self.time_label_prefix.pack(side="left", padx=0)
-        # qܡG:: (iW߳]mC)
+        # 時間顯示：時:分:秒 (此區域動態更新)
         self.time_label_h = tb.Label(time_frame, text="00", font=font_tuple(12, monospace=True), foreground="#888888")
         self.time_label_h.pack(side="left", padx=0)
         tb.Label(time_frame, text=":", font=font_tuple(12, monospace=True), foreground="#888888").pack(side="left", padx=0)
@@ -821,7 +812,7 @@ class RecorderApp(tb.Window):
         self.time_label_s = tb.Label(time_frame, text="00", font=font_tuple(12, monospace=True), foreground="#888888")
         self.time_label_s.pack(side="left", padx=0)
 
-        # 榸Ѿl]ϥ Frame ]qh Label {ܦ^
+        # 播放剩餘時間（包含循環計數的標籤顯示）
         countdown_frame = tb.Frame(log_title_frame)
         countdown_frame.pack(side="right", padx=0)
         self.countdown_label_prefix = tb.Label(countdown_frame, text="榸: ", font=font_tuple(12, monospace=True), foreground="#DB0E59")
@@ -835,7 +826,7 @@ class RecorderApp(tb.Window):
         self.countdown_label_s = tb.Label(countdown_frame, text="00", font=font_tuple(12, monospace=True), foreground="#888888")
         self.countdown_label_s.pack(side="left", padx=0)
 
-        # `B@]ϥ Frame ]qh Label {ܦ^
+        # 總共已播放時間
         total_frame = tb.Frame(log_title_frame)
         total_frame.pack(side="right", padx=0)
         self.total_time_label_prefix = tb.Label(total_frame, text="`B@: ", font=font_tuple(12, monospace=True), foreground="#FF95CA")
@@ -849,7 +840,7 @@ class RecorderApp(tb.Window):
         self.total_time_label_s = tb.Label(total_frame, text="00", font=font_tuple(12, monospace=True), foreground="#888888")
         self.total_time_label_s.pack(side="left", padx=0)
 
-        # ====== row5 ϰ ======
+        # ====== 第 5 列：分頁功能區 ======
         frm_page = tb.Frame(self, padding=(10, 0, 10, 10))
         frm_page.pack(fill="both", expand=True)
         frm_page.grid_rowconfigure(0, weight=1)

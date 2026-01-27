@@ -14,7 +14,7 @@ import cv2
 import numpy as np
 from PIL import ImageGrab
 
-# 🔥 優化：引入更快的螢幕截圖庫
+#  優化：引入更快的螢幕截圖庫
 try:
     import mss
     MSS_AVAILABLE = True
@@ -22,22 +22,22 @@ except ImportError:
     MSS_AVAILABLE = False
     print("[警告] mss 庫未安裝，將使用較慢的 PIL.ImageGrab。建議執行: pip install mss")
 
-# ✅ 重構：匯入新模組
+#  重構：匯入新模組
 try:
     from bezier_mouse import BezierMouseMover
     BEZIER_AVAILABLE = True
 except ImportError:
     BEZIER_AVAILABLE = False
-    print("⚠️ BezierMouseMover 未載入，將使用傳統直線移動")
+    print("️ BezierMouseMover 未載入，將使用傳統直線移動")
 
-# 🔥 v2.8.2: 匯入 YOLO 物件偵測模組
+#  v2.8.2: 匯入 YOLO 物件偵測模組
 try:
     from yolo_detector import YOLODetector, get_detector, YOLO_AVAILABLE
 except ImportError:
     YOLO_AVAILABLE = False
     YOLODetector = None
     get_detector = None
-    print("⚠️ YOLO 模組未載入，物件偵測功能不可用")
+    print("️ YOLO 模組未載入，物件偵測功能不可用")
 
 
 # ==================== 觸發器管理器 (v2.8.0+) ====================
@@ -416,14 +416,14 @@ class StateMachine:
 class CoreRecorder:
     """錄製和執行的核心類別
     
-    ✅ v2.6.5+ 重構改進：
+     v2.6.5+ 重構改進：
     - 整合 BezierMouseMover（擬真滑鼠移動）
     - 支援標準化 logger（LoggerManager）
     - 預留 OCR 觸發介面
     """
     
     def __init__(self, logger=None):
-        # ✅ 支援新舊兩種 logger 格式
+        #  支援新舊兩種 logger 格式
         # 舊格式：lambda 函式 logger(msg)
         # 新格式：LoggerManager 實例 logger.info(msg)
         self.logger = logger or (lambda s: None)
@@ -453,13 +453,13 @@ class CoreRecorder:
         self._border_window = None  # 邊框視窗
         self._current_region = None  # 當前辨識範圍（全域狀態，由 >範圍結束 清除）
         
-        # 🔥 新增：圖片追蹤系統（用於追移動目標）
+        #  新增：圖片追蹤系統（用於追移動目標）
         self._last_found_positions = {}  # {image_name: (x, y, timestamp)}
         self._motion_history = {}  # {image_name: [(x, y, t), ...]}
         self._tracking_mode = {}  # {image_name: True/False} 是否啟用追蹤
         self._max_motion_history = 5  # 最多保留多少幀位置記錄
         
-        # 🔥 優化：檢查 mss 是否可用
+        #  優化：檢查 mss 是否可用
         if MSS_AVAILABLE:
             self._log("[優化] 已啟用 mss 快速截圖引擎", "info")
         else:
@@ -469,12 +469,12 @@ class CoreRecorder:
         self._bezier_mover = BezierMouseMover() if BEZIER_AVAILABLE else None
         self._use_bezier = False  # 預設關閉（保持向下相容）
         
-        # ✅ v2.7.1+ 新增：變數系統和執行狀態
+        #  v2.7.1+ 新增：變數系統和執行狀態
         self._variables = {}  # 變數儲存 {name: value}
         self._loop_stack = []  # 循環堆疊 [{type, start_index, counter, max_count}]
         self._retry_count = 0  # 重試計數器
-        self._timeout_start = None  # 超時計時開始時間
-        self._timeout_duration = None  # 超時時長（秒）
+        self._timeout_start = None  # 逾時計時開始時間
+        self._timeout_duration = None  # 逾時時長（秒）
         self._action_retry_count = {}  # 動作重試計數 {action_id: count}
         self._action_start_time = {}  # 動作開始時間 {action_id: timestamp}
         self._current_try_action = None  # 當前嘗試的動作ID
@@ -482,11 +482,11 @@ class CoreRecorder:
         self._current_try_success = None  # 當前嘗試成功的分支
         self._current_try_failure = None  # 當前嘗試失敗的分支
         
-        # ✅ v2.8.0+ 新增：觸發器管理器
+        #  v2.8.0+ 新增：觸發器管理器
         self._trigger_manager = TriggerManager(self, logger)
         self._pending_jump = None  # 觸發器請求的跳轉目標
         
-        # 🔥 v2.8.2+ 新增：YOLO 物件偵測器
+        #  v2.8.2+ 新增：YOLO 物件偵測器
         self._yolo_detector = None
         self._yolo_enabled = False
         if YOLO_AVAILABLE:
@@ -521,14 +521,14 @@ class CoreRecorder:
             enabled: True = 擬真移動, False = 直線移動（預設）
         """
         if not BEZIER_AVAILABLE:
-            self._log("⚠️ BezierMouseMover 未安裝，無法啟用擬真移動", "warning")
+            self._log("️ BezierMouseMover 未安裝，無法啟用擬真移動", "warning")
             return
         
         self._use_bezier = enabled
         if enabled:
-            self._log("✅ 已啟用擬真滑鼠移動（貝茲曲線）", "info")
+            self._log(" 已啟用擬真滑鼠移動（貝茲曲線）", "info")
         else:
-            self._log("⚠️ 已停用擬真移動（直線移動）", "info")
+            self._log("️ 已停用擬真移動（直線移動）", "info")
 
     def set_target_window(self, hwnd):
         """設定目標視窗，只錄製/執行該視窗內的操作"""
@@ -614,7 +614,7 @@ class CoreRecorder:
         if self.recording:
             return
         
-        # ✅ 2.5 風格：不需要重置 keyboard 狀態
+        #  2.5 風格：不需要重置 keyboard 狀態
         # keyboard.add_hotkey 不受 keyboard.start_recording 影響
         
         self.recording = True
@@ -631,18 +631,18 @@ class CoreRecorder:
         if not self.recording:
             return
         
-        # ✅ 修復：先標記停止，讓錄製迴圈結束
+        #  修復：先標記停止，讓錄製迴圈結束
         self.recording = False
         self.paused = False
         self._recording_mouse = False
         
         self.logger(f"[{time.ctime()}] 停止錄製（等待事件處理完成...）")
         
-        # ✅ 智能軌跡壓縮：停止錄製時自動簡化滑鼠軌跡
+        #  智能軌跡壓縮：停止錄製時自動簡化滑鼠軌跡
         if hasattr(self, 'simplify_trajectory') and self.simplify_trajectory:
             self._compress_mouse_trajectories()
         
-        # ✅ 穩定性增強：使用鎖保護 keyboard hook 清理，並添加重試機制
+        #  穩定性增強：使用鎖保護 keyboard hook 清理，並添加重試機制
         try:
             # 只有在真正有啟動錄製時才嘗試停止
             if self._keyboard_recording:
@@ -664,7 +664,7 @@ class CoreRecorder:
                             raise retry_ex
         except Exception as e:
             self.logger(f"[警告] 停止鍵盤錄製時發生錯誤: {e}")
-            # ✅ 強制重置狀態，確保下次可以重新開始
+            #  強制重置狀態，確保下次可以重新開始
             self._keyboard_recording = False
         
         # 嘗試停止並 join mouse listener（若有）以釋放資源
@@ -689,7 +689,7 @@ class CoreRecorder:
         except Exception:
             pass
         
-        # ✅ 修復：等待錄製執行緒真正結束
+        #  修復：等待錄製執行緒真正結束
         if hasattr(self, '_record_thread') and self._record_thread:
             try:
                 self._record_thread.join(timeout=2.0)
@@ -929,7 +929,7 @@ class CoreRecorder:
             
             # 如果完全沒有事件，顯示警告
             if len(self.events) == 0:
-                self.logger("⚠️ 警告：沒有錄製到任何事件！")
+                self.logger("️ 警告：沒有錄製到任何事件！")
                 self.logger("可能原因：")
                 self.logger("  1. 程式需要以管理員身份執行")
                 self.logger("  2. 防毒軟體阻擋了鍵盤/滑鼠監聽")
@@ -954,10 +954,10 @@ class CoreRecorder:
         if self.playing or not self.events:
             return False
         
-        # ✅ 修復：確保所有錄製相關的監聽器都已關閉
+        #  修復：確保所有錄製相關的監聽器都已關閉
         self._ensure_recording_stopped()
         
-        # ✅ 修復：清空所有可能殘留的按鍵狀態
+        #  修復：清空所有可能殘留的按鍵狀態
         self._pressed_keys.clear()
         
         self.playing = True
@@ -979,7 +979,7 @@ class CoreRecorder:
         if was_playing:
             self.logger(f"[{time.ctime()}] 已停止執行")
             
-            # ✅ 修復：釋放可能卡住的修飾鍵（強化版）
+            #  修復：釋放可能卡住的修飾鍵（強化版）
             try:
                 import keyboard
                 # 釋放常見修飾鍵
@@ -991,7 +991,7 @@ class CoreRecorder:
                     except:
                         pass
                 
-                # ✅ 修復：額外確保通過 Windows API 釋放修飾鍵
+                #  修復：額外確保通過 Windows API 釋放修飾鍵
                 try:
                     import ctypes
                     VK_CONTROL = 0x11
@@ -1019,14 +1019,14 @@ class CoreRecorder:
         - 否則按照 repeat 次數執行
         """
         try:
-            # ✅ 修復：再次確認沒有錄製在進行
+            #  修復：再次確認沒有錄製在進行
             self._ensure_recording_stopped()
             
             # 初始化循環計數器和時間記錄
             self._current_repeat_count = 0
             play_start_time = time.time()
             
-            # ✅ 核心修復：時間限制優先於次數限制
+            #  核心修復：時間限制優先於次數限制
             if repeat_time_limit and repeat_time_limit > 0:
                 # 時間限制模式：在時間內無限重複
                 self.logger(f"[時間限制模式] 將在 {repeat_time_limit:.1f} 秒內重複執行")
@@ -1097,7 +1097,7 @@ class CoreRecorder:
         finally:
             self.playing = False
             self._current_repeat_count = 0
-            # ✅ 修復：執行結束後確保所有按鍵都被釋放
+            #  修復：執行結束後確保所有按鍵都被釋放
             try:
                 self._release_pressed_keys()
             except:
@@ -1112,14 +1112,14 @@ class CoreRecorder:
         total_pause_time = 0  # 累計暫停時間
         last_pause_state = False  # 上一次的暫停狀態
         
-        # ✅ 標籤與索引的映射
+        #  標籤與索引的映射
         label_map = {}  # {'label_name': index}
         for idx, event in enumerate(self.events):
             if event.get('type') == 'label':
                 label_name = event.get('name', '')
                 label_map[label_name] = idx
         
-        # ✅ 標籤重複計數器 {'label_name': {'count': N, 'start_idx': idx}}
+        #  標籤重複計數器 {'label_name': {'count': N, 'start_idx': idx}}
         label_repeat_tracker = {}
 
         while self._current_play_index < len(self.events):
@@ -1152,7 +1152,7 @@ class CoreRecorder:
             # 考慮暫停時間的目標時間
             target_time = play_start + event_offset + total_pause_time
 
-            # 🔥 優化：檢查是否為圖片快速執行事件（跳過時間等待）
+            #  優化：檢查是否為圖片快速執行事件（跳過時間等待）
             is_fast_image_event = event.get('type') in [
                 'recognize_image', 'move_to_image', 'click_image', 
                 'if_image_exists', 'if_image_exists_move', 'if_image_exists_click'
@@ -1201,7 +1201,7 @@ class CoreRecorder:
                     # 根據後台模式選擇執行方法
                     result = self._execute_event_with_mode(event)
                     
-                    # ✅ 處理分支跳轉
+                    #  處理分支跳轉
                     if result:
                         if result == 'stop':
                             break
@@ -1683,7 +1683,7 @@ class CoreRecorder:
                         self._pressed_keys.add(event['name'])
                     except Exception:
                         pass
-                    # ✅ 2.5 風格：即時輸出鍵盤事件
+                    #  2.5 風格：即時輸出鍵盤事件
                     self.logger(f"[鍵盤] {event['event']} {event['name']}")
                 elif event['event'] == 'up':
                     keyboard.release(event['name'])
@@ -1692,7 +1692,7 @@ class CoreRecorder:
                             self._pressed_keys.discard(event['name'])
                     except Exception:
                         pass
-                    # ✅ 2.5 風格：即時輸出鍵盤事件
+                    #  2.5 風格：即時輸出鍵盤事件
                     self.logger(f"[鍵盤] {event['event']} {event['name']}")
             except Exception as e:
                 self.logger(f"鍵盤事件執行失敗: {e}")
@@ -1723,7 +1723,7 @@ class CoreRecorder:
                     pass  # 視窗可能已關閉，使用原始座標
             
             try:
-                # ✅ 修復：使用虛擬螢幕範圍（支援多螢幕）
+                #  修復：使用虛擬螢幕範圍（支援多螢幕）
                 # GetSystemMetrics(0/1) 只返回主螢幕尺寸，不適用於多螢幕
                 # 使用 SM_XVIRTUALSCREEN/SM_YVIRTUALSCREEN 獲取整個虛擬螢幕範圍
                 SM_XVIRTUALSCREEN = 76  # 虛擬螢幕左上角 X 座標
@@ -1758,12 +1758,12 @@ class CoreRecorder:
                     else:
                         ctypes.windll.user32.SetCursorPos(x, y)
                     
-                    # ✅ 增加微小延遲確保系統更新位置狀態
+                    #  增加微小延遲確保系統更新位置狀態
                     time.sleep(0.01)
                     
                     button = event.get('button', 'left')
                     self._mouse_event_enhanced(event['event'], button=button)
-                    # ✅ 2.5 風格：即時輸出滑鼠點擊事件
+                    #  2.5 風格：即時輸出滑鼠點擊事件
                     self.logger(f"[滑鼠] {event['event']} {button} at ({x}, {y})")
                     
                 elif event['event'] == 'wheel':
@@ -1773,7 +1773,7 @@ class CoreRecorder:
                     
                     delta = event.get('delta', 0)
                     self._mouse_event_enhanced('wheel', delta=delta)
-                    # ✅ 2.5 風格：即時輸出滾輪事件
+                    #  2.5 風格：即時輸出滾輪事件
                     self.logger(f"[滑鼠] wheel {delta} at ({x}, {y})")
                     
             except Exception as e:
@@ -1784,7 +1784,7 @@ class CoreRecorder:
             # 辨識圖片（只是辨識，不做動作）
             try:
                 image_name = event.get('image', '')
-                confidence = event.get('confidence', 0.6)  # 🔥 優化：降低至0.6加快速度
+                confidence = event.get('confidence', 0.6)  #  優化：降低至0.6加快速度
                 show_border = event.get('show_border', False)  # 是否顯示邊框
                 region = event.get('region', None)  # 辨識範圍
                 
@@ -1807,9 +1807,9 @@ class CoreRecorder:
                 )
                 
                 if pos:
-                    self.logger(f"[圖片辨識] ✅ 找到圖片於 ({pos[0]}, {pos[1]})")
+                    self.logger(f"[圖片辨識]  找到圖片於 ({pos[0]}, {pos[1]})")
                 else:
-                    self.logger(f"[圖片辨識] ❌ 未找到圖片")
+                    self.logger(f"[圖片辨識]  未找到圖片")
             except Exception as e:
                 self.logger(f"圖片辨識執行失敗: {e}")
         
@@ -1817,7 +1817,7 @@ class CoreRecorder:
             # 移動到圖片位置
             try:
                 image_name = event.get('image', '')
-                confidence = event.get('confidence', 0.6)  # 🔥 優化：降低至0.6加快速度
+                confidence = event.get('confidence', 0.6)  #  優化：降低至0.6加快速度
                 show_border = event.get('show_border', False)
                 region = event.get('region', None)
                 
@@ -1842,27 +1842,27 @@ class CoreRecorder:
                 if pos:
                     x, y = pos
                     ctypes.windll.user32.SetCursorPos(x, y)
-                    self.logger(f"[移動至圖片] ✅ 已移動至 ({x}, {y})")
+                    self.logger(f"[移動至圖片]  已移動至 ({x}, {y})")
                 else:
-                    self.logger(f"[移動至圖片] ❌ 未找到圖片，無法移動")
+                    self.logger(f"[移動至圖片]  未找到圖片，無法移動")
             except Exception as e:
                 self.logger(f"移動至圖片執行失敗: {e}")
         
         elif event['type'] == 'click_image':
-            # 點擊圖片位置（✅ 新增：可選擇返回原位 + 🔥 彈性點擊範圍）
+            # 點擊圖片位置（ 新增：可選擇返回原位 +  彈性點擊範圍）
             try:
                 image_name = event.get('image', '')
-                confidence = event.get('confidence', 0.6)  # 🔥 優化：降低至0.6加快速度
+                confidence = event.get('confidence', 0.6)  #  優化：降低至0.6加快速度
                 button = event.get('button', 'left')
                 return_to_origin = event.get('return_to_origin', False)  # 預設不返回原位
                 show_border = event.get('show_border', False)
                 region = event.get('region', None)
                 
-                # 🔥 新增：彈性點擊範圍參數
-                click_offset_mode = event.get('click_offset_mode', 'center')  # 🔥 預設中心模式（極速點擊）
+                #  新增：彈性點擊範圍參數
+                click_offset_mode = event.get('click_offset_mode', 'center')  #  預設中心模式（極速點擊）
                 click_radius = event.get('click_radius', 0)  # 點擊半徑（0=使用預設45%範圍）
                 
-                # 🔥 如果未指定點擊半徑，計算圖片大小的45%作為預設範圍
+                #  如果未指定點擊半徑，計算圖片大小的45%作為預設範圍
                 auto_radius = 0
                 if click_radius == 0:
                     # 稍後在找到圖片後計算（需要圖片尺寸）
@@ -1878,7 +1878,7 @@ class CoreRecorder:
                 self.logger(f"[點擊圖片] 開始尋找: {image_name}" +
                           (f" (範圍: {region})" if region else ""))
                 
-                # ✅ 記錄原始滑鼠位置
+                #  記錄原始滑鼠位置
                 if return_to_origin:
                     original_pos = win32api.GetCursorPos()
                 
@@ -1890,27 +1890,27 @@ class CoreRecorder:
                     region=region
                 )
                 
-                # ✅ 強化：必須找到圖片才執行點擊
+                #  強化：必須找到圖片才執行點擊
                 if pos is None:
-                    self.logger(f"[點擊圖片] ❌ 未找到圖片 '{image_name}'，跳過點擊")
+                    self.logger(f"[點擊圖片]  未找到圖片 '{image_name}'，跳過點擊")
                     return  # 直接返回，不執行任何點擊動作
                 
                 if pos:
                     x, y = pos
                     
-                    # 🔥 自動計算點擊半徑（圖片尺寸的80%）
+                    #  自動計算點擊半徑（圖片尺寸的80%）
                     if click_radius == 0 and auto_radius is None:
                         # 重新載入圖片取得尺寸（已有快取，速度很快）
                         template_gray, _ = self._load_image(image_name)
                         if template_gray is not None:
                             h, w = template_gray.shape
-                            # 🔥 計算圖片尺寸的45%作為半徑（例如128x128→半徑28.8px）
+                            #  計算圖片尺寸的45%作為半徑（例如128x128→半徑28.8px）
                             import math
                             # 使用較短邊的45%作為半徑，更精準的點擊範圍
                             click_radius = int(min(w, h) * 0.45 / 2)  # 45%範圍 = 短邊的22.5%半徑
                             self.logger(f"[彈性點擊] 自動計算半徑: {click_radius}px (圖片尺寸{w}x{h}，45%範圍)")
                     
-                    # 🔥 彈性點擊：根據模式計算偏移
+                    #  彈性點擊：根據模式計算偏移
                     if click_radius > 0:
                         if click_offset_mode == 'random':
                             # 隨機偏移：在半徑範圍內隨機點擊
@@ -1945,7 +1945,7 @@ class CoreRecorder:
                                     self.logger(f"[彈性點擊] 追蹤預測偏移 ({offset_x}, {offset_y})")
                         # center 模式不偏移，直接使用中心點
                     
-                    # 🔥 修復點擊：增加擬真移動與合理延遲
+                    #  修復點擊：增加擬真移動與合理延遲
                     if self._use_bezier and self._bezier_mover:
                         self._bezier_mover.move_to(x, y, duration=0.2)
                     else:
@@ -1961,18 +1961,18 @@ class CoreRecorder:
                     
                     self.logger(f"[點擊圖片] 已點擊 {button} 於 ({x}, {y})")
                     
-                    # ✅ 返回原位 (預設關閉,避免游標跳回原點)
+                    #  返回原位 (預設關閉,避免游標跳回原點)
                     if return_to_origin:
                         ctypes.windll.user32.SetCursorPos(original_pos[0], original_pos[1])
-                        self.logger(f"[點擊圖片] ✅ 已返回原位 ({original_pos[0]}, {original_pos[1]})")
+                        self.logger(f"[點擊圖片]  已返回原位 ({original_pos[0]}, {original_pos[1]})")
             except Exception as e:
                 self.logger(f"點擊圖片執行失敗: {e}")
         
-        # ✅ 新增：條件判斷 - 如果圖片存在
+        #  新增：條件判斷 - 如果圖片存在
         elif event['type'] == 'if_image_exists':
             try:
                 image_name = event.get('image', '')
-                confidence = event.get('confidence', 0.65)  # 🔥 優化：降低預設閾值
+                confidence = event.get('confidence', 0.65)  #  優化：降低預設閾值
                 on_success = event.get('on_success')  # {'action': 'continue'/'stop'/'jump', 'target': 'label_name', 'repeat_count': N}
                 on_failure = event.get('on_failure')
                 show_border = event.get('show_border', False)
@@ -2001,7 +2001,7 @@ class CoreRecorder:
                     if on_success:
                         return self._handle_branch_action(on_success)
                 else:
-                    self.logger(f"[條件判斷] ✖ 未找到圖片")
+                    self.logger(f"[條件判斷]  未找到圖片")
                     if on_failure:
                         return self._handle_branch_action(on_failure)
             except Exception as e:
@@ -2026,7 +2026,7 @@ class CoreRecorder:
                 ocr = OCRTrigger(ocr_engine="auto")
                 
                 if not ocr.is_available():
-                    self.logger("[OCR] ⚠️ OCR 引擎未啟用，跳過此步驟")
+                    self.logger("[OCR] ️ OCR 引擎未啟用，跳過此步驟")
                     if on_failure:
                         return self._handle_branch_action(on_failure)
                     return ('continue',)
@@ -2042,16 +2042,16 @@ class CoreRecorder:
                 )
                 
                 if found:
-                    self.logger(f"[OCR] ✅ 找到文字: {target_text}")
+                    self.logger(f"[OCR]  找到文字: {target_text}")
                     if on_success:
                         return self._handle_branch_action(on_success)
                 else:
-                    self.logger(f"[OCR] ✖ 未找到文字: {target_text}")
+                    self.logger(f"[OCR]  未找到文字: {target_text}")
                     if on_failure:
                         return self._handle_branch_action(on_failure)
                         
             except ImportError:
-                self.logger("[OCR] ❌ ocr_trigger 模組未找到，請確認檔案存在")
+                self.logger("[OCR]  ocr_trigger 模組未找到，請確認檔案存在")
             except Exception as e:
                 self.logger(f"[OCR] 錯誤: {e}")
                 if event.get('on_failure'):
@@ -2071,7 +2071,7 @@ class CoreRecorder:
                 ocr = OCRTrigger(ocr_engine="auto")
                 
                 if not ocr.is_available():
-                    self.logger("[OCR] ⚠️ OCR 引擎未啟用")
+                    self.logger("[OCR] ️ OCR 引擎未啟用")
                     return ('continue',)
                 
                 found = ocr.wait_for_text(
@@ -2081,9 +2081,9 @@ class CoreRecorder:
                 )
                 
                 if found:
-                    self.logger(f"[OCR] ✅ 文字已出現")
+                    self.logger(f"[OCR]  文字已出現")
                 else:
-                    self.logger(f"[OCR] ⏱️ 等待逾時")
+                    self.logger(f"[OCR] ️ 等待逾時")
                     
             except Exception as e:
                 self.logger(f"[OCR] 錯誤: {e}")
@@ -2101,7 +2101,7 @@ class CoreRecorder:
                 ocr = OCRTrigger(ocr_engine="auto")
                 
                 if not ocr.is_available():
-                    self.logger("[OCR] ⚠️ OCR 引擎未啟用")
+                    self.logger("[OCR] ️ OCR 引擎未啟用")
                     return ('continue',)
                 
                 # 尋找文字位置
@@ -2109,7 +2109,7 @@ class CoreRecorder:
                 
                 if pos:
                     x, y = pos
-                    self.logger(f"[OCR] ✅ 找到文字於 ({x}, {y})，執行點擊")
+                    self.logger(f"[OCR]  找到文字於 ({x}, {y})，執行點擊")
                     
                     # 移動並點擊
                     win32api.SetCursorPos((x, y))
@@ -2118,16 +2118,16 @@ class CoreRecorder:
                     time.sleep(0.05)
                     win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, x, y, 0, 0)
                 else:
-                    self.logger(f"[OCR] ✖ 未找到文字")
+                    self.logger(f"[OCR]  未找到文字")
                     
             except Exception as e:
                 self.logger(f"[OCR] 錯誤: {e}")
         
-        # ✅ 新增：多圖片同時辨識
+        #  新增：多圖片同時辨識
         elif event['type'] == 'recognize_any':
             try:
                 images = event.get('images', [])  # [{'name': 'pic01', 'action': 'click/move/log'}, ...]
-                confidence = event.get('confidence', 0.7)  # 🔥 降低至0.7加快速度
+                confidence = event.get('confidence', 0.7)  #  降低至0.7加快速度
                 timeout = event.get('timeout', 0)  # 0 = 立即返回，>0 = 持續嘗試直到找到或逾時
                 self.logger(f"[多圖辨識] 同時搜尋 {len(images)} 張圖片")
                 
@@ -2135,13 +2135,13 @@ class CoreRecorder:
                 found = False
                 
                 while True:
-                    # 🔥 一次截圖，多次匹配（效能優化 - 使用 mss）
+                    #  一次截圖，多次匹配（效能優化 - 使用 mss）
                     snapshot_gray = self._capture_screen_fast()
                     
                     # 準備圖片列表
                     template_list = [{'name': img.get('name', ''), 'threshold': confidence} for img in images]
                     
-                    # 🔥 使用批次辨識方法
+                    #  使用批次辨識方法
                     results = self.find_images_in_snapshot(snapshot, template_list, threshold=confidence, fast_mode=True)
                     
                     # 檢查是否有找到任何圖片
@@ -2151,7 +2151,7 @@ class CoreRecorder:
                         pos = results.get(img_name)
                         
                         if pos:
-                            self.logger(f"[多圖辨識] ✅ 找到圖片: {img_name} 於 ({pos[0]}, {pos[1]})")
+                            self.logger(f"[多圖辨識]  找到圖片: {img_name} 於 ({pos[0]}, {pos[1]})")
                             
                             # 執行對應動作
                             if action == 'click':
@@ -2164,16 +2164,16 @@ class CoreRecorder:
                                 self._mouse_event_enhanced('down', button=button)
                                 time.sleep(0.05)
                                 self._mouse_event_enhanced('up', button=button)
-                                self.logger(f"[多圖辨識] ✅ 已點擊 {img_name}")
+                                self.logger(f"[多圖辨識]  已點擊 {img_name}")
                                 
                                 if return_to_origin and original_pos:
                                     time.sleep(0.01)
                                     ctypes.windll.user32.SetCursorPos(original_pos[0], original_pos[1])
-                                    self.logger(f"[多圖辨識] ✅ 已返回原位")
+                                    self.logger(f"[多圖辨識]  已返回原位")
                             
                             elif action == 'move':
                                 ctypes.windll.user32.SetCursorPos(pos[0], pos[1])
-                                self.logger(f"[多圖辨識] ✅ 已移動至 {img_name}")
+                                self.logger(f"[多圖辨識]  已移動至 {img_name}")
                             
                             found = True
                             break
@@ -2183,10 +2183,10 @@ class CoreRecorder:
                     
                     # 檢查逾時
                     if timeout > 0 and (time.time() - start_time) >= timeout:
-                        self.logger(f"[多圖辨識] ✖ 逾時 ({timeout}秒)，未找到任何圖片")
+                        self.logger(f"[多圖辨識]  逾時 ({timeout}秒)，未找到任何圖片")
                         break
                     elif timeout == 0:
-                        self.logger(f"[多圖辨識] ✖ 未找到任何圖片")
+                        self.logger(f"[多圖辨識]  未找到任何圖片")
                         break
                     
                     time.sleep(0.1)  # 稍微延遲後再次嘗試
@@ -2239,14 +2239,14 @@ class CoreRecorder:
                 for img_name in images:
                     pos = self.find_image_on_screen(img_name, threshold=confidence, fast_mode=True)
                     if not pos:
-                        self.logger(f"[多條件AND] ✖ 缺少: {img_name}")
+                        self.logger(f"[多條件AND]  缺少: {img_name}")
                         all_found = False
                         break
                     else:
-                        self.logger(f"[多條件AND] ✓ 找到: {img_name}")
+                        self.logger(f"[多條件AND]  找到: {img_name}")
                 
                 if all_found:
-                    self.logger(f"[多條件AND] ✅ 全部找到")
+                    self.logger(f"[多條件AND]  全部找到")
                     if on_success:
                         return self._handle_branch_action(on_success)
                 else:
@@ -2271,7 +2271,7 @@ class CoreRecorder:
                 for img_name in images:
                     pos = self.find_image_on_screen(img_name, threshold=confidence, fast_mode=True)
                     if pos:
-                        self.logger(f"[多條件OR] ✅ 找到: {img_name}")
+                        self.logger(f"[多條件OR]  找到: {img_name}")
                         found = img_name
                         if found_image:
                             self._set_variable(found_image, img_name)
@@ -2281,7 +2281,7 @@ class CoreRecorder:
                     if on_success:
                         return self._handle_branch_action(on_success)
                 else:
-                    self.logger(f"[多條件OR] ✖ 全部未找到")
+                    self.logger(f"[多條件OR]  全部未找到")
                     if on_failure:
                         return self._handle_branch_action(on_failure)
                         
@@ -2422,7 +2422,7 @@ class CoreRecorder:
             self._reset_action_timer(action_id)
             self.logger(f"[重置計時器] {action_id}")
         
-        # ✅ 新增：延遲開始
+        #  新增：延遲開始
         elif event['type'] == 'delayed_start':
             delay_seconds = event.get('delay_seconds', 10)
             self.logger(f"[開始] 等待 {delay_seconds} 秒後開始...")
@@ -2437,7 +2437,7 @@ class CoreRecorder:
             
             self.logger(f"[開始] 延遲完成，開始執行腳本")
         
-        # ✅ 新增：延遲結束
+        #  新增：延遲結束
         elif event['type'] == 'delayed_end':
             delay_seconds = event.get('delay_seconds', 60)
             self.logger(f"[結束] 將在 {delay_seconds} 秒後結束腳本")
@@ -2655,7 +2655,7 @@ class CoreRecorder:
             self.logger(f"[recorder] 釋放遺留按鍵失敗: {ex}")
     
     def _ensure_recording_stopped(self):
-        """✅ 新增：確保所有錄製相關的監聽器都已完全停止"""
+        """ 新增：確保所有錄製相關的監聽器都已完全停止"""
         try:
             # 停止鍵盤錄製
             if self._keyboard_recording:
@@ -2744,7 +2744,7 @@ class CoreRecorder:
             # 中央文字
             canvas.create_text(
                 width//2, height//2,
-                text='✅ 已辨識',
+                text=' 已辨識',
                 font=('Microsoft JhengHei', 14, 'bold'),
                 fill='white'
             )
@@ -2765,7 +2765,7 @@ class CoreRecorder:
             self._log(f"[邊框] 顯示失敗: {e}", "warning")
     
     def _capture_screen_fast(self, region=None):
-        """🔥 優化：快速螢幕截圖（優先使用mss，回退到PIL）
+        """ 優化：快速螢幕截圖（優先使用mss，回退到PIL）
         
         mss 的優勢：
         - 直接返回 BGRA 格式，轉灰度更快
@@ -2781,7 +2781,7 @@ class CoreRecorder:
         """
         try:
             if MSS_AVAILABLE:
-                # 🔥 每次創建新的 mss 實例（避免多執行緒問題）
+                #  每次創建新的 mss 實例（避免多執行緒問題）
                 with mss.mss() as sct:
                     # 使用 mss 快速截圖（速度提升 3-5倍）
                     if region:
@@ -2819,7 +2819,7 @@ class CoreRecorder:
             return cv2.cvtColor(screen_array, cv2.COLOR_RGB2GRAY)
     
     def _predict_search_region(self, image_name, full_screen_size):
-        """🔥 預測式搜尋：根據歷史位置預測下一次搜尋範圍
+        """ 預測式搜尋：根據歷史位置預測下一次搜尋範圍
         
         Args:
             image_name: 圖片名稱
@@ -2919,7 +2919,7 @@ class CoreRecorder:
         self.logger(f"[追蹤] 已停用 {image_name} 的追蹤模式")
     
     def find_image_on_screen(self, image_name_or_path, threshold=0.9, region=None, multi_scale=True, fast_mode=False, use_features_fallback=True, show_border=False, enable_tracking=False, strict_mode=True):
-        """在螢幕上尋找圖片（🔥 極速優化版 + 智能追蹤 + 精確比對）
+        """在螢幕上尋找圖片（ 極速優化版 + 智能追蹤 + 精確比對）
         
         Args:
             image_name_or_path: 圖片顯示名稱或完整路徑
@@ -2936,13 +2936,13 @@ class CoreRecorder:
             (center_x, center_y) 如果找到，否則 None
         """
         try:
-            # 🔥 載入目標圖片（已優化：返回灰度圖）
+            #  載入目標圖片（已優化：返回灰度圖）
             template_gray, mask = self._load_image(image_name_or_path)
             if template_gray is None:
                 self.logger(f"[圖片辨識] 無法載入圖片：{image_name_or_path}")
                 return None
             
-            # 🔥 智能追蹤：如果啟用追蹤模式且有歷史位置，使用預測式搜尋
+            #  智能追蹤：如果啟用追蹤模式且有歷史位置，使用預測式搜尋
             search_region = region
             if enable_tracking or self._tracking_mode.get(image_name_or_path, False):
                 # 獲取螢幕尺寸
@@ -2955,17 +2955,17 @@ class CoreRecorder:
                     search_region = predicted_region
                     self.logger(f"[追蹤] 預測搜尋範圍: {predicted_region}")
             
-            # 🔥 使用快速截圖（優化：mss引擎 + 預轉灰度）
+            #  使用快速截圖（優化：mss引擎 + 預轉灰度）
             screen_cv = self._capture_screen_fast(search_region)
             
-            # 🔥 調試資訊：輸出截圖和模板尺寸
+            #  調試資訊：輸出截圖和模板尺寸
             if search_region:
                 self.logger(f"[圖片辨識] 範圍截圖尺寸: {screen_cv.shape[1]}x{screen_cv.shape[0]} (範圍: {search_region})")
             self.logger(f"[圖片辨識] 模板圖片尺寸: {template_gray.shape[1]}x{template_gray.shape[0]}")
             
             # 檢查模板是否大於截圖
             if template_gray.shape[0] > screen_cv.shape[0] or template_gray.shape[1] > screen_cv.shape[1]:
-                self.logger(f"[圖片辨識] ❌ 錯誤：模板圖片大於搜尋範圍！")
+                self.logger(f"[圖片辨識]  錯誤：模板圖片大於搜尋範圍！")
                 return None
             
             best_match_val = 0
@@ -2973,7 +2973,7 @@ class CoreRecorder:
             best_template_size = None
             best_scale = 1.0
             
-            # 🔥 極速模式：單一演算法、原始尺寸
+            #  極速模式：單一演算法、原始尺寸
             if fast_mode:
                 # 使用最快的 TM_CCOEFF_NORMED 算法
                 result = cv2.matchTemplate(screen_cv, template_gray, cv2.TM_CCOEFF_NORMED)
@@ -2982,14 +2982,14 @@ class CoreRecorder:
                 if max_val >= threshold:
                     h, w = template_gray.shape
                     
-                    # 🔥 v2.8.2 嚴格模式：驗證匹配區域是否真的與模板一致
+                    #  v2.8.2 嚴格模式：驗證匹配區域是否真的與模板一致
                     if strict_mode:
                         verified = self._verify_match_strict(
                             screen_cv, template_gray, max_loc, 
                             threshold=0.92  # 嚴格驗證使用更高閾值
                         )
                         if not verified:
-                            self.logger(f"[圖片辨識][嚴格模式] ⚠️ 匹配位置驗證失敗，可能是相似但不同的圖片")
+                            self.logger(f"[圖片辨識][嚴格模式] ️ 匹配位置驗證失敗，可能是相似但不同的圖片")
                             # 嘗試找下一個最佳匹配
                             alt_pos = self._find_strict_match(
                                 screen_cv, template_gray, result, threshold, search_region
@@ -2997,10 +2997,10 @@ class CoreRecorder:
                             if alt_pos:
                                 if search_region:
                                     alt_pos = (alt_pos[0] + search_region[0], alt_pos[1] + search_region[1])
-                                self.logger(f"[圖片辨識][嚴格模式] ✅ 找到精確匹配於 ({alt_pos[0]}, {alt_pos[1]})")
+                                self.logger(f"[圖片辨識][嚴格模式]  找到精確匹配於 ({alt_pos[0]}, {alt_pos[1]})")
                                 return alt_pos
                             else:
-                                self.logger(f"[圖片辨識][嚴格模式] ❌ 無法找到精確匹配")
+                                self.logger(f"[圖片辨識][嚴格模式]  無法找到精確匹配")
                                 return None
                     
                     pos = (max_loc[0] + w // 2, max_loc[1] + h // 2)
@@ -3009,11 +3009,11 @@ class CoreRecorder:
                     if search_region:
                         pos = (pos[0] + search_region[0], pos[1] + search_region[1])
                     
-                    # 🔥 追蹤模式：更新位置歷史
+                    #  追蹤模式：更新位置歷史
                     if enable_tracking or self._tracking_mode.get(image_name_or_path, False):
                         self._update_motion_history(image_name_or_path, pos[0], pos[1])
                     
-                    self.logger(f"[圖片辨識][極速] ✅ 找到圖片於 ({pos[0]}, {pos[1]}) 信心度:{max_val:.3f}")
+                    self.logger(f"[圖片辨識][極速]  找到圖片於 ({pos[0]}, {pos[1]}) 信心度:{max_val:.3f}")
                     
                     # 顯示邊框
                     if show_border:
@@ -3023,7 +3023,7 @@ class CoreRecorder:
                     
                     return pos
                 else:
-                    # 🔥 追蹤模式失敗：如果使用了預測搜尋但失敗，嘗試全螢幕搜尋
+                    #  追蹤模式失敗：如果使用了預測搜尋但失敗，嘗試全螢幕搜尋
                     if enable_tracking and search_region != region and region is None:
                         self.logger(f"[追蹤] 預測區域未找到，嘗試全螢幕搜尋")
                         screen_cv_full = self._capture_screen_fast(None)
@@ -3034,33 +3034,33 @@ class CoreRecorder:
                             h, w = template_gray.shape
                             pos = (max_loc[0] + w // 2, max_loc[1] + h // 2)
                             self._update_motion_history(image_name_or_path, pos[0], pos[1])
-                            self.logger(f"[追蹤] ✅ 全螢幕找到於 ({pos[0]}, {pos[1]}) 信心度:{max_val:.3f}")
+                            self.logger(f"[追蹤]  全螢幕找到於 ({pos[0]}, {pos[1]}) 信心度:{max_val:.3f}")
                             return pos
                     
-                    # 🔥 增強日誌：顯示搜尋範圍資訊
+                    #  增強日誌：顯示搜尋範圍資訊
                     if search_region:
                         region_info = f"，搜尋範圍: {search_region} (寬{search_region[2]-search_region[0]}x高{search_region[3]-search_region[1]})"
                     else:
                         region_info = "，搜尋範圍: 全螢幕"
-                    self.logger(f"[圖片辨識][極速] ❌ 未找到圖片（最高信心度:{max_val:.3f}，閾值:{threshold:.3f}{region_info}）")
+                    self.logger(f"[圖片辨識][極速]  未找到圖片（最高信心度:{max_val:.3f}，閾值:{threshold:.3f}{region_info}）")
                     return None
             
-            # 🔥 標準模式：多尺度模板匹配（主要方法，支援遮罩）
+            #  標準模式：多尺度模板匹配（主要方法，支援遮罩）
             if multi_scale:
-                scales = [0.95, 1.0, 1.05]  # 🔥 優化：僅保留3個尺度，目標0.5秒內完成
+                scales = [0.95, 1.0, 1.05]  #  優化：僅保留3個尺度，目標0.5秒內完成
                 for scale in scales:
                     if scale != 1.0:
                         width = int(template.shape[1] * scale)
                         height = int(template.shape[0] * scale)
                         if width < 10 or height < 10 or width > screen_cv.shape[1] or height > screen_cv.shape[0]:
                             continue
-                        scaled_template = cv2.resize(template, (width, height), interpolation=cv2.INTER_LINEAR)  # 🔥 使用INTER_LINEAR加快速度
+                        scaled_template = cv2.resize(template, (width, height), interpolation=cv2.INTER_LINEAR)  #  使用INTER_LINEAR加快速度
                         scaled_mask = cv2.resize(mask, (width, height), interpolation=cv2.INTER_NEAREST) if mask is not None else None
                     else:
                         scaled_template = template
                         scaled_mask = mask
                     
-                    # 🔥 根據是否有遮罩選擇演算法
+                    #  根據是否有遮罩選擇演算法
                     if scaled_mask is not None:
                         # 有透明遮罩：使用支援遮罩的演算法
                         self.logger(f"[圖片辨識] 使用透明遮罩進行匹配 (尺度:{scale:.2f})")
@@ -3069,7 +3069,7 @@ class CoreRecorder:
                         score = max_val
                         loc = max_loc
                     else:
-                        # 無遮罩：🔥 優化：只使用最快的相關係數法
+                        # 無遮罩： 優化：只使用最快的相關係數法
                         result = cv2.matchTemplate(screen_cv, scaled_template, cv2.TM_CCOEFF_NORMED)
                         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
                         score = max_val
@@ -3082,7 +3082,7 @@ class CoreRecorder:
                         best_template_size = (scaled_template.shape[1], scaled_template.shape[0])
                         best_scale = scale
             else:
-                # 🔥 單一尺度匹配（支援遮罩）
+                #  單一尺度匹配（支援遮罩）
                 if mask is not None:
                     result = cv2.matchTemplate(screen_cv, template, cv2.TM_CCORR_NORMED, mask=mask)
                 else:
@@ -3094,7 +3094,7 @@ class CoreRecorder:
             
             self.logger(f"[圖片辨識] 模板匹配度：{best_match_val:.3f} (尺度:{best_scale:.2f}, 閾值：{threshold})")
             
-            # 🔥 如果模板匹配失敗但接近閾值，嘗試特徵點匹配
+            #  如果模板匹配失敗但接近閾值，嘗試特徵點匹配
             if use_features_fallback and best_match_val < threshold and best_match_val >= threshold * 0.7:
                 self.logger(f"[圖片辨識] 模板匹配未達閾值，嘗試特徵點匹配...")
                 feature_x, feature_y, match_count = self.find_image_by_features(template, screen_cv)
@@ -3103,10 +3103,10 @@ class CoreRecorder:
                     if region:
                         feature_x += region[0]
                         feature_y += region[1]
-                    self.logger(f"[圖片辨識] ✅ 特徵點匹配成功於 ({feature_x}, {feature_y})")
+                    self.logger(f"[圖片辨識]  特徵點匹配成功於 ({feature_x}, {feature_y})")
                     return (feature_x, feature_y)
             
-            # 🔥 階段2: 進階驗證（當模板匹配度接近閾值時）
+            #  階段2: 進階驗證（當模板匹配度接近閾值時）
             if best_match_val >= threshold * 0.85:  # 降低初步門檻，進行更精確驗證
                 w, h = best_template_size
                 x1, y1 = best_match_loc
@@ -3118,7 +3118,7 @@ class CoreRecorder:
                     
                     # 調整模板大小以匹配找到的區域
                     if best_scale != 1.0:
-                        template_resized = cv2.resize(template, (w, h), interpolation=cv2.INTER_LINEAR)  # 🔥 使用INTER_LINEAR加快速度
+                        template_resized = cv2.resize(template, (w, h), interpolation=cv2.INTER_LINEAR)  #  使用INTER_LINEAR加快速度
                     else:
                         template_resized = template
                     
@@ -3126,7 +3126,7 @@ class CoreRecorder:
                     verification_count = 0
                     
                     try:
-                        # 🔥 優化：只使用快速的直方圖驗證（移除耗時的SSIM和邊緣檢測）
+                        #  優化：只使用快速的直方圖驗證（移除耗時的SSIM和邊緣檢測）
                         hist_template = cv2.calcHist([template_resized], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
                         hist_matched = cv2.calcHist([matched_region], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
                         
@@ -3159,7 +3159,7 @@ class CoreRecorder:
                             center_x += region[0]
                             center_y += region[1]
                         
-                        self.logger(f"[圖片辨識] ✅ 找到圖片於 ({center_x}, {center_y})")
+                        self.logger(f"[圖片辨識]  找到圖片於 ({center_x}, {center_y})")
                         
                         # 顯示邊框
                         if show_border:
@@ -3169,7 +3169,7 @@ class CoreRecorder:
                         
                         return (center_x, center_y)
             
-            self.logger(f"[圖片辨識] ❌ 未找到圖片（分數不足）")
+            self.logger(f"[圖片辨識]  未找到圖片（分數不足）")
             return None
                 
         except Exception as e:
@@ -3179,7 +3179,7 @@ class CoreRecorder:
             return None
     
     def _load_image(self, image_name_or_path):
-        """載入圖片（🔥 優化：預先生成灰度圖快取）
+        """載入圖片（ 優化：預先生成灰度圖快取）
         
         Args:
             image_name_or_path: 圖片顯示名稱或完整路徑
@@ -3189,7 +3189,7 @@ class CoreRecorder:
                 - image_gray: OpenCV 灰度格式的圖片（已優化）
                 - mask: Alpha通道遮罩（如果有），否則為None
         """
-        # 🔥 檢查快取（優先返回預先轉換好的灰度圖）
+        #  檢查快取（優先返回預先轉換好的灰度圖）
         if image_name_or_path in self._image_cache:
             cached = self._image_cache[image_name_or_path]
             # cached格式: (bgr, image_path, mask, gray)
@@ -3221,7 +3221,7 @@ class CoreRecorder:
         
         # 載入圖片
         try:
-            # 🔥 使用 cv2.imdecode 解決中文路徑問題
+            #  使用 cv2.imdecode 解決中文路徑問題
             with open(image_path, 'rb') as f:
                 image_data = f.read()
             image_array = np.frombuffer(image_data, dtype=np.uint8)
@@ -3233,7 +3233,7 @@ class CoreRecorder:
             
             mask = None
             
-            # 🔥 檢查是否有 Alpha 通道（透明遮罩）
+            #  檢查是否有 Alpha 通道（透明遮罩）
             if len(image_rgba.shape) == 3 and image_rgba.shape[2] == 4:  # RGBA格式
                 # 分離 RGB 和 Alpha
                 bgr = cv2.cvtColor(image_rgba, cv2.COLOR_RGBA2BGR)
@@ -3252,13 +3252,13 @@ class CoreRecorder:
                     bgr = image_rgba
                 self.logger(f"[圖片辨識] 已載入圖片（不透明）：{os.path.basename(image_path)}")
             
-            # 🔥 預先生成灰度圖（優化：避免重複轉換）
+            #  預先生成灰度圖（優化：避免重複轉換）
             if len(bgr.shape) == 3:
                 gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
             else:
                 gray = bgr
             
-            # 🔥 加入快取（包含遮罩和灰度圖）
+            #  加入快取（包含遮罩和灰度圖）
             self._image_cache[image_name_or_path] = (bgr, image_path, mask, gray)
             
             return gray, mask
@@ -3269,7 +3269,7 @@ class CoreRecorder:
             return None, None
     
     def _verify_match_strict(self, screen_cv, template_gray, match_loc, threshold=0.92):
-        """🔥 v2.8.2 嚴格驗證匹配區域
+        """ v2.8.2 嚴格驗證匹配區域
         
         用於區分相似但不同的按鈕（如 Accept vs Accept all）
         
@@ -3334,7 +3334,7 @@ class CoreRecorder:
                 self.logger(f"[嚴格驗證] NCC分數不足: {ncc_score:.3f} < {threshold}")
                 return False
             
-            self.logger(f"[嚴格驗證] ✅ 通過 (像素差={mean_diff:.2f}, 邊緣差={right_diff:.2f}, 直方圖={hist_corr:.3f}, NCC={ncc_score:.3f})")
+            self.logger(f"[嚴格驗證]  通過 (像素差={mean_diff:.2f}, 邊緣差={right_diff:.2f}, 直方圖={hist_corr:.3f}, NCC={ncc_score:.3f})")
             return True
             
         except Exception as e:
@@ -3342,7 +3342,7 @@ class CoreRecorder:
             return True  # 錯誤時預設通過，避免中斷流程
     
     def _find_strict_match(self, screen_cv, template_gray, result_map, threshold, search_region):
-        """🔥 v2.8.2 尋找通過嚴格驗證的匹配位置
+        """ v2.8.2 尋找通過嚴格驗證的匹配位置
         
         當第一個最佳匹配驗證失敗時，嘗試找其他候選位置
         
@@ -3411,7 +3411,7 @@ class CoreRecorder:
             bool: 是否成功載入
         """
         if not YOLO_AVAILABLE or self._yolo_detector is None:
-            self._log("[YOLO] ❌ YOLO 模組不可用，請安裝: pip install ultralytics", "warning")
+            self._log("[YOLO]  YOLO 模組不可用，請安裝: pip install ultralytics", "warning")
             return False
         
         success = self._yolo_detector.load_model(model_path)
@@ -3485,7 +3485,7 @@ class CoreRecorder:
             (center_x, center_y, match_count) 如果找到，否則 (None, None, 0)
         """
         try:
-            # 🔥 使用 ORB 特徵檢測器（快速且免費）
+            #  使用 ORB 特徵檢測器（快速且免費）
             orb = cv2.ORB_create(nfeatures=2000)  # 增加特徵點數量
             
             # 檢測關鍵點和描述符
@@ -3496,11 +3496,11 @@ class CoreRecorder:
                 self.logger("[特徵匹配] 無法提取特徵點")
                 return None, None, 0
             
-            # 🔥 使用 BFMatcher 進行特徵點匹配
+            #  使用 BFMatcher 進行特徵點匹配
             bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
             matches = bf.knnMatch(des1, des2, k=2)
             
-            # 🔥 Lowe's ratio test 篩選優質匹配
+            #  Lowe's ratio test 篩選優質匹配
             good_matches = []
             for match_pair in matches:
                 if len(match_pair) == 2:
@@ -3512,7 +3512,7 @@ class CoreRecorder:
             self.logger(f"[特徵匹配] 找到 {match_count} 個優質匹配點（最小需求：{min_match_count}）")
             
             if match_count >= min_match_count:
-                # 🔥 使用 RANSAC 計算單應性矩陣
+                #  使用 RANSAC 計算單應性矩陣
                 src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
                 dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
                 
@@ -3530,12 +3530,12 @@ class CoreRecorder:
                     
                     # 驗證中心點是否在合理範圍內
                     if 0 <= center_x < screen_cv.shape[1] and 0 <= center_y < screen_cv.shape[0]:
-                        self.logger(f"[特徵匹配] ✅ 找到圖片於 ({center_x}, {center_y})，匹配點數：{match_count}")
+                        self.logger(f"[特徵匹配]  找到圖片於 ({center_x}, {center_y})，匹配點數：{match_count}")
                         return center_x, center_y, match_count
                     else:
-                        self.logger(f"[特徵匹配] ❌ 中心點超出螢幕範圍")
+                        self.logger(f"[特徵匹配]  中心點超出螢幕範圍")
                 else:
-                    self.logger(f"[特徵匹配] ❌ 無法計算單應性矩陣")
+                    self.logger(f"[特徵匹配]  無法計算單應性矩陣")
             
             return None, None, match_count
             
@@ -3572,7 +3572,7 @@ class CoreRecorder:
             
             self.logger(f"[批次辨識] 開始在同一截圖中搜尋 {len(template_list)} 張圖片")
             
-            # 🔥 批次處理每張圖片
+            #  批次處理每張圖片
             for template_info in template_list:
                 if isinstance(template_info, dict):
                     img_name = template_info.get('name', '')
@@ -3590,7 +3590,7 @@ class CoreRecorder:
                     results[img_name] = None
                     continue
                 
-                # 🔥 在同一張截圖上進行匹配（不重複截圖）
+                #  在同一張截圖上進行匹配（不重複截圖）
                 pos = self._match_template_on_screen(
                     screen_cv, template, mask, 
                     threshold=img_threshold, 
@@ -3600,9 +3600,9 @@ class CoreRecorder:
                 results[img_name] = pos
                 
                 if pos:
-                    self.logger(f"[批次辨識] ✅ {img_name} 於 ({pos[0]}, {pos[1]})")
+                    self.logger(f"[批次辨識]  {img_name} 於 ({pos[0]}, {pos[1]})")
                 else:
-                    self.logger(f"[批次辨識] ❌ {img_name} 未找到")
+                    self.logger(f"[批次辨識]  {img_name} 未找到")
             
             return results
             
@@ -3632,7 +3632,7 @@ class CoreRecorder:
             best_template_size = None
             best_scale = 1.0
             
-            # 🔥 快速模式：只使用1.0尺度，跳過多尺度搜尋
+            #  快速模式：只使用1.0尺度，跳過多尺度搜尋
             if fast_mode:
                 scales = [1.0]  # 極速模式：只用原始尺寸
             else:
@@ -3644,13 +3644,13 @@ class CoreRecorder:
                     height = int(template.shape[0] * scale)
                     if width < 10 or height < 10 or width > screen_cv.shape[1] or height > screen_cv.shape[0]:
                         continue
-                    scaled_template = cv2.resize(template, (width, height), interpolation=cv2.INTER_LINEAR)  # 🔥 使用INTER_LINEAR加快速度
+                    scaled_template = cv2.resize(template, (width, height), interpolation=cv2.INTER_LINEAR)  #  使用INTER_LINEAR加快速度
                     scaled_mask = cv2.resize(mask, (width, height), interpolation=cv2.INTER_NEAREST) if mask is not None else None
                 else:
                     scaled_template = template
                     scaled_mask = mask
                 
-                # 🔥 使用遮罩進行匹配（如果有透明背景）
+                #  使用遮罩進行匹配（如果有透明背景）
                 if scaled_mask is not None:
                     # 支援遮罩的演算法：TM_CCORR_NORMED 或 TM_SQDIFF
                     result = cv2.matchTemplate(screen_cv, scaled_template, cv2.TM_CCORR_NORMED, mask=scaled_mask)
@@ -3696,7 +3696,7 @@ class CoreRecorder:
             (center_x, center_y, match_count) 如果找到，否則 (None, None, 0)
         """
         try:
-            # 🔥 使用 ORB 特徵檢測器（快速且免費）
+            #  使用 ORB 特徵檢測器（快速且免費）
             orb = cv2.ORB_create(nfeatures=2000)  # 增加特徵點數量
             
             # 檢測關鍵點和描述符
@@ -3707,11 +3707,11 @@ class CoreRecorder:
                 self.logger("[特徵匹配] 無法提取特徵點")
                 return None, None, 0
             
-            # 🔥 使用 BFMatcher 進行特徵點匹配
+            #  使用 BFMatcher 進行特徵點匹配
             bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
             matches = bf.knnMatch(des1, des2, k=2)
             
-            # 🔥 Lowe's ratio test 篩選優質匹配
+            #  Lowe's ratio test 篩選優質匹配
             good_matches = []
             for match_pair in matches:
                 if len(match_pair) == 2:
@@ -3723,7 +3723,7 @@ class CoreRecorder:
             self.logger(f"[特徵匹配] 找到 {match_count} 個優質匹配點（最小需求：{min_match_count}）")
             
             if match_count >= min_match_count:
-                # 🔥 使用 RANSAC 計算單應性矩陣
+                #  使用 RANSAC 計算單應性矩陣
                 src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
                 dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
                 
@@ -3741,12 +3741,12 @@ class CoreRecorder:
                     
                     # 驗證中心點是否在合理範圍內
                     if 0 <= center_x < screen_cv.shape[1] and 0 <= center_y < screen_cv.shape[0]:
-                        self.logger(f"[特徵匹配] ✅ 找到圖片於 ({center_x}, {center_y})，匹配點數：{match_count}")
+                        self.logger(f"[特徵匹配]  找到圖片於 ({center_x}, {center_y})，匹配點數：{match_count}")
                         return center_x, center_y, match_count
                     else:
-                        self.logger(f"[特徵匹配] ✖ 中心點超出螢幕範圍")
+                        self.logger(f"[特徵匹配]  中心點超出螢幕範圍")
                 else:
-                    self.logger(f"[特徵匹配] ✖ 無法計算單應性矩陣")
+                    self.logger(f"[特徵匹配]  無法計算單應性矩陣")
             
             return None, None, match_count
             
@@ -3814,7 +3814,7 @@ class CoreRecorder:
                     return True
                 time.sleep(0.5)
             
-            self.logger(f"[圖片辨識] 等待超時：{target_name} 未出現")
+            self.logger(f"[圖片辨識] 等待逾時：{target_name} 未出現")
             return False
         
         else:

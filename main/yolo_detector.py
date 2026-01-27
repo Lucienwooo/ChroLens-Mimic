@@ -100,7 +100,7 @@ class YOLODetector:
             bool: 是否成功載入
         """
         if not YOLO_AVAILABLE:
-            self._log("❌ ultralytics 套件未安裝，請執行: pip install ultralytics")
+            self._log(" ultralytics 套件未安裝，請執行: pip install ultralytics")
             return False
         
         try:
@@ -113,11 +113,11 @@ class YOLODetector:
             self.model = YOLO(self.model_path)
             
             self.is_loaded = True
-            self._log(f"✅ 模型載入成功: {self.model_path}")
+            self._log(f" 模型載入成功: {self.model_path}")
             return True
             
         except Exception as e:
-            self._log(f"❌ 模型載入失敗: {e}")
+            self._log(f" 模型載入失敗: {e}")
             self.is_loaded = False
             return False
     
@@ -139,7 +139,7 @@ class YOLODetector:
                 - center: 中心點 (x, y)
         """
         if not self.is_loaded:
-            self._log("❌ 模型尚未載入")
+            self._log(" 模型尚未載入")
             return []
         
         try:
@@ -181,7 +181,7 @@ class YOLODetector:
             return detections
             
         except Exception as e:
-            self._log(f"❌ 偵測失敗: {e}")
+            self._log(f" 偵測失敗: {e}")
             return []
     
     def detect_screen(self, region: Optional[Tuple[int, int, int, int]] = None,
@@ -222,7 +222,7 @@ class YOLODetector:
             return detections
             
         except Exception as e:
-            self._log(f"❌ 螢幕偵測失敗: {e}")
+            self._log(f" 螢幕偵測失敗: {e}")
             return []
     
     def find_object(self, class_name: str, confidence: float = 0.5,
@@ -242,10 +242,10 @@ class YOLODetector:
         # 尋找匹配的物件
         for det in detections:
             if det["class_name"].lower() == class_name.lower():
-                self._log(f"✅ 找到 '{class_name}' 於 {det['center']} (信心度: {det['confidence']:.2f})")
+                self._log(f" 找到 '{class_name}' 於 {det['center']} (信心度: {det['confidence']:.2f})")
                 return det["center"]
         
-        self._log(f"❌ 未找到 '{class_name}'")
+        self._log(f" 未找到 '{class_name}'")
         return None
     
     def find_all_objects(self, class_name: str, confidence: float = 0.5,
@@ -289,7 +289,7 @@ class YOLODetector:
             str: 訓練後的模型路徑，或 None
         """
         if not self.is_loaded:
-            self._log("❌ 請先載入基礎模型")
+            self._log(" 請先載入基礎模型")
             return None
         
         try:
@@ -300,13 +300,13 @@ class YOLODetector:
             # 取得最佳權重路徑
             best_path = results.save_dir / "weights" / "best.pt"
             if os.path.exists(best_path):
-                self._log(f"✅ 訓練完成，模型儲存於: {best_path}")
+                self._log(f" 訓練完成，模型儲存於: {best_path}")
                 return str(best_path)
             
             return None
             
         except Exception as e:
-            self._log(f"❌ 訓練失敗: {e}")
+            self._log(f" 訓練失敗: {e}")
             return None
 
 

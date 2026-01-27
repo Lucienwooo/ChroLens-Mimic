@@ -3,7 +3,7 @@
 # python "C:\Users\Lucien\Documents\GitHub\ChroLens_Mimic\main\ChroLens_Mimic.py"
 #
 # ═══════════════════════════════════════════════════════════════════════════
-# 【⚠️ AI Agent 必讀】
+# 【️ AI Agent 必讀】
 # ═══════════════════════════════════════════════════════════════════════════
 # 在對本專案進行任何修改前，請先閱讀 AI_AGENT_NOTES.py
 # 該檔案包含所有開發規範、流程說明、版本管理規則和重要備註
@@ -51,12 +51,11 @@ try:
 except Exception as e:
     print(f"無法匯入 CoreRecorder: {e}")
 
-# ✅ 使用文字指令式腳本編輯器（已移除舊版圖形化編輯器）
+#  使用文字指令式腳本編輯器（已移除舊版圖形化編輯器）
 try:
-    from text_script_editor import TextCommandEditor as VisualScriptEditor
-    print("✓ 已載入文字指令編輯器")
+    print("[OK] 已載入文字指令編輯器")
 except Exception as e:
-    print(f"❌ 無法匯入編輯器: {e}")
+    print(f"[ERROR] 無法匯入編輯器: {e}")
     import traceback
     traceback.print_exc()
     VisualScriptEditor = None
@@ -290,8 +289,7 @@ class ScheduleManager:
         self.running = True
         self.last_trigger = {}  # 避免同一分鐘重複觸發 {schedule_id: "HH:MM"}
         self._thread = threading.Thread(target=self._check_loop, daemon=True)
-        self._thread.start()
-        print("✓ 排程管理器已啟動")
+        print("[OK] 排程管理器已啟動")
     
     def add_schedule(self, schedule_id, config):
         """
@@ -306,13 +304,13 @@ class ScheduleManager:
         }
         """
         self.schedules[schedule_id] = config
-        print(f"✓ 已新增排程: {schedule_id} @ {config.get('time', '')}")
+        print(f"[OK] 已新增排程: {schedule_id} @ {config.get('time', '')}")
     
     def remove_schedule(self, schedule_id):
         """移除排程"""
         if schedule_id in self.schedules:
             del self.schedules[schedule_id]
-            print(f"✓ 已移除排程: {schedule_id}")
+            print(f"[OK] 已移除排程: {schedule_id}")
     
     def get_all_schedules(self):
         """取得所有排程"""
@@ -359,20 +357,20 @@ class ScheduleManager:
         try:
             # 檢查是否有腳本正在執行
             if hasattr(self.app, 'playing') and self.app.playing:
-                print(f"⚠️ 偵測到衝突：停止目前執行中的腳本")
-                self.app.log(f"⚠️ 排程衝突：停止目前腳本，執行新排程")
+                print(f"[WARN] 偵測到衝突：停止目前執行中的腳本")
+                self.app.log(f"[WARN] 排程衝突：停止目前腳本，執行新排程")
                 self.app.stop_all()
                 time.sleep(0.5)  # 等待停止完成
             
             # 執行排程腳本
-            print(f"⏰ 觸發排程: {script_file}")
-            self.app.log(f"⏰ 排程觸發: {script_file}")
+            print(f"[CLOCK] 觸發排程: {script_file}")
+            self.app.log(f"[CLOCK] 排程觸發: {script_file}")
             callback(script_file)
             
         except Exception as e:
             print(f"觸發排程失敗: {e}")
             if hasattr(self.app, 'log'):
-                self.app.log(f"❌ 觸發排程失敗: {e}")
+                self.app.log(f" 觸發排程失敗: {e}")
     
     def stop(self):
         """停止排程管理器"""
@@ -481,7 +479,7 @@ class RecorderApp(tb.Window):
         if not is_admin():
             # 顯示警告但仍繼續執行
             try:
-                print("⚠️ 警告：程式未以管理員身份執行，錄製功能可能無法正常工作！")
+                print("[WARN] 警告：程式未以管理員身份執行，錄製功能可能無法正常工作！")
             except:
                 print("[WARNING] Program not running as administrator, recording may not work properly!")
         
@@ -505,7 +503,7 @@ class RecorderApp(tb.Window):
         self._hotkey_handlers = {}
         # 用來儲存腳本快捷鍵的 handler id
         self._script_hotkey_handlers = {}
-        # ✅ 快捷鍵健康檢查變數
+        #  快捷鍵健康檢查變數
         self._last_hotkey_register_time = 0
         self._hotkey_check_failures = 0
         # MiniMode 管理器（由 mini.py 提供）
@@ -744,12 +742,12 @@ class RecorderApp(tb.Window):
                 # 取消勾選時顯示警告
                 current_lang = self.language_var.get()
                 lang_m = LANG_MAP.get(current_lang, LANG_MAP["繁體中文"])
-                warning_msg = lang_m.get("滑鼠模式警告", "⚠️ 注意！\n\n取消勾選滑鼠模式將使用後台操作。\n遊戲可能會偵測外掛，請謹慎使用，後果自負！")
+                warning_msg = lang_m.get("滑鼠模式警告", "️ 注意！\n\n取消勾選滑鼠模式將使用後台操作。\n遊戲可能會偵測外掛，請謹慎使用，後果自負！")
                 messagebox.showwarning("警告", warning_msg)
         self.mouse_mode_var.trace_add("write", on_mouse_mode_change)
 
         self.script_combo.bind("<<ComboboxSelected>>", self.on_script_selected)
-        # 綁定點擊事件，在展開下拉選單前自動刷新列表
+        # 綁定點擊事件，在展開下拉選單前自動重新整理列表
         self.script_combo.bind("<Button-1>", self._on_script_combo_click)
 
 
@@ -776,7 +774,7 @@ class RecorderApp(tb.Window):
             cursor="hand2"  # 滑鼠懸停時顯示手型游標
         )
         self.target_label.pack(side="left", padx=(0, 4))
-        # 綁定左鍵點擊事件來刷新相同視窗
+        # 綁定左鍵點擊事件來重新整理相同視窗
         self.target_label.bind("<Button-1>", self._refresh_target_window)
         # 綁定右鍵點擊事件來取消視窗選擇
         self.target_label.bind("<Button-3>", self._clear_target_window)
@@ -952,16 +950,6 @@ class RecorderApp(tb.Window):
         )
         self.version_info_btn.pack(anchor="w", pady=4, padx=8)
         
-        # 官網連結按鈕
-        self.website_btn = tb.Button(
-            self.global_setting_frame, 
-            text="Mimic官網", 
-            width=15, 
-            style="My.TButton", 
-            command=self.open_website, 
-            bootstyle=SUCCESS
-        )
-        self.website_btn.pack(anchor="w", pady=4, padx=8)
         
         self.actual_language = saved_lang
         self.language_display_var = tk.StringVar(self, value="Language")
@@ -994,7 +982,7 @@ class RecorderApp(tb.Window):
             import tkinter.messagebox as messagebox
             result = messagebox.askquestion(
                 "管理員權限警告",
-                "⚠️ 檢測到程式未以管理員身份執行！\n\n"
+                "️ 檢測到程式未以管理員身份執行！\n\n"
                 "錄製功能需要管理員權限才能正常工作。\n"
                 "鍵盤和滑鼠監聽可能會失敗。\n\n"
                 "是否要以管理員身份重新啟動程式？\n"
@@ -1046,7 +1034,7 @@ class RecorderApp(tb.Window):
         self.after(200, self._force_focus)  # 再次確認焦點
         self.after(300, self._register_hotkeys)  # 註冊快捷鍵
         self.after(400, self._register_script_hotkeys)
-        # ✅ 新增：定期檢查快捷鍵健康狀態（每30秒）
+        #  新增：定期檢查快捷鍵健康狀態（每30秒）
         self.after(30000, self._check_hotkey_health)
         self.after(500, self.refresh_script_list)
         self.after(600, self.load_last_script)
@@ -1062,7 +1050,7 @@ class RecorderApp(tb.Window):
             self.focus_force()  # 強制獲得焦點
             self.update()  # 強制更新
             
-            # ✅ 额外觸發一次鍵盤事件來激活鉤子
+            #  额外觸發一次鍵盤事件來啟用鉤子
             self.event_generate('<KeyPress>', keysym='Shift_L')
             self.event_generate('<KeyRelease>', keysym='Shift_L')
         except Exception as e:
@@ -1595,15 +1583,6 @@ class RecorderApp(tb.Window):
             traceback.print_exc()
             messagebox.showerror("錯誤", f"無法顯示版本資訊：\n{e}")
     
-    def open_website(self):
-        """開啟 ChroLens Mimic 官網"""
-        import webbrowser
-        try:
-            webbrowser.open("https://lucienwooo.github.io/ChroLens_Mimic/")
-            self.log("已開啟官方網站")
-        except Exception as e:
-            self.log(f"開啟網站失敗: {e}")
-            messagebox.showerror("錯誤", f"無法開啟網站：\n{e}")
     
 
     def change_language(self, event=None):
@@ -1767,7 +1746,7 @@ class RecorderApp(tb.Window):
                             pass
                 return
             
-            # ✅ 修復：使用實際經過的時間而非事件索引
+            #  修復：使用實際經過的時間而非事件索引
             # 計算腳本的總長度（邏輯時間）
             if self.events and len(self.events) > 0:
                 script_duration = self.events[-1]['time'] - self.events[0]['time']
@@ -1844,7 +1823,7 @@ class RecorderApp(tb.Window):
                         except Exception:
                             pass
             
-            # 持續更新（100ms 刷新率）
+            # 持續更新（100ms 重新整理率）
             self.after(100, self._update_play_time)
         else:
             # 執行停止時重置所有時間顯示
@@ -1895,13 +1874,13 @@ class RecorderApp(tb.Window):
             except Exception as e:
                 self.log(f"無法記錄視窗資訊: {e}")
         
-        # ✅ 清空 events 並設定狀態
+        #  清空 events 並設定狀態
         self.events = []
         self.recording = True
         self.paused = False
         self.log(f"[{format_time(time.time())}] 開始錄製...")
         
-        # ✅ 修正：直接調用 core_recorder.start_record() 以確保完整初始化
+        #  修正：直接調用 core_recorder.start_record() 以確保完整初始化
         if hasattr(self, 'core_recorder'):
             self._record_start_time = self.core_recorder.start_record()
             if self._record_start_time is None:
@@ -1968,7 +1947,7 @@ class RecorderApp(tb.Window):
     def toggle_pause(self):
         """切換暫停/繼續（v2.6.5 - 參考2.5簡化邏輯）"""
         if self.recording or self.playing:
-            # ✅ 優先使用 core_recorder 的暫停功能
+            #  優先使用 core_recorder 的暫停功能
             if hasattr(self, 'core_recorder'):
                 is_paused = self.core_recorder.toggle_pause()
                 self.paused = is_paused
@@ -1980,7 +1959,7 @@ class RecorderApp(tb.Window):
             mode = "錄製" if self.recording else "執行"
             self.log(f"[{format_time(time.time())}] {mode}{state}。")
             
-            # ✅ 2.5 風格：暫停時停止 keyboard 錄製，暫存事件
+            #  2.5 風格：暫停時停止 keyboard 錄製，暫存事件
             if self.paused and self.recording:
                 try:
                     import keyboard
@@ -2076,7 +2055,7 @@ class RecorderApp(tb.Window):
                         
                         # 1. 標題區 (固定頂部)
                         title_label = tb.Label(outer_frame, 
-                            text="⚠️ 偵測到視窗狀態不同！", 
+                            text="️ 偵測到視窗狀態不同！", 
                             font=("Microsoft JhengHei", 14, "bold"),
                             bootstyle=WARNING)
                         title_label.pack(pady=(0, 15))
@@ -2102,25 +2081,25 @@ class RecorderApp(tb.Window):
                         canvas.pack(side="left", fill="both", expand=True)
                         
                         # 訊息內容
-                        msg = "📊 錄製時 vs 目前狀態比較：\n\n"
+                        msg = " 錄製時 vs 目前狀態比較：\n\n"
                         
                         if size_mismatch:
-                            msg += f"🖼️ 視窗大小：\n"
+                            msg += f"️ 視窗大小：\n"
                             msg += f"   錄製時: {recorded_info['size'][0]} x {recorded_info['size'][1]}\n"
                             msg += f"   目前: {current_info['size'][0]} x {current_info['size'][1]}\n\n"
                         
                         if pos_mismatch:
-                            msg += f"📍 視窗位置：\n"
+                            msg += f" 視窗位置：\n"
                             msg += f"   錄製時: ({recorded_info['position'][0]}, {recorded_info['position'][1]})\n"
                             msg += f"   目前: ({current_info['position'][0]}, {current_info['position'][1]})\n\n"
                         
                         if dpi_mismatch:
-                            msg += f"🔍 DPI 縮放：\n"
+                            msg += f" DPI 縮放：\n"
                             msg += f"   錄製時: {recorded_info['dpi_scale']:.2f}x ({int(recorded_info['dpi_scale'] * 100)}%)\n"
                             msg += f"   目前: {current_info['dpi_scale']:.2f}x ({int(current_info['dpi_scale'] * 100)}%)\n\n"
                         
                         if resolution_mismatch:
-                            msg += f"🖥️ 螢幕解析度：\n"
+                            msg += f"️ 螢幕解析度：\n"
                             msg += f"   錄製時: {recorded_info['screen_resolution'][0]} x {recorded_info['screen_resolution'][1]}\n"
                             msg += f"   目前: {current_info['screen_resolution'][0]} x {current_info['screen_resolution'][1]}\n\n"
                         
@@ -2147,18 +2126,18 @@ class RecorderApp(tb.Window):
                             user_choice["action"] = "cancel"
                             dialog.destroy()
                         
-                        tb.Button(bottom_frame, text="🔧 強制歸位（將目前視窗調整回錄製狀態）", bootstyle=PRIMARY, 
+                        tb.Button(bottom_frame, text=" 強制歸位（將目前視窗調整回錄製狀態）", bootstyle=PRIMARY, 
                                  command=on_force_adjust).pack(pady=5, fill="x")
                         
-                        tb.Button(bottom_frame, text="✨ 智能適配（推薦：保留目前狀態並自動縮放）", bootstyle=SUCCESS, 
+                        tb.Button(bottom_frame, text=" 智能適配（推薦：保留目前狀態並自動縮放）", bootstyle=SUCCESS, 
                                  command=on_auto_scale).pack(pady=5, fill="x")
                         
-                        tb.Button(bottom_frame, text="❌ 取消執行", bootstyle=DANGER, 
+                        tb.Button(bottom_frame, text=" 取消執行", bootstyle=DANGER, 
                                  command=on_cancel).pack(pady=5, fill="x")
                         
                         # 添加說明
                         info_label = tb.Label(bottom_frame, 
-                            text="💡 提示：「智能適配」會自動調整座標以適應當前環境，適用於不同解析度、DPI 縮放和視窗大小的跨設備跑本。", 
+                            text=" 提示：「智能適配」會自動調整座標以適應當前環境，適用於不同解析度、DPI 縮放和視窗大小的跨設備跑本。", 
                             font=("Microsoft JhengHei", 9), 
                             foreground="#666",
                             wraplength=650)
@@ -2212,12 +2191,12 @@ class RecorderApp(tb.Window):
         self._continue_play_record()
     
     def play_script(self):
-        """✅ 新增：供編輯器調用的播放方法別名"""
+        """ 新增：供編輯器調用的播放方法別名"""
         self.play_record()
     
     def _continue_play_record(self):
         """實際執行執行的內部方法（支援智能縮放）"""
-        # ✅ 設定圖片辨識目錄
+        #  設定圖片辨識目錄
         images_dir = os.path.join(self.script_dir, "images")
         if os.path.exists(images_dir):
             self.core_recorder.set_images_directory(images_dir)
@@ -2327,7 +2306,7 @@ class RecorderApp(tb.Window):
         self._total_play_time = total_time
 
         self._play_start_time = time.time()
-        self._current_cycle_start_time = time.time()  # ✅ 初始化當前循環起始時間
+        self._current_cycle_start_time = time.time()  #  初始化當前循環起始時間
         self.update_total_time_label(self._total_play_time)
         self.playing = True
         self.paused = False
@@ -2363,7 +2342,7 @@ class RecorderApp(tb.Window):
         """停止所有動作（全新實作 - 更穩健的處理）"""
         stopped = False
         
-        # ✅ 立即設定狀態
+        #  立即設定狀態
         if self.recording:
             self.recording = False
             stopped = True
@@ -2380,7 +2359,7 @@ class RecorderApp(tb.Window):
                         self.events = self.core_recorder.events
                 except Exception as e:
                     self.log(f"[警告] 停止 core_recorder 時發生錯誤: {e}")
-                    # ✅ 強制重置狀態
+                    #  強制重置狀態
                     self.core_recorder.recording = False
             
             # 等待錄製執行緒結束
@@ -2411,7 +2390,7 @@ class RecorderApp(tb.Window):
         if not stopped:
             self.log(f"[{format_time(time.time())}] 無進行中動作可停止。")
         
-        # ✅ 立即刷新顯示
+        #  立即重新整理顯示
         self.update_time_label(0)
         self.update_countdown_label(0)
         self.update_total_time_label(0)
@@ -2429,7 +2408,7 @@ class RecorderApp(tb.Window):
         """
         強制停止所有動作並關閉程式（v2.6.5+ 精確清理版）
         
-        ✅ 重構改進：
+         重構改進：
         - 只移除本程式註冊的快捷鍵
         - 不使用 keyboard.unhook_all()
         - 保護其他程式的全域熱鍵
@@ -2441,11 +2420,11 @@ class RecorderApp(tb.Window):
         4. 強制終止程式
         """
         try:
-            self.log("[系統] 🔴 強制停止：立即終止所有動作...")
+            self.log("[系統]  強制停止：立即終止所有動作...")
         except:
             pass
 
-        # ✅ 步驟1：立即停止所有動作
+        #  步驟1：立即停止所有動作
         try:
             self.recording = False
             self.playing = False
@@ -2466,13 +2445,13 @@ class RecorderApp(tb.Window):
             except:
                 pass
 
-        # ✅ 步驟2：釋放所有按鍵（避免卡鍵）
+        #  步驟2：釋放所有按鍵（避免卡鍵）
         try:
             self._release_all_modifiers()
         except:
             pass
 
-        # ✅ 步驟3：精確清理本程式的快捷鍵（不影響其他程式）
+        #  步驟3：精確清理本程式的快捷鍵（不影響其他程式）
         try:
             import keyboard
             
@@ -2492,7 +2471,7 @@ class RecorderApp(tb.Window):
                     pass
             self._script_hotkey_handlers.clear()
             
-            # ❌ 禁止：keyboard.unhook_all() 
+            #  禁止：keyboard.unhook_all() 
             # 原因：會移除所有程式的熱鍵，包括使用者的其他工具
             
         except Exception:
@@ -2541,7 +2520,7 @@ class RecorderApp(tb.Window):
                 except:
                     pass
 
-            # ✅ v2.7.6 強制透過 Windows API 釋放核心修飾鍵 (防止 keyboard 模組失效)
+            #  v2.7.6 強制透過 Windows API 釋放核心修飾鍵 (防止 keyboard 模組失效)
             try:
                 import win32api, win32con
                 vk_map = {
@@ -2555,7 +2534,7 @@ class RecorderApp(tb.Window):
                         # 0x0002 是 KEYEVENTF_KEYUP
                         win32api.keybd_event(vk, 0, 0x0002, 0)
             except Exception as e:
-                self.log(f"⚠️ WinAPI 釋放按鍵失敗: {e}")
+                self.log(f"️ WinAPI 釋放按鍵失敗: {e}")
 
             # 不再呼叫 unhook_all/unhook_all_hotkeys
             # 這些會移除系統快捷鍵 (F9/F10 等)，導致 3-5 次後失效
@@ -2700,7 +2679,7 @@ class RecorderApp(tb.Window):
         增強穩定性:
         - 完整的錯誤處理
         - 資料驗證
-        - 清晰的用戶反饋
+        - 清晰的使用者反饋
         """
         script = self.script_var.get()
         
@@ -2822,13 +2801,13 @@ class RecorderApp(tb.Window):
         
         path = os.path.join(self.script_dir, script_file)
         
-        # ✅ 檢查檔案是否存在
+        #  檢查檔案是否存在
         if not os.path.exists(path):
-            self.log(f"❌ 載入失敗: 腳本檔案不存在 '{script_file}'")
+            self.log(f" 載入失敗: 腳本檔案不存在 '{script_file}'")
             messagebox.showwarning("警告", f"找不到腳本檔案:\n{script_file}")
             return
         
-        # ✅ 檢查檔案大小 (防止空檔案)
+        #  檢查檔案大小 (防止空檔案)
         try:
             file_size = os.path.getsize(path)
             if file_size == 0:
@@ -2846,14 +2825,14 @@ class RecorderApp(tb.Window):
             # 載入腳本資料
             data = sio_load_script(path)
             
-            # ✅ 檢查資料完整性
+            #  檢查資料完整性
             if not isinstance(data, dict):
                 raise ValueError("腳本格式錯誤: 不是有效的 JSON 物件")
             
             events = data.get("events", [])
             settings = data.get("settings", {})
             
-            # ✅ 特殊處理: 視覺化編輯器格式轉換
+            #  特殊處理: 視覺化編輯器格式轉換
             if not events or len(events) == 0:
                 if "script_actions" in settings and settings["script_actions"]:
                     self.log("偵測到視覺化編輯器腳本,開始轉換...")
@@ -2887,10 +2866,10 @@ class RecorderApp(tb.Window):
             except:
                 self.random_interval_var.set(False)
             
-            # ✅ 讀取視窗資訊 (新格式優先,兼容舊格式)
+            #  讀取視窗資訊 (新格式優先,兼容舊格式)
             if "window_info" in settings and isinstance(settings["window_info"], dict):
                 self.recorded_window_info = settings["window_info"]
-                self.log(f"📐 視窗資訊:")
+                self.log(f" 視窗資訊:")
                 self.log(f"   大小: {self.recorded_window_info.get('size', ('N/A', 'N/A'))[0]} x {self.recorded_window_info.get('size', ('N/A', 'N/A'))[1]}")
                 self.log(f"   DPI: {self.recorded_window_info.get('dpi_scale', 1.0):.2f}x ({int(self.recorded_window_info.get('dpi_scale', 1.0) * 100)}%)")
                 self.log(f"   解析度: {self.recorded_window_info.get('screen_resolution', ('N/A', 'N/A'))[0]} x {self.recorded_window_info.get('screen_resolution', ('N/A', 'N/A'))[1]}")
@@ -2917,7 +2896,7 @@ class RecorderApp(tb.Window):
             with open(LAST_SCRIPT_FILE, "w", encoding="utf-8") as f:
                 f.write(script_file)
             
-            # ✅ 計算並顯示預估時間
+            #  計算並顯示預估時間
             if self.events and len(self.events) > 0:
                 try:
                     # 單次時間
@@ -3102,7 +3081,7 @@ class RecorderApp(tb.Window):
         merge_win.resizable(True, True)
         merge_win.minsize(750, 500)
         
-        # ✅ 使用列表儲存合併數據，支援重複腳本（每個元素：{"name": script_name, "delay": delay_seconds}）
+        #  使用列表儲存合併資料，支援重複腳本（每個元素：{"name": script_name, "delay": delay_seconds}）
         self.merge_data_list = []
         
         # 說明標籤
@@ -3110,7 +3089,7 @@ class RecorderApp(tb.Window):
         info_frame.pack(fill="x")
         info_label = tb.Label(
             info_frame, 
-            text="📋 選擇要合併的腳本，按順序執行（可重複添加同一腳本，點兩下設定延遲）",
+            text=" 選擇要合併的腳本，按順序執行（可重複添加同一腳本，點兩下設定延遲）",
             font=("微軟正黑體", 10),
             wraplength=800
         )
@@ -3141,7 +3120,7 @@ class RecorderApp(tb.Window):
             selected_indices = available_list.curselection()
             for idx in selected_indices:
                 script_name = available_list.get(idx)
-                # ✅ 允許重複添加
+                #  允許重複添加
                 self.merge_data_list.append({"name": script_name, "delay": 0})
                 merge_list.insert(tk.END, script_name)
         
@@ -3160,7 +3139,7 @@ class RecorderApp(tb.Window):
                 return
             for idx in selected_indices:
                 if idx > 0:
-                    # 同步移動 UI 和數據
+                    # 同步移動 UI 和資料
                     item = merge_list.get(idx)
                     merge_list.delete(idx)
                     merge_list.insert(idx - 1, item)
@@ -3176,7 +3155,7 @@ class RecorderApp(tb.Window):
                 return
             for idx in reversed(selected_indices):
                 if idx < merge_list.size() - 1:
-                    # 同步移動 UI 和數據
+                    # 同步移動 UI 和資料
                     item = merge_list.get(idx)
                     merge_list.delete(idx)
                     merge_list.insert(idx + 1, item)
@@ -3212,7 +3191,7 @@ class RecorderApp(tb.Window):
             tb.Label(frame, text=f"腳本：{script_name} (#{index+1})", font=("微軟正黑體", 10, "bold")).pack(pady=(0, 10))
             tb.Label(frame, text="延遲執行秒數：", font=("微軟正黑體", 10)).pack()
             
-            # ✅ 從 merge_data_list 讀取延遲
+            #  從 merge_data_list 讀取延遲
             current_delay = self.merge_data_list[index]["delay"] if index < len(self.merge_data_list) else 0
             delay_var = tk.StringVar(value=str(current_delay))
             delay_entry = tb.Entry(frame, textvariable=delay_var, width=15, font=("微軟正黑體", 11), justify="center")
@@ -3238,7 +3217,7 @@ class RecorderApp(tb.Window):
             def save_delay():
                 try:
                     delay_value = int(delay_var.get()) if delay_var.get() else 0
-                    # ✅ 儲存到 merge_data_list
+                    #  儲存到 merge_data_list
                     if 0 <= index < len(self.merge_data_list):
                         self.merge_data_list[index]["delay"] = delay_value
                     # 更新顯示
@@ -3267,7 +3246,7 @@ class RecorderApp(tb.Window):
                     display_text = script_name
                 merge_list.insert(tk.END, display_text)
         
-        add_btn = tb.Button(middle_frame, text="➡ " + lang_map.get("加入", "加入"), command=add_to_merge, width=10, bootstyle=SUCCESS)
+        add_btn = tb.Button(middle_frame, text=" " + lang_map.get("加入", "加入"), command=add_to_merge, width=10, bootstyle=SUCCESS)
         add_btn.pack(pady=5)
         
         remove_btn = tb.Button(middle_frame, text="⬅ " + lang_map.get("移除", "移除"), command=remove_from_merge, width=10, bootstyle=DANGER)
@@ -3352,7 +3331,7 @@ class RecorderApp(tb.Window):
                     
                     if i == 0:
                         first_script_settings = data.get("settings", {}).copy()
-                        self.log(f"✓ 使用腳本A的參數設定：{script_name}")
+                        self.log(f" 使用腳本A的參數設定：{script_name}")
                     
                     if not events:
                         continue
@@ -3364,13 +3343,13 @@ class RecorderApp(tb.Window):
                         new_event['time'] = (event['time'] - script_base_time) + time_offset
                         merged_events.append(new_event)
                     
-                    # ✅ 從 merge_data_list 獲取延遲時間
+                    #  從 merge_data_list 獲取延遲時間
                     if merged_events:
                         script_duration = events[-1]['time'] - script_base_time
                         individual_delay = script_data["delay"]
                         time_offset = merged_events[-1]['time'] + individual_delay
                         if individual_delay > 0:
-                            self.log(f"✓ 腳本 {script_name} (#{i+1}) 設定延遲 {individual_delay} 秒")
+                            self.log(f" 腳本 {script_name} (#{i+1}) 設定延遲 {individual_delay} 秒")
                 
                 # 儲存合併後的腳本
                 merged_data = {
@@ -3381,7 +3360,7 @@ class RecorderApp(tb.Window):
                 with open(new_path, "w", encoding="utf-8") as f:
                     json.dump(merged_data, f, ensure_ascii=False, indent=2)
                 
-                self.log(f"✅ 合併完成：{new_name}，共 {len(merged_events)} 筆事件")
+                self.log(f" 合併完成：{new_name}，共 {len(merged_events)} 筆事件")
                 messagebox.showinfo("成功", f"已合併 {len(script_names)} 個腳本為\n{new_name}")
                 
                 self.refresh_script_list()
@@ -3394,7 +3373,7 @@ class RecorderApp(tb.Window):
                 import traceback
                 traceback.print_exc()
                 
-                # 刷新腳本列表
+                # 重新整理腳本列表
                 self.refresh_script_list()
                 self.refresh_script_listbox()
                 
@@ -3672,7 +3651,7 @@ class RecorderApp(tb.Window):
             "force_quit": "force_quit"
         }
         
-        # ✅ 清除舊 handler（只移除本程式註冊的）
+        #  清除舊 handler（只移除本程式註冊的）
         for handler in self._hotkey_handlers.values():
             try:
                 keyboard.remove_hotkey(handler)
@@ -3690,7 +3669,7 @@ class RecorderApp(tb.Window):
             if not callable(callback):
                 continue
             
-            # ✅ 註冊並儲存 handle (加入重試機制)
+            #  註冊並儲存 handle (加入重試機制)
             max_retries = 3
             for attempt in range(max_retries):
                 try:
@@ -3713,9 +3692,9 @@ class RecorderApp(tb.Window):
         
         # 提示：首次運行後不再顯示註冊訊息
         if self._is_first_run:
-            self.log("✅ 系統快捷鍵註冊完成（錄製時仍然有效）")
+            self.log(" 系統快捷鍵註冊完成（錄製時仍然有效）")
         
-        # ✅ 記錄註冊時間（用於健康檢查）
+        #  記錄註冊時間（用於健康檢查）
         self._last_hotkey_register_time = time.time()
 
 
@@ -3801,7 +3780,7 @@ class RecorderApp(tb.Window):
         功能：
         - 檢測快捷鍵是否仍然有效
         - 自動重新註冊失效的快捷鍵
-        - 記錄失敗次數並提示用戶
+        - 記錄失敗次數並提示使用者
         
         每30秒執行一次
         """
@@ -3820,7 +3799,7 @@ class RecorderApp(tb.Window):
                 # 快捷鍵應該存在但實際上沒有 - 需要重新註冊
                 hotkeys_ok = False
                 self._hotkey_check_failures += 1
-                self.log("⚠️ 檢測到快捷鍵失效，正在自動修復...")
+                self.log("️ 檢測到快捷鍵失效，正在自動修復...")
             
             # 如果檢測到問題或距離上次註冊超過10分鐘，重新註冊
             if not hotkeys_ok or time_since_last_register > 600:
@@ -3831,15 +3810,15 @@ class RecorderApp(tb.Window):
                     self._register_script_hotkeys()
                     
                     if not hotkeys_ok:
-                        self.log("✅ 快捷鍵已自動修復")
+                        self.log(" 快捷鍵已自動修復")
                         self._hotkey_check_failures = 0  # 重置失敗計數
                 except Exception as ex:
-                    self.log(f"❌ 快捷鍵修復失敗: {ex}")
+                    self.log(f" 快捷鍵修復失敗: {ex}")
                     self._hotkey_check_failures += 1
             
-            # 如果連續失敗3次，提示用戶
+            # 如果連續失敗3次，提示使用者
             if self._hotkey_check_failures >= 3:
-                self.log("⚠️ 快捷鍵多次失效，建議重啟程式")
+                self.log("️ 快捷鍵多次失效，建議重啟程式")
                 self._hotkey_check_failures = 0  # 重置計數避免重複提示
             
         except Exception as e:
@@ -3935,9 +3914,9 @@ class RecorderApp(tb.Window):
                 self.mini_window.bind("<B1-Motion>", self._move_mini)
                 
                 btn_defs = [
-                    ("⏺", "start"),
-                    ("⏸", "pause"),
-                    ("⏹", "stop"),
+                    ("", "start"),
+                    ("", "pause"),
+                    ("", "stop"),
                     ("▶︎", "play"),
                     ("⤴︎", "mini")
                 ]
@@ -4007,11 +3986,11 @@ class RecorderApp(tb.Window):
         os.startfile(self.script_dir)
     
     def _on_script_combo_click(self, event=None):
-        """當點擊腳本下拉選單時，即時刷新列表"""
+        """當點擊腳本下拉選單時，即時重新整理列表"""
         self.refresh_script_list()
 
     def refresh_script_list(self):
-        """刷新腳本下拉選單內容（去除副檔名顯示）"""
+        """重新整理腳本下拉選單內容（去除副檔名顯示）"""
         if not os.path.exists(self.script_dir):
             os.makedirs(self.script_dir)
         scripts = [f for f in os.listdir(self.script_dir) if f.endswith('.json')]
@@ -4032,7 +4011,7 @@ class RecorderApp(tb.Window):
             self.script_var.set(current_display)
 
     def refresh_script_listbox(self):
-        """刷新腳本設定區左側列表（顯示檔名、快捷鍵和定時）"""
+        """重新整理腳本設定區左側列表（顯示檔名、快捷鍵和定時）"""
         try:
             # 清空 Treeview
             for item in self.script_treeview.get_children():
@@ -4071,7 +4050,7 @@ class RecorderApp(tb.Window):
                 ))
                 
         except Exception as ex:
-            self.log(f"刷新腳本清單失敗: {ex}")
+            self.log(f"重新整理腳本清單失敗: {ex}")
 
     def on_page_selected(self, event=None):
         idx = self.page_menu.curselection()
@@ -4384,7 +4363,7 @@ class RecorderApp(tb.Window):
         for script_name, script_file, path in scripts_to_delete:
             try:
                 os.remove(path)
-                self.log(f"✓ 已刪除腳本：{script_name}")
+                self.log(f" 已刪除腳本：{script_name}")
                 deleted_count += 1
                 
                 # 取消註冊此腳本的快捷鍵（如果有的話）
@@ -4397,7 +4376,7 @@ class RecorderApp(tb.Window):
                     del self._script_hotkey_handlers[script_file]
                     
             except Exception as ex:
-                self.log(f"✗ 刪除腳本失敗 [{script_name}]: {ex}")
+                self.log(f" 刪除腳本失敗 [{script_name}]: {ex}")
                 failed_count += 1
         
         # 顯示總結
@@ -4419,9 +4398,9 @@ class RecorderApp(tb.Window):
     def open_visual_editor(self):
         """開啟腳本編輯器"""
         try:
-            # ✅ 檢查編輯器模組是否可用
+            #  檢查編輯器模組是否可用
             if VisualScriptEditor is None:
-                self.log("❌ 編輯器模組不可用，請檢查 text_script_editor.py 檔案")
+                self.log(" 編輯器模組不可用，請檢查 text_script_editor.py 檔案")
                 messagebox.showerror("錯誤", "無法載入腳本編輯器模組")
                 return
             
@@ -4444,7 +4423,7 @@ class RecorderApp(tb.Window):
                 # 建立新視窗並儲存引用
                 self.visual_editor_window = VisualScriptEditor(self, script_path)
                 self.log("[資訊] 已開啟腳本編輯器")
-                # ✅ 延遲確保編輯器視窗在最上層（避免主視窗遮住編輯器）
+                #  延遲確保編輯器視窗在最上層（避免主視窗遮住編輯器）
                 self.after(100, self._ensure_editor_on_top)
         except Exception as e:
             self.log(f"[錯誤] 無法開啟編輯器：{e}")
@@ -4599,9 +4578,9 @@ class RecorderApp(tb.Window):
                         'enabled': True,
                         'callback': self._execute_scheduled_script
                     })
-                    self.log(f"✓ 已設定排程：{script_name} 每天 {schedule_time}")
+                    self.log(f" 已設定排程：{script_name} 每天 {schedule_time}")
                 
-                # 刷新列表
+                # 重新整理列表
                 self.refresh_script_listbox()
                 schedule_win.destroy()
                 
@@ -4624,9 +4603,9 @@ class RecorderApp(tb.Window):
                 if hasattr(self, 'schedule_manager') and self.schedule_manager:
                     schedule_id = f"script_{script_name}"
                     self.schedule_manager.remove_schedule(schedule_id)
-                    self.log(f"✓ 已清除排程：{script_name}")
+                    self.log(f" 已清除排程：{script_name}")
                 
-                # 刷新列表
+                # 重新整理列表
                 self.refresh_script_listbox()
                 schedule_win.destroy()
                 
@@ -4672,12 +4651,12 @@ class RecorderApp(tb.Window):
                             'callback': self._execute_scheduled_script
                         })
                         loaded_count += 1
-                        print(f"⏰ [系統啟動] 已載入排程: {script_name} @ {schedule_time}")
+                        print(f" [系統啟動] 已載入排程: {script_name} @ {schedule_time}")
                 except Exception as e:
                     self.log(f"載入排程失敗 ({script_file}): {e}")
             
             if loaded_count > 0:
-                self.log(f"💡 [排程系統] 已成功載入 {loaded_count} 個腳本排程")
+                self.log(f" [排程系統] 已成功載入 {loaded_count} 個腳本排程")
             else:
                 print("ℹ️ [排程系統] 未發現任何設定排程的腳本")
         except Exception as e:
@@ -4725,9 +4704,9 @@ class RecorderApp(tb.Window):
             display_name = os.path.splitext(script_file)[0]
             self.script_var.set(display_name)
             
-            self.log(f"⏰ [排程執行] 腳本: {script_file}")
-            self.log(f"📊 執行條件: 速度 {self.speed_var.get()}, 重複 {self.repeat_var.get()} 次")
-            self.log(f"📂 載入 {len(self.events)} 筆事件")
+            self.log(f" [排程執行] 腳本: {script_file}")
+            self.log(f" 執行條件: 速度 {self.speed_var.get()}, 重複 {self.repeat_var.get()} 次")
+            self.log(f" 載入 {len(self.events)} 筆事件")
             
             # 自動開始執行
             self.after(500, self.play_record)
@@ -4741,7 +4720,7 @@ class RecorderApp(tb.Window):
         """開啟視窗選擇器，選定後只錄製該視窗內的滑鼠動作"""
         try:
             if WindowSelectorDialog is None:
-                self.log("❌ 視窗選擇器模組不可用，無法選擇視窗。")
+                self.log(" 視窗選擇器模組不可用，無法選擇視窗。")
                 messagebox.showerror("錯誤", "無法載入視窗選擇器模組")
                 return
 
@@ -4768,7 +4747,7 @@ class RecorderApp(tb.Window):
                 short = title if len(title) <= 30 else title[:27] + "..."
                 self.target_label.config(text=f"[目標] {short}")
                 self.log(f"已選定目標視窗：{title} (hwnd={hwnd})")
-                self.log("💡 提示：右鍵點擊視窗名稱可取消選擇")
+                self.log(" 提示：右鍵點擊視窗名稱可取消選擇")
                 # 為使用者在畫面上畫出框框提示
                 try:
                     self.show_window_highlight(hwnd)
@@ -4800,9 +4779,9 @@ class RecorderApp(tb.Window):
         self.log("已清除目標視窗設定")
 
     def _refresh_target_window(self, event=None):
-        """刷新目標視窗（可由左鍵點擊觸發）- 以相同視窗名稱重新指定"""
+        """重新整理目標視窗（可由左鍵點擊觸發）- 以相同視窗名稱重新指定"""
         if not self.target_title:
-            self.log("沒有目標視窗可刷新")
+            self.log("沒有目標視窗可重新整理")
             return
         
         original_title = self.target_title
@@ -4894,7 +4873,7 @@ class RecorderApp(tb.Window):
             font_size = max(12, min(24, min(w, h) // 20))
             
             # 在 Canvas 上繪製文字（不受視窗大小限制）
-            text = "✓ 已設定目標視窗"
+            text = " 已設定目標視窗"
             canvas.create_text(
                 w // 2, h // 2,
                 text=text,

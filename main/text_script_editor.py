@@ -26,7 +26,7 @@ try:
 except ImportError:
     MSS_AVAILABLE = False
 
-# 🔧 載入 LINE Seed 字體
+#  載入 LINE Seed 字體
 LINE_SEED_FONT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "TTF", "LINESeedTW_TTF_Rg.ttf")
 try:
     import pyglet
@@ -38,7 +38,7 @@ try:
 except:
     LINE_SEED_FONT_LOADED = False
 
-# 🔧 字體系統（獨立定義，避免循環匯入）
+#  字體系統（獨立定義，避免循環匯入）
 def font_tuple(size, weight=None, monospace=False):
     """
     回傳字體元組
@@ -55,6 +55,118 @@ def font_tuple(size, weight=None, monospace=False):
     if weight:
         return (fam, size, weight)
     return (fam, size)
+
+
+# ========== 智能軌跡過濾器 (v1.0) ==========
+# 用於壓縮大量滑鼠軌跡事件，同時保留拖曳操作的完整性
+
+def filter_mouse_trajectory(events, threshold=5, time_threshold=0.1):
+    """
+    智能過濾滑鼠軌跡，減少檔案大小並提升效能
+    
+    保留規則：
+    1. 所有非移動事件（點擊、鍵盤等）
+    2. 拖曳操作的完整軌跡（點擊按下 → 移動 → 點擊放開）
+    3. 軌跡的起點和終點
+    4. 方向改變超過閾值的轉折點
+    5. 時間間隔超過閾值的點
+    
+    :param events: 原始事件列表
+    :param threshold: 方向改變閾值（像素）
+    :param time_threshold: 時間間隔閾值（秒）
+    :return: 過濾後的事件列表
+    """
+    if not events:
+        return []
+    
+    filtered = []
+    last_move = None
+    last_direction = None
+    is_dragging = False  # 追蹤是否正在拖曳
+    drag_start_index = None  # 拖曳開始的索引
+    pending_moves = []  # 暫存拖曳期間的移動事件
+    
+    for i, event in enumerate(events):
+        event_type = event.get('type')
+        event_name = event.get('event')
+        
+        # === 1. 處理滑鼠按下事件 ===
+        if event_type == 'mouse' and event_name == 'down':
+            filtered.append(event)
+            is_dragging = True  # 開始追蹤拖曳
+            drag_start_index = len(filtered) - 1
+            pending_moves = []  # 清空暫存
+            last_move = event
+            continue
+        
+        # === 2. 處理滑鼠放開事件 ===
+        if event_type == 'mouse' and event_name == 'up':
+            # 如果正在拖曳，保留所有暫存的移動事件
+            if is_dragging and pending_moves:
+                filtered.extend(pending_moves)
+                pending_moves = []
+            
+            filtered.append(event)
+            is_dragging = False
+            drag_start_index = None
+            last_move = event
+            continue
+        
+        # === 3. 處理滑鼠移動事件 ===
+        if event_type == 'mouse' and event_name == 'move':
+            # 如果正在拖曳，暫存所有移動事件（稍後決定是否保留）
+            if is_dragging:
+                pending_moves.append(event)
+                last_move = event
+                continue
+            
+            # 非拖曳狀態：應用智能過濾
+            # 保留第一個移動事件
+            if last_move is None or last_move.get('event') != 'move':
+                filtered.append(event)
+                last_move = event
+                last_direction = None
+                continue
+            
+            # 計算方向變化
+            dx = event.get('x', 0) - last_move.get('x', 0)
+            dy = event.get('y', 0) - last_move.get('y', 0)
+            current_direction = (dx, dy)
+            
+            # 保留方向改變明顯的點
+            if last_direction and (
+                abs(dx - last_direction[0]) > threshold or
+                abs(dy - last_direction[1]) > threshold
+            ):
+                filtered.append(event)
+                last_move = event
+                last_direction = current_direction
+                continue
+            
+            # 保留時間間隔大的點
+            if event.get('time', 0) - last_move.get('time', 0) > time_threshold:
+                filtered.append(event)
+                last_move = event
+                last_direction = current_direction
+                continue
+            
+            # 保留最後一個移動事件（檢查下一個事件）
+            if i == len(events) - 1 or events[i + 1].get('event') != 'move':
+                filtered.append(event)
+                last_move = event
+                last_direction = current_direction
+                continue
+            
+            # 更新方向但不保留此點
+            if last_direction is None:
+                last_direction = current_direction
+            continue
+        
+        # === 4. 保留所有其他事件（鍵盤、滾輪等） ===
+        filtered.append(event)
+        last_move = None  # 重置移動追蹤
+    
+    return filtered
 
 
 # ========== PCB 風格布線器 (v11 - GitHub Actions 風格) ==========
@@ -122,7 +234,7 @@ class GlobalRouter:
     
     def _mark_nodes_as_blocked(self):
         self.node_rects = []
-        # ✅ Padding 隨比例縮放
+        #  Padding 隨比例縮放
         padding = 4 * self.scale
         for node in self.nodes:
             # 使用 .get 以防寬高度缺失
@@ -241,7 +353,7 @@ class GlobalRouter:
     def route(self, from_node, to_node, path_type, from_idx=None, to_idx=None):
         self.line_count += 1
         
-        # ✅ 使用實時縮放後的寬高 (使用 .get 確保安全)
+        #  使用實時縮放後的寬高 (使用 .get 確保安全)
         fw = from_node.get("width", 150)
         fh = from_node.get("height", 36)
         tw = to_node.get("width", 150)
@@ -370,7 +482,7 @@ class TextCommandEditor(tk.Toplevel):
         
         self._create_ui()
         
-        # 刷新腳本列表
+        # 重新整理腳本列表
         self._refresh_script_list()
         
         # 如果有指定腳本路徑，載入它
@@ -729,7 +841,7 @@ class TextCommandEditor(tk.Toplevel):
         self.workflow_tooltip = None  # 浮動提示框
         
         # 畫布事件綁定
-        # 👆 啟用畫布拖移，但只能拖移畫布
+        #  啟用畫布拖移，但只能拖移畫布
         self.workflow_canvas.bind("<Button-1>", self._on_workflow_canvas_click)
         self.workflow_canvas.bind("<B1-Motion>", self._on_workflow_canvas_drag)
         self.workflow_canvas.bind("<ButtonRelease-1>", self._on_workflow_canvas_release)
@@ -756,7 +868,7 @@ class TextCommandEditor(tk.Toplevel):
         self.text_editor.tag_config("trajectory_hidden", elide=True)  # elide=True 會隱藏文字
         self.text_editor.tag_config("trajectory_clickable", foreground="#00BFFF", underline=1)
         
-        # ✨ 新增：標籤範圍摺疊相關標籤和配置
+        #  新增：標籤範圍摺疊相關標籤和配置
         self.text_editor.tag_config("label_foldable", foreground="#4ec9b0", font=font_tuple(10, "bold"), underline=1)
         self.text_editor.tag_config("label_end", foreground="#6a9955", font=font_tuple(9))  # 標籤結束標記
         self.text_editor.tag_config("label_content_hidden", elide=True)  # 隱藏標籤內容
@@ -972,7 +1084,7 @@ class TextCommandEditor(tk.Toplevel):
                 # 更新摘要文字為 [收合]
                 self._update_trajectory_summary_text(summary_line, "[收合]")
                 self.trajectory_fold_state[summary_line] = False
-                # ✅ 展開後重新套用語法高亮
+                #  展開後重新套用語法高亮
                 self._apply_syntax_highlighting()
             else:
                 # 收合：添加 elide 標籤
@@ -995,7 +1107,7 @@ class TextCommandEditor(tk.Toplevel):
             import re
             new_text = re.sub(r'\[(展開|收合)\]', f'[{action_text}]', line_text)
             
-            # ✅ 先移除舊標籤，避免標籤累積
+            #  先移除舊標籤，避免標籤累積
             self.text_editor.tag_remove("trajectory_clickable", line_start, line_end)
             
             # 更新文字
@@ -1632,15 +1744,15 @@ class TextCommandEditor(tk.Toplevel):
             border_color = "#00bcd4"
         elif is_mouse:
             icon_color = "#569cd6"  # 藍色 - 滑鼠
-            icon_symbol = "🖱"
+            icon_symbol = ""
             border_color = "#2196f3"
         elif is_keyboard:
             icon_color = "#9cdcfe"  # 淺藍色 - 鍵盤
-            icon_symbol = "⌨"
+            icon_symbol = ""
             border_color = "#03a9f4"
         elif is_wait:
             icon_color = "#dcdcaa"  # 黃色 - 等待
-            icon_symbol = "⏱"
+            icon_symbol = ""
             border_color = "#ffc107"
         elif is_loop:
             icon_color = "#ce9178"  # 橘色 - 迴圈
@@ -2313,7 +2425,7 @@ class TextCommandEditor(tk.Toplevel):
         menu = tk.Menu(self, tearoff=0)
         
         # 只保留自動排列功能
-        menu.add_command(label="🔄 自動排列", command=self._auto_arrange_nodes)
+        menu.add_command(label=" 自動排列", command=self._auto_arrange_nodes)
         
         try:
             menu.tk_popup(event.x_root, event.y_root)
@@ -2761,7 +2873,7 @@ class TextCommandEditor(tk.Toplevel):
             ],
             "計時系統": [
                 ("計數器觸發", "#E65100", None, ">計數器>找圖失敗, 3次後, T=0s000\n>>#下一步"),
-                ("計時器觸發", "#F57C00", None, ">計時器>等待載入, 60秒後, T=0s000\n>>#超時處理"),
+                ("計時器觸發", "#F57C00", None, ">計時器>等待載入, 60秒後, T=0s000\n>>#逾時處理"),
                 ("重置計數器", "#FF6F00", None, ">重置計數器>找圖失敗, T=0s000"),
                 ("重置計時器", "#FF9800", None, ">重置計時器>等待載入, T=0s000"),
                 ("開始", "#4CAF50", None, ">開始>10秒後, T=0s000"),
@@ -3011,11 +3123,11 @@ class TextCommandEditor(tk.Toplevel):
         ref_window.geometry("1200x850")  # 增加高度以容納新手入門區
         ref_window.configure(bg="#1e1e1e")
         
-        # ✅ 新增：搜尋欄位
+        #  新增：搜尋欄位
         search_frame = tk.Frame(ref_window, bg="#1e1e1e")
         search_frame.pack(fill="x", padx=20, pady=(10, 5))
         
-        tk.Label(search_frame, text="🔍 搜尋指令：", font=font_tuple(10), bg="#1e1e1e", fg="#d4d4d4").pack(side="left")
+        tk.Label(search_frame, text=" 搜尋指令：", font=font_tuple(10), bg="#1e1e1e", fg="#d4d4d4").pack(side="left")
         self.ref_search_var = tk.StringVar()
         search_entry = tk.Entry(search_frame, textvariable=self.ref_search_var, font=font_tuple(10), bg="#2d2d30", fg="white", insertbackground="white", width=40)
         search_entry.pack(side="left", padx=10)
@@ -3028,7 +3140,7 @@ class TextCommandEditor(tk.Toplevel):
         self.ref_search_var.trace_add("write", on_search_change)
         
         # 提示文字
-        tk.Label(search_frame, text="💡 提示：雙擊指令列可直接插入編輯器", font=font_tuple(9), bg="#1e1e1e", fg="#ce9178").pack(side="right")
+        tk.Label(search_frame, text=" 提示：雙擊指令列可直接插入編輯器", font=font_tuple(9), bg="#1e1e1e", fg="#ce9178").pack(side="right")
         
         # 創建帶滾動條的 Canvas 容器
         container = tk.Frame(ref_window, bg="#1e1e1e")
@@ -3050,10 +3162,10 @@ class TextCommandEditor(tk.Toplevel):
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
-        # ✅ 儲存引用以便搜尋時刷新
+        #  儲存引用以便搜尋時重新整理
         self.ref_scrollable_frame = scrollable_frame
         
-        # ✅ 新增：新手快速入門區（更親民的說明）
+        #  新增：新手快速入門區（更親民的說明）
         self._insert_beginner_guide(scrollable_frame)
         
         # 插入指令表格（使用 grid）
@@ -3065,10 +3177,10 @@ class TextCommandEditor(tk.Toplevel):
         
         # 更實用的提示文字
         tips = [
-            "💡 快速上手: 按「錄製」→ 做你想自動化的動作 → 按「停止」→ 按「播放」測試",
-            "💡 時間格式: T=1s500 = 1.5秒 (1秒 + 500毫秒),不懂就用錄製功能自動產生!",
-            "💡 找不到指令? 按「指令說明」鈕,裡面有所有指令的範例",
-            "💡 圖片辨識: 按「圖片辨識」鈕 → 框選要找的圖 → 自動產生指令,超簡單!"
+            " 快速上手: 按「錄製」→ 做你想自動化的動作 → 按「停止」→ 按「播放」測試",
+            " 時間格式: T=1s500 = 1.5秒 (1秒 + 500毫秒),不懂就用錄製功能自動產生!",
+            " 找不到指令? 按「指令說明」鈕,裡面有所有指令的範例",
+            " 圖片辨識: 按「圖片辨識」鈕 → 框選要找的圖 → 自動產生指令,超簡單!"
         ]
         for tip in tips:
             tk.Label(
@@ -3130,7 +3242,7 @@ class TextCommandEditor(tk.Toplevel):
         
         title_label = tk.Label(
             title_frame,
-            text="🌟 5分鐘學會寫腳本 - 這些指令超簡單! (點擊收合/展開)",
+            text=" 5分鐘學會寫腳本 - 這些指令超簡單! (點擊收合/展開)",
             font=font_tuple(11, "bold"),
             bg="#2d5a2d",
             fg="#ffffff",
@@ -3143,42 +3255,42 @@ class TextCommandEditor(tk.Toplevel):
         guide_frame.pack(fill="x", pady=(5, 0))
         
         guide_items = [
-            ("🖱️ 滑鼠操作", 
+            ("️ 滑鼠操作", 
              "讓電腦幫你點滑鼠\n"
              "• 左鍵點擊(100,200) → 在座標 (100,200) 點一下\n"
              "• 不知道座標? 按「錄製」鈕,程式會自動記錄!"),
             
-            ("⌨️ 鍵盤操作", 
+            ("️ 鍵盤操作", 
              "讓電腦幫你打字或按按鍵\n"
              "• 按a → 按一下鍵盤的 A 鍵\n"
              "• 按ctrl+c → 按複製快捷鍵"),
             
-            ("📷 圖片辨識", 
+            (" 圖片辨識", 
              "讓電腦「看」螢幕找圖片,找到後自動點擊\n"
              "• >左鍵點擊>登入按鈕 → 找到「登入按鈕」圖片並點擊\n"
              "• 按「圖片辨識」鈕可以自動截圖!"),
             
-            ("📝 文字辨識", 
+            (" 文字辨識", 
              "讓電腦「讀」螢幕上的文字\n"
              "• >OCR>歡迎 → 找到螢幕上的「歡迎」字樣\n"
              "• 可以用來判斷遊戲狀態或網頁內容"),
             
-            ("🏷️ 標籤跳轉", 
+            ("️ 標籤跳轉", 
              "標籤就像書籤,讓程式可以跳回去重複執行\n"
              "• #開始 → 設定一個叫「開始」的標籤\n"
              "• >>#開始 → 跳回「開始」標籤繼續執行"),
             
-            ("⏱️ 延遲等待", 
+            ("️ 延遲等待", 
              "讓程式暫停一下再繼續\n"
              "• >延遲>1s → 等待 1 秒\n"
              "• >延遲>500ms → 等待 0.5 秒 (1000ms = 1秒)"),
             
-            ("🔀 條件判斷", 
+            (" 條件判斷", 
              "根據情況決定下一步做什麼\n"
              "• >if>登入按鈕 → 如果找到「登入按鈕」就執行下面的指令\n"
              "• 找不到就跳過,繼續往下執行"),
             
-            ("🔄 迴圈重複", 
+            (" 迴圈重複", 
              "讓一段指令重複執行多次\n"
              "• >迴圈>10 → 重複執行 10 次\n"
              "• >迴圈>無限 → 一直重複到按停止"),
@@ -3238,7 +3350,7 @@ class TextCommandEditor(tk.Toplevel):
         # 指令按鈕名稱
         text_widget.tag_config("button_name", foreground="#569cd6", font=font_tuple(10, "bold"))
         
-        # ✅ 指令內容（與編輯器語法高亮完全相同）
+        #  指令內容（與編輯器語法高亮完全相同）
         text_widget.tag_config("syntax_symbol", foreground="#d4d4d4")      # 淺灰色 - 符號
         text_widget.tag_config("syntax_time", foreground="#ce9178")        # 橘色 - 時間參數
         text_widget.tag_config("syntax_label", foreground="#4ec9b0")       # 青綠色 - 標籤
@@ -3313,12 +3425,12 @@ class TextCommandEditor(tk.Toplevel):
             
             # 計數器與計時器
             ("計數器觸發", ">計數器>找圖失敗, 3次後, T=0s000\n>>#下一步", "計數達到指定次數後觸發"),
-            ("計時器觸發", ">計時器>等待載入, 60秒後, T=0s000\n>>#超時處理", "時間達到後觸發"),
+            ("計時器觸發", ">計時器>等待載入, 60秒後, T=0s000\n>>#逾時處理", "時間達到後觸發"),
             ("重置計數器", ">重置計數器>找圖失敗, T=0s000", "重置指定計數器"),
             ("重置計時器", ">重置計時器>等待載入, T=0s000", "重置指定計時器"),
         ]
         
-        # ✅ 定義欄位寬度（使用等寬字體確保對齊）
+        #  定義欄位寬度（使用等寬字體確保對齊）
         col1_width = 22  # 指令按鈕
         col2_width = 50  # 指令內容
         col3_width = 40  # 說明
@@ -3443,7 +3555,7 @@ class TextCommandEditor(tk.Toplevel):
                 text_widget.insert("end", display_text[pos], "description")
                 pos += 1
         
-        # ✅ 補齊寬度（使用空格填充到固定寬度）
+        #  補齊寬度（使用空格填充到固定寬度）
         padding = " " * (max_width - actual_length)
         text_widget.insert("end", padding)
     
@@ -3458,7 +3570,7 @@ class TextCommandEditor(tk.Toplevel):
         
         # 指令資料 (複用原本的資料庫)
         commands = [
-            ("🖱️ 滑鼠操作", [
+            ("️ 滑鼠操作", [
                 ("左鍵點擊", ">左鍵點擊(100,200), 延遲50ms, T=0s000", "在指定座標點擊左鍵"),
                 ("右鍵點擊", ">右鍵點擊(100,200), 延遲50ms, T=0s000", "在指定座標點擊右鍵"),
                 ("左鍵按下", ">左鍵按下, T=0s000", "按下左鍵不放"),
@@ -3466,20 +3578,20 @@ class TextCommandEditor(tk.Toplevel):
                 ("滑鼠移動", ">移動至(100,200), 延遲0ms, T=0s000", "移動滑鼠到指定座標"),
                 ("滑鼠滾輪", ">滾輪(1), 延遲0ms, T=0s000", "滾動滑鼠滾輪（正數向上，負數向下）"),
             ]),
-            ("⌨️ 鍵盤操作", [
+            ("️ 鍵盤操作", [
                 ("按下按鍵", ">按a, 延遲50ms, T=0s000", "按下並放開a鍵"),
                 ("按下組合鍵", ">按下Ctrl,Shift,A, 延遲0ms, T=0s000", "同時按下多個按鍵"),
                 ("放開按鍵", ">放開a, 延遲0ms, T=0s000", "放開指定按鍵"),
                 ("按下文字輸入", ">輸入文字>Hello, T=0s000", "模擬鍵盤輸入一段文字"),
             ]),
-            ("📷 圖片與OCR", [
+            (" 圖片與OCR", [
                 ("點擊圖片", ">左鍵點擊>pic01, T=0s000", "左鍵點擊圖片中心位置"),
                 ("圖片判斷", ">if>pic01, T=0s000\n>>#成功\n>>>#失敗", "判斷圖片是否存在並分支"),
                 ("遺失判斷", ">if遺失>pic01, T=0s000\n>>#遺失了", "判斷圖片是否消失"),
                 ("OCR點擊文字", ">點擊文字>確認, T=0s000", "找到螢幕上的文字並點擊"),
                 ("OCR文字判斷", ">if文字>登入, T=0s000\n>>#有看到\n>>>#沒看到", "判斷螢幕上是否有指定文字"),
             ]),
-            ("🔄 流程與邏輯", [
+            (" 流程與邏輯", [
                 ("新增標籤", "#標籤名稱", "定義一個書籤位置"),
                 ("跳轉標籤", ">>#標籤名稱", "執行成功後跳轉"),
                 ("失敗跳轉", ">>>#標籤名稱", "條件不成立時跳轉"),
@@ -3527,7 +3639,7 @@ class TextCommandEditor(tk.Toplevel):
                     def insert_cmd(cmd_text=syntax):
                         self.text_editor.insert(tk.INSERT, f"\n{cmd_text}\n")
                         self._apply_syntax_highlighting()
-                        self._update_status(f"✓ 已插入指令")
+                        self._update_status(f" 已插入指令")
                     
                     item_lbl.bind("<Double-Button-1>", lambda e, c=syntax: insert_cmd(c))
                     
@@ -3594,7 +3706,7 @@ class TextCommandEditor(tk.Toplevel):
             
             # 計數器與計時器
             ("計數器觸發", ">計數器>找圖失敗, 3次後, T=0s000 | >>#下一步", "計數達到指定次數後觸發"),
-            ("計時器觸發", ">計時器>等待載入, 60秒後, T=0s000 | >>#超時處理", "時間達到後觸發"),
+            ("計時器觸發", ">計時器>等待載入, 60秒後, T=0s000 | >>#逾時處理", "時間達到後觸發"),
             ("重置計數器", ">重置計數器>找圖失敗, T=0s000", "重置指定計數器"),
             ("重置計時器", ">重置計時器>等待載入, T=0s000", "重置指定計時器"),
         ]
@@ -3784,7 +3896,7 @@ class TextCommandEditor(tk.Toplevel):
             
             # 計數器與計時器
             ("計數器觸發", ">計數器>找圖失敗, 3次後, T=0s000 | >>#下一步", "計數達到指定次數後觸發"),
-            ("計時器觸發", ">計時器>等待載入, 60秒後, T=0s000 | >>#超時處理", "時間達到後觸發"),
+            ("計時器觸發", ">計時器>等待載入, 60秒後, T=0s000 | >>#逾時處理", "時間達到後觸發"),
             ("重置計數器", ">重置計數器>找圖失敗, T=0s000", "重置指定計數器"),
             ("重置計時器", ">重置計時器>等待載入, T=0s000", "重置指定計時器"),
         ]
@@ -3926,11 +4038,11 @@ class TextCommandEditor(tk.Toplevel):
                     pos += 1
     
     def _on_combo_click(self, event):
-        """點擊下拉選單時刷新列表"""
+        """點擊下拉選單時重新整理列表"""
         self._refresh_script_list()
     
     def _refresh_script_list(self):
-        """刷新腳本下拉選單內容"""
+        """重新整理腳本下拉選單內容"""
         script_dir = os.path.join(os.getcwd(), "scripts")
         if not os.path.exists(script_dir):
             os.makedirs(script_dir)
@@ -4052,7 +4164,7 @@ class TextCommandEditor(tk.Toplevel):
             self.text_editor.delete("1.0", "end")
             # 不再顯示標題文字，直接空白
             
-            # 刷新列表並選中新腳本
+            # 重新整理列表並選中新腳本
             self._refresh_script_list()
             self.script_var.set(custom_name)
             
@@ -4073,8 +4185,46 @@ class TextCommandEditor(tk.Toplevel):
             return
         
         try:
+            # === 檢查檔案大小，決定是否需要過濾軌跡 ===
+            file_size = os.path.getsize(self.script_path)
+            should_filter = False
+            
+            # 超過 1MB 的檔案提示使用者
+            if file_size > 1024 * 1024:
+                response = self._show_confirm(
+                    "大型腳本偵測",
+                    f"此腳本檔案較大 ({file_size / 1024 / 1024:.2f} MB)\n"
+                    "是否自動過濾滑鼠軌跡以提升效能？\n\n"
+                    "（建議選擇「是」，可大幅減少檔案大小）\n"
+                    "註：拖曳操作的軌跡會完整保留"
+                )
+                should_filter = response
+            
+            # 載入 JSON
             with open(self.script_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
+            
+            # === 應用軌跡過濾 ===
+            if should_filter and isinstance(data, dict) and 'events' in data:
+                original_count = len(data.get('events', []))
+                
+                # 呼叫過濾函數
+                data['events'] = filter_mouse_trajectory(data['events'])
+                
+                filtered_count = len(data['events'])
+                reduction = original_count - filtered_count
+                reduction_percent = (reduction / original_count * 100) if original_count > 0 else 0
+                
+                # 顯示過濾結果
+                self._show_message(
+                    "軌跡過濾完成",
+                    f"已智能過濾滑鼠軌跡\n\n"
+                    f"原始事件數: {original_count:,}\n"
+                    f"過濾後: {filtered_count:,}\n"
+                    f"減少: {reduction:,} ({reduction_percent:.1f}%)\n\n"
+                    f"註：拖曳操作的軌跡已完整保留",
+                    "info"
+                )
             
             # 保存原始設定（防止儲存時被預設值覆蓋）
             if isinstance(data, dict) and "settings" in data:
@@ -4119,7 +4269,7 @@ class TextCommandEditor(tk.Toplevel):
                 # 載入後套用語法高亮
                 self._apply_syntax_highlighting()
                 
-                # ✨ 自動摺疊所有軌跡（如果啟用簡化顯示）
+                #  自動摺疊所有軌跡（如果啟用簡化顯示）
                 if self.simplify_display_var.get():
                     self.after(100, self._auto_fold_all_trajectories)
                 
@@ -4196,7 +4346,7 @@ class TextCommandEditor(tk.Toplevel):
                 elif event_type == "keyboard":
                     key_name = event.get("name", "")
                     
-                    # 🔧 檢查特殊標記
+                    #  檢查特殊標記
                     is_press = event.get("_is_press", False)
                     is_release = event.get("_is_release", False)
                     auto_pair = event.get("_auto_pair", False)
@@ -4251,7 +4401,7 @@ class TextCommandEditor(tk.Toplevel):
                             next_event.get("y") == y):
                             # 這是一個完整的點擊動作，轉為點擊指令
                             next_time = next_event.get("time", 0)
-                            duration_ms = round((next_time - event.get("time", 0)) * 1000)  # 🔥 使用 round 四捨五入
+                            duration_ms = round((next_time - event.get("time", 0)) * 1000)  #  使用 round 四捨五入
                             button_name = "左鍵" if button == "left" else "右鍵" if button == "right" else "中鍵"
                             lines.append(f">{button_name}點擊({x},{y}), 延遲{duration_ms}ms, T={time_str}\n")
                             # 標記下一個事件已處理（跳過）
@@ -4403,7 +4553,7 @@ class TextCommandEditor(tk.Toplevel):
                     region = event.get("region", None)
                     is_pure_recognize = event.get("is_pure_recognize", False)
                     
-                    # ✨ 如果是純辨識（從>>辨識>轉換來的），輸出為辨識格式
+                    #  如果是純辨識（從>>辨識>轉換來的），輸出為辨識格式
                     if is_pure_recognize:
                         cmd = f">辨識>{pic_name}"
                     else:
@@ -4705,7 +4855,7 @@ class TextCommandEditor(tk.Toplevel):
     
     def _format_time(self, seconds: float) -> str:
         """格式化時間為易讀格式"""
-        total_ms = round(seconds * 1000)  # 🔥 使用 round 四捨五入避免浮點數精度問題
+        total_ms = round(seconds * 1000)  #  使用 round 四捨五入避免浮點數精度問題
         s = total_ms // 1000
         ms = total_ms % 1000
         
@@ -4744,7 +4894,7 @@ class TextCommandEditor(tk.Toplevel):
         lines = text.split("\n")
         events = []
         labels = {}  # 標籤映射
-        start_time = time.time()  # 使用當前時間戳
+        start_time = 0.0  #  修復：使用 0.0 作為起始時間，因為 T= 參數已經是相對時間
         
         # 第一遍: 掃描標籤
         for i, line in enumerate(lines):
@@ -4804,14 +4954,14 @@ class TextCommandEditor(tk.Toplevel):
             
             # 解析指令
             if line.startswith(">"):
-                # 🔧 處理分支指令（>> 和 >>>）
+                #  處理分支指令（>> 和 >>>）
                 # 檢查這些分支是否緊接在條件判斷後面（中間只能有空行或分支）
                 if line.startswith(">>>"):
                     # 失敗分支
                     target_match = re.match(r'>>>#([a-zA-Z0-9_\u4e00-\u9fa5]+)', line)
                     if target_match:
                         target_label = target_match.group(1)
-                        # 🔧 檢查是否緊接在條件判斷後（向上找，遇到非分支的>指令就停止）
+                        #  檢查是否緊接在條件判斷後（向上找，遇到非分支的>指令就停止）
                         has_preceding_condition = False
                         for check_i in range(i-1, max(-1, i-10), -1):
                             if check_i < 0 or check_i >= len(lines):
@@ -4827,7 +4977,7 @@ class TextCommandEditor(tk.Toplevel):
                                 has_preceding_condition = True
                                 break
                             
-                            # 遇到其他>指令（如>範圍結束），停止搜索
+                            # 遇到其他>指令（如>範圍結束），停止搜尋
                             if prev_line.startswith('>'):
                                 break
                             
@@ -4861,7 +5011,7 @@ class TextCommandEditor(tk.Toplevel):
                     target_match = re.match(r'>>#([a-zA-Z0-9_\u4e00-\u9fa5]+)', line)
                     if target_match:
                         target_label = target_match.group(1)
-                        # 🔧 檢查是否緊接在條件判斷後（向上找，遇到非分支的>指令就停止）
+                        #  檢查是否緊接在條件判斷後（向上找，遇到非分支的>指令就停止）
                         has_preceding_condition = False
                         for check_i in range(i-1, max(-1, i-10), -1):
                             if check_i < 0 or check_i >= len(lines):
@@ -4877,7 +5027,7 @@ class TextCommandEditor(tk.Toplevel):
                                 has_preceding_condition = True
                                 break
                             
-                            # 遇到其他>指令（如>範圍結束），停止搜索
+                            # 遇到其他>指令（如>範圍結束），停止搜尋
                             if prev_line.startswith('>'):
                                 break
                             
@@ -4963,13 +5113,13 @@ class TextCommandEditor(tk.Toplevel):
                                 })
                                 pending_label = None
                             events.append(event)
-                            # ✅ 修正：只有成功解析時才跳過後續邏輯
+                            #  修正：只有成功解析時才跳過後續邏輯
                             i += 1
                             continue
-                        # ✅ 修正：如果解析失敗（event為None），不跳過，繼續執行下方的標準解析邏輯
+                        #  修正：如果解析失敗（event為None），不跳過，繼續執行下方的標準解析邏輯
                     
-                    # ✅ v2.7.1+ 新增：進階指令解析
-                    # ✅ v2.8.0+ 新增：觸發器、並行區塊、狀態機
+                    #  v2.7.1+ 新增：進階指令解析
+                    #  v2.8.0+ 新增：觸發器、並行區塊、狀態機
                     if any(keyword in line for keyword in [
                         "設定變數>", "變數加1>", "變數減1>", "if變數>",
                         "重複>", "當圖片存在>", "循環結束", "重複結束",
@@ -5001,7 +5151,7 @@ class TextCommandEditor(tk.Toplevel):
                                 })
                                 pending_label = None
                             events.append(event)
-                            # ✅ v2.8.0 修復：區塊指令需要跳過多行
+                            #  v2.8.0 修復：區塊指令需要跳過多行
                             lines_consumed = event.get("lines_consumed", 0)
                             if lines_consumed > 0:
                                 i += lines_consumed + 1  # +1 是當前行
@@ -5100,7 +5250,7 @@ class TextCommandEditor(tk.Toplevel):
                                 })
                         
                         elif "按下" in action:
-                            # 🔧 按下按鍵（不自動加放開）
+                            #  按下按鍵（不自動加放開）
                             key = action.replace("按下", "").strip()
                             events.append({
                                 "type": "keyboard",
@@ -5113,7 +5263,7 @@ class TextCommandEditor(tk.Toplevel):
                             })
                         
                         elif "放開" in action:
-                            # 🔧 單純放開按鍵
+                            #  單純放開按鍵
                             key = action.replace("放開", "").strip()
                             events.append({
                                 "type": "keyboard",
@@ -5125,7 +5275,7 @@ class TextCommandEditor(tk.Toplevel):
                             })
                         
                         elif action.startswith("按") and "按下" not in action and "按鍵" not in action:
-                            # 🔧 鍵盤操作（按 = 按下 + 放開，自動配對）
+                            #  鍵盤操作（按 = 按下 + 放開，自動配對）
                             key = action.replace("按", "").strip()
                             
                             # 按下事件
@@ -5217,7 +5367,7 @@ class TextCommandEditor(tk.Toplevel):
                 pic_name = pic_name.replace('邊框', '').strip()
             if region_match:
                 pic_name = pic_name.replace(region_match.group(0), '').strip()
-            # 🔥 強力清理：移除所有逗點和多餘空白
+            #  強力清理：移除所有逗點和多餘空白
             pic_name = re.sub(r'[,\s]+', '', pic_name).strip()
             
             # 查找對應的圖片檔案
@@ -5236,7 +5386,7 @@ class TextCommandEditor(tk.Toplevel):
                     "on_success": branches.get('success'),
                     "on_failure": branches.get('failure'),
                     "time": abs_time,
-                    "is_pure_recognize": False  # ✨ 標記不是純辨識
+                    "is_pure_recognize": False  #  標記不是純辨識
                 }
                 if show_border:
                     result["show_border"] = True
@@ -5251,7 +5401,7 @@ class TextCommandEditor(tk.Toplevel):
                 "image_file": image_file,
                 "confidence": 0.7,
                 "time": abs_time,
-                "is_pure_recognize": True  # ✨ 標記為純辨識，不是條件判斷
+                "is_pure_recognize": True  #  標記為純辨識，不是條件判斷
             }
             if show_border:
                 result["show_border"] = True
@@ -5324,7 +5474,7 @@ class TextCommandEditor(tk.Toplevel):
                     int(region_match.group(4))
                 )
             
-            # 🔥 新增：解析點擊半徑和模式
+            #  新增：解析點擊半徑和模式
             click_radius = 0
             click_offset_mode = 'center'
             radius_match = re.search(r'半徑\((\d+)\)', content)
@@ -5335,7 +5485,7 @@ class TextCommandEditor(tk.Toplevel):
             elif '追蹤' in content:
                 click_offset_mode = 'tracking'
             
-            # 🔥 新增：解析返回原位選項
+            #  新增：解析返回原位選項
             return_to_origin = '返回' in content
             
             # 移除選項後取得圖片名稱
@@ -5352,7 +5502,7 @@ class TextCommandEditor(tk.Toplevel):
                 pic_name = pic_name.replace('追蹤', '').strip()
             if '返回' in pic_name:
                 pic_name = pic_name.replace('返回', '').strip()
-            # 🔥 強力清理：移除所有逗點和多餘空白
+            #  強力清理：移除所有逗點和多餘空白
             pic_name = re.sub(r'[,\s]+', '', pic_name).strip()
             
             # 查找對應的圖片檔案
@@ -5364,14 +5514,14 @@ class TextCommandEditor(tk.Toplevel):
                 "image": pic_name,
                 "image_file": image_file,
                 "confidence": 0.7,
-                "return_to_origin": return_to_origin,  # 🔥 使用解析的值
+                "return_to_origin": return_to_origin,  #  使用解析的值
                 "time": abs_time
             }
             if show_border:
                 result["show_border"] = True
             if region:
                 result["region"] = region
-            # 🔥 新增：點擊半徑和模式
+            #  新增：點擊半徑和模式
             if click_radius > 0:
                 result["click_radius"] = click_radius
                 result["click_offset_mode"] = click_offset_mode
@@ -5566,7 +5716,7 @@ class TextCommandEditor(tk.Toplevel):
         event = {"time": start_time}
         
         # 等待圖片
-        wait_pattern = r'>等待圖片\[([^\]]+)\],?\s*超時(\d+(?:\.\d+)?)[sS]?'
+        wait_pattern = r'>等待圖片\[([^\]]+)\],?\s*逾時(\d+(?:\.\d+)?)[sS]?'
         match = re.match(wait_pattern, command_line)
         if match:
             event["type"] = "wait_image"
@@ -5701,7 +5851,7 @@ class TextCommandEditor(tk.Toplevel):
         :param next_lines: 後續行列表
         :return: 分支字典 {'success': {...}, 'failure': {...}}
         
-        🔧 修正：只搜索緊接著的分支指令，不跳過其他指令
+         修正：只搜尋緊接著的分支指令，不跳過其他指令
         """
         branches = {}
         
@@ -5712,10 +5862,10 @@ class TextCommandEditor(tk.Toplevel):
             if not line_stripped or line_stripped.isspace():
                 continue
             
-            # 🔧 關鍵修正：遇到任何非分支的 > 指令就停止搜索
+            #  關鍵修正：遇到任何非分支的 > 指令就停止搜尋
             # 這確保分支指令必須緊接在條件判斷後面
             if line_stripped.startswith(">") and not line_stripped.startswith(">>"):
-                # 不是分支指令，停止搜索
+                # 不是分支指令，停止搜尋
                 break
             
             # 遇到標籤定義時停止（不是##開頭的標籤引用）
@@ -5736,7 +5886,7 @@ class TextCommandEditor(tk.Toplevel):
                     branches["failure"] = {"action": "jump", "target": label}
                 elif action_str.startswith("#"):
                     # 簡化格式：直接寫 '>>>#標籤' 或 '>>>#標籤*N' 表示跳轉到該標籤並執行N次
-                    # 🔧 修復：沒有指定次數時，預設為無限循環（999999次）
+                    #  修復：沒有指定次數時，預設為無限循環（999999次）
                     label_with_count = action_str[1:].strip()
                     if "*" in label_with_count:
                         label, count_str = label_with_count.split("*", 1)
@@ -5749,7 +5899,7 @@ class TextCommandEditor(tk.Toplevel):
                         # 沒有指定次數，預設無限循環
                         branches["failure"] = {"action": "jump", "target": label_with_count, "repeat_count": 999999}
                 else:
-                    # 其他文字視為註解，保存下來（保留用戶的註解內容）
+                    # 其他文字視為註解，保存下來（保留使用者的註解內容）
                     branches["failure"] = {"action": "continue", "comment": action_str}
                 continue
             
@@ -5767,7 +5917,7 @@ class TextCommandEditor(tk.Toplevel):
                     branches["success"] = {"action": "jump", "target": label}
                 elif action_str.startswith("#"):
                     # 簡化格式：直接寫 '>>#標籤' 或 '>>#標籤*N' 表示跳轉到該標籤並執行N次
-                    # 🔧 修復：沒有指定次數時，預設為無限循環（999999次）
+                    #  修復：沒有指定次數時，預設為無限循環（999999次）
                     label_with_count = action_str[1:].strip()
                     if "*" in label_with_count:
                         label, count_str = label_with_count.split("*", 1)
@@ -5780,7 +5930,7 @@ class TextCommandEditor(tk.Toplevel):
                         # 沒有指定次數，預設無限循環
                         branches["success"] = {"action": "jump", "target": label_with_count, "repeat_count": 999999}
                 else:
-                    # 其他文字視為註解，保存下來（保留用戶的註解內容）
+                    # 其他文字視為註解，保存下來（保留使用者的註解內容）
                     branches["success"] = {"action": "continue", "comment": action_str}
                 continue
         
@@ -6496,7 +6646,7 @@ class TextCommandEditor(tk.Toplevel):
         elif action == "jump":
             target = branch.get("target", "")
             repeat_count = branch.get("repeat_count", 1)
-            # 🔧 優化顯示：999999視為無限循環，不顯示次數；其他次數才顯示
+            #  優化顯示：999999視為無限循環，不顯示次數；其他次數才顯示
             if repeat_count == 999999:
                 # 無限循環，不顯示次數
                 return f"#{target}"
@@ -6519,7 +6669,7 @@ class TextCommandEditor(tk.Toplevel):
             # 獲取編輯器內容
             text_content = self.text_editor.get("1.0", "end-1c")
             
-            # ✨ 展開模組引用（將 >>#a 替換為模組內容）
+            #  展開模組引用（將 >>#a 替換為模組內容）
             expanded_content = self._expand_module_references(text_content)
             
             # 檢查是否只有註解和空行（避免保存空腳本）
@@ -6556,7 +6706,7 @@ class TextCommandEditor(tk.Toplevel):
                 self._update_status("錯誤: 解析失敗：events為空", "error")
                 return
             
-            # ✅ 雙向驗證：將JSON轉回文字，確保可以正確還原
+            #  雙向驗證：將JSON轉回文字，確保可以正確還原
             try:
                 verification_text = self._json_to_text(json_data)
                 # 簡單檢查：確保轉換後有內容
@@ -6594,7 +6744,7 @@ class TextCommandEditor(tk.Toplevel):
                 if not verify_data.get("events") or len(verify_data.get("events", [])) == 0:
                     raise ValueError("儲存後驗證失敗：events為空")
                 
-                # ✅ 再次雙向驗證：確保儲存的檔案可以正確讀取
+                #  再次雙向驗證：確保儲存的檔案可以正確讀取
                 verify_text_2 = self._json_to_text(verify_data)
                 if not verify_text_2 or len(verify_text_2.strip()) < 10:
                     raise ValueError("儲存檔案二次驗證失敗")
@@ -6665,7 +6815,7 @@ class TextCommandEditor(tk.Toplevel):
             self.module_preview.delete("1.0", tk.END)
             self.module_preview.insert("1.0", content)
             
-            # ✅ 為模組預覽套用語法高亮
+            #  為模組預覽套用語法高亮
             self._apply_syntax_highlighting_to_widget(self.module_preview)
             
             self.module_preview.config(state="disabled")
@@ -6797,7 +6947,7 @@ class TextCommandEditor(tk.Toplevel):
         
         用於在保存或執行時，將標記引用替換為實際的模組內容
         
-        🔧 新格式規則：
+         新格式規則：
         1. 模組引用格式：>#mod_模組名 (例如：>#mod_a, >#mod_click01)
         2. 模組名只包含英文字母、數字和底線，長度1-30個字符
         3. 模組檔案儲存為 mod_模組名.txt (例如：mod_a.txt, mod_click01.txt)
@@ -6809,7 +6959,7 @@ class TextCommandEditor(tk.Toplevel):
         for line in lines:
             stripped = line.strip()
             
-            # 🔧 新格式：匹配 >#mod_模組名
+            #  新格式：匹配 >#mod_模組名
             # 正則表達式：^>#mod_([a-zA-Z0-9_]{1,30})$
             # 例如：>#mod_a, >#mod_click01, >#mod_戰鬥循環
             if re.match(r'^>#mod_([a-zA-Z0-9_\u4e00-\u9fa5]{1,30})$', stripped):
@@ -6859,7 +7009,7 @@ class TextCommandEditor(tk.Toplevel):
         # 重置 modified 標誌
         self.text_editor.edit_modified(False)
         
-        # ✨ 使用防抖動機制：取消之前的延遲任務
+        #  使用防抖動機制：取消之前的延遲任務
         if hasattr(self, '_highlight_after_id'):
             self.after_cancel(self._highlight_after_id)
         
@@ -6918,7 +7068,7 @@ class TextCommandEditor(tk.Toplevel):
     def _apply_syntax_highlighting(self):
         """套用語法高亮 (VS Code Dark+ 配色) - 優化版"""
         try:
-            # ✨ 修正：處理所有行而非僅可見區域，確保長腳本完整著色
+            #  修正：處理所有行而非僅可見區域，確保長腳本完整著色
             # 取得整份檔案的總行數
             total_lines = int(self.text_editor.index("end-1c").split('.')[0])
             
@@ -7286,7 +7436,7 @@ class TextCommandEditor(tk.Toplevel):
     def _show_image_help(self):
         """顯示圖片使用說明"""
         help_text = """
-📷 圖片辨識使用說明
+ 圖片辨識使用說明
 
 【方法1: 使用截圖功能（推薦新手）】
 1. 點擊「圖片辨識」按鈕
@@ -7294,22 +7444,22 @@ class TextCommandEditor(tk.Toplevel):
 3. 系統自動命名為 pic01, pic02... 並插入指令
 4. 您可以手動將圖片重新命名為有意義的名稱
 
-【方法2: 自行放入圖片（進階用戶）】
+【方法2: 自行放入圖片（進階使用者）】
 1. 準備圖片檔案（建議使用去背景或純淨的圖片）
    - 支援格式: .png, .jpg, .jpeg, .bmp, .gif
    - 建議大小: 50x50 ~ 200x200 px
    - 圖片越純淨,辨識越準確
 
 2. 圖片命名規則（任何以 pic 開頭的命名都可以）:
-   ✓ 純數字: pic01, pic02, pic999
-   ✓ 中文描述: pic血條, pic怪物, pic確定按鈕
-   ✓ 中文+數字: pic王01, pic王02, pic小怪03
-   ✓ 英文描述: pic右上角, pic_button, pic_monster
+    純數字: pic01, pic02, pic999
+    中文描述: pic血條, pic怪物, pic確定按鈕
+    中文+數字: pic王01, pic王02, pic小怪03
+    英文描述: pic右上角, pic_button, pic_monster
    
    注意: 必須以 "pic" 開頭才能被辨識
 
 3. 放入圖片資料夾:
-   📁 {images_path}
+    {images_path}
 
 4. 在編輯器中輸入指令（無需寫副檔名）:
    >辨識>pic01, T=0s000
@@ -7318,11 +7468,11 @@ class TextCommandEditor(tk.Toplevel):
    >if>pic王01, T=0s000
 
 【注意事項】
-✓ 圖片名稱必須以 "pic" 開頭才能被辨識
-✓ 編輯器會自動搜尋對應的圖片檔案（任何副檔名）
-✓ 指令中不需要寫副檔名（例如寫 pic血條 即可，不用寫 pic血條.png）
-✓ 使用去背景或高對比圖片可提升辨識準確度
-✓ 避免過小的圖片（建議 > 30x30 px）
+ 圖片名稱必須以 "pic" 開頭才能被辨識
+ 編輯器會自動搜尋對應的圖片檔案（任何副檔名）
+ 指令中不需要寫副檔名（例如寫 pic血條 即可，不用寫 pic血條.png）
+ 使用去背景或高對比圖片可提升辨識準確度
+ 避免過小的圖片（建議 > 30x30 px）
 
 【範例】
 假設你放入了 pic登入按鈕.png
@@ -7398,7 +7548,7 @@ class TextCommandEditor(tk.Toplevel):
             if self.parent:
                 self.parent.update_idletasks()
             
-            # ✅ 優化後的延遲：200ms 足以完成視窗最小化
+            #  優化後的延遲：200ms 足以完成視窗最小化
             self.after(200)
             self.update()
             if self.parent:
@@ -7442,7 +7592,7 @@ class TextCommandEditor(tk.Toplevel):
             except:
                 pass  # API 調用失敗不影響主流程
             
-            # ✅ 優化後的總延遲：800ms 內完成截圖（200ms + 600ms = 800ms < 1秒）
+            #  優化後的總延遲：800ms 內完成截圖（200ms + 600ms = 800ms < 1秒）
             self.after(600, self._do_capture)
             
         except Exception as e:
@@ -7483,7 +7633,7 @@ class TextCommandEditor(tk.Toplevel):
             if self.parent:
                 self.parent.update()
             
-            # ✅ 修復：確保編輯器視窗在父視窗之上
+            #  修復：確保編輯器視窗在父視窗之上
             # 先提升父視窗（主程式）
             if self.parent:
                 self.parent.lift()
@@ -7508,7 +7658,7 @@ class TextCommandEditor(tk.Toplevel):
     
     def _on_capture_complete(self, image_region):
         """截圖完成回調"""
-        # ✅ 修正：先檢查是否取消，如果取消才立即恢復視窗
+        #  修正：先檢查是否取消，如果取消才立即恢復視窗
         if image_region is None:
             self._restore_windows()
             return
@@ -7516,7 +7666,7 @@ class TextCommandEditor(tk.Toplevel):
         try:
             x1, y1, x2, y2 = image_region
             
-            # ✅ 修正：在視窗仍然隱藏的狀態下截圖（🔥 優化：使用 mss）
+            #  修正：在視窗仍然隱藏的狀態下截圖（ 優化：使用 mss）
             if MSS_AVAILABLE:
                 try:
                     with mss.mss() as sct:
@@ -7528,14 +7678,14 @@ class TextCommandEditor(tk.Toplevel):
             else:
                 screenshot = ImageGrab.grab(bbox=(x1, y1, x2, y2))
             
-            # ✅ 修正：截圖完成後才恢復視窗
+            #  修正：截圖完成後才恢復視窗
             self._restore_windows()
             
             # 顯示合併的命名+預覽對話框
             self._show_name_and_preview_dialog(screenshot)
             
         except Exception as e:
-            # ✅ 確保即使發生錯誤也要恢復視窗
+            #  確保即使發生錯誤也要恢復視窗
             self._restore_windows()
             self._show_message("錯誤", f"儲存圖片失敗：{e}", "error")
     
@@ -7784,7 +7934,7 @@ class TextCommandEditor(tk.Toplevel):
             else:  # right
                 command = f">右鍵點擊({x},{y}), 延遲50ms, T=0s000\n"
             
-            # ✅ 確保編輯器在最上層再插入文字
+            #  確保編輯器在最上層再插入文字
             self.lift()
             self.focus_force()
             
@@ -7844,7 +7994,7 @@ class TextCommandEditor(tk.Toplevel):
         if region is None:
             return
         
-        # ✅ 確保編輯器在最上層
+        #  確保編輯器在最上層
         self.lift()
         self.focus_force()
         
@@ -7914,7 +8064,7 @@ class TextCommandEditor(tk.Toplevel):
         
         try:
             x1, y1, x2, y2 = image_region
-            # 🔥 優化：使用 mss 截圖
+            #  優化：使用 mss 截圖
             if MSS_AVAILABLE:
                 try:
                     with mss.mss() as sct:
@@ -7953,7 +8103,7 @@ class TextCommandEditor(tk.Toplevel):
             # 標題
             title_label = tk.Label(
                 main_frame,
-                text="📝 文字辨識結果",
+                text=" 文字辨識結果",
                 font=font_tuple(14, "bold"),
                 bg="white",
                 fg="#333333"
@@ -8365,13 +8515,13 @@ class TextCommandEditor(tk.Toplevel):
         self.workflow_nodes = {}
         self.workflow_connections = []
         
-        # ★ 新增：PCB 風格資料結構 ★
+        #  新增：PCB 風格資料結構 
         self.pcb_nodes = []  # [{x, y, width, height, name, row, col, type, tag}]
         self.pcb_connections = []  # [(from_idx, to_idx, path_type)]
         self.pcb_groups = []  # [{nodes: [...], color, name}]
         self.pcb_router = None
         
-        # ✅ v2.8.2: 重設並行區塊追蹤
+        #  v2.8.2: 重設並行區塊追蹤
         self.parallel_threads = {}  # {parallel_label: [thread_labels]}
         
         # PCB 佈局參數
@@ -8388,21 +8538,21 @@ class TextCommandEditor(tk.Toplevel):
         label_commands = {}  # {label: [commands]}
         label_order = []  # 保持標籤順序
         
-        # ✅ v2.8.0: 追蹤區塊結構
+        #  v2.8.0: 追蹤區塊結構
         block_stack = []  # 追蹤區塊嵌套
         
-        # ✅ v2.8.0: 追蹤背景任務（觸發器、並行區塊等）
+        #  v2.8.0: 追蹤背景任務（觸發器、並行區塊等）
         background_labels = []  # 背景線程的標籤
         main_labels = []  # 主線程的標籤
         
-        # ✅ v2.8.1: 追蹤軌跡區塊和滑鼠動作
+        #  v2.8.1: 追蹤軌跡區塊和滑鼠動作
         in_trajectory = False  # 是否在軌跡區塊內
         pending_trajectory_info = ""  # 待處理的軌跡資訊
         action_counter = 0  # 動作計數器
         connection_labels = {}  # 連線標籤 {(from_label, to_label): label_text}
         last_action_label = None  # 上一個動作的標籤
         
-        # ✅ 自動添加起點
+        #  自動添加起點
         start_label = '#[起點]'
         label_commands[start_label] = []
         label_order.append(start_label)
@@ -8413,7 +8563,7 @@ class TextCommandEditor(tk.Toplevel):
             if not line or line.startswith('##'):
                 continue
             
-            # ✅ v2.8.1: 識別軌跡區塊
+            #  v2.8.1: 識別軌跡區塊
             if line.startswith('# [軌跡]'):
                 # 提取軌跡摘要資訊
                 pending_trajectory_info = "軌跡"
@@ -8429,7 +8579,7 @@ class TextCommandEditor(tk.Toplevel):
                 # 跳過軌跡內的移動指令
                 continue
             
-            # ✅ v2.8.1: 識別滑鼠點擊動作（在軌跡外）
+            #  v2.8.1: 識別滑鼠點擊動作（在軌跡外）
             if (line.startswith('>左鍵點擊') or line.startswith('>右鍵點擊') or 
                 line.startswith('>中鍵點擊') or line.startswith('>左鍵雙擊')):
                 action_counter += 1
@@ -8458,7 +8608,7 @@ class TextCommandEditor(tk.Toplevel):
                 last_action_label = action_label
                 continue
             
-            # ✅ v2.8.0: 識別新的區塊結構（視為特殊標籤）
+            #  v2.8.0: 識別新的區塊結構（視為特殊標籤）
             # 並行區塊
             if line == '>並行開始':
                 # 創建唯一的並行區塊標籤
@@ -8552,7 +8702,7 @@ class TextCommandEditor(tk.Toplevel):
                 continue
             
             # 識別一般標籤（視為主線程）
-            # ✅ v2.8.2: 跳過 "# " 開頭的註解（如 "# 並行區塊範例"）
+            #  v2.8.2: 跳過 "# " 開頭的註解（如 "# 並行區塊範例"）
             if line.startswith('#') and not line.startswith('##') and not line.startswith('# [') and not line.startswith('# '):
                 current_label = line
                 label_commands[current_label] = []
@@ -8561,7 +8711,7 @@ class TextCommandEditor(tk.Toplevel):
             elif current_label:
                 label_commands[current_label].append(line)
         
-        # ✅ 自動添加終點
+        #  自動添加終點
         end_label = '#[終點]'
         label_commands[end_label] = []
         label_order.append(end_label)
@@ -8578,7 +8728,7 @@ class TextCommandEditor(tk.Toplevel):
         # 計算每個標籤的類型
         label_types = {}
         for label, commands in label_commands.items():
-            # ✅ v2.8.0: 識別特殊區塊類型
+            #  v2.8.0: 識別特殊區塊類型
             if '[起點]' in label:
                 label_types[label] = "start"
             elif '[終點]' in label:
@@ -8593,7 +8743,7 @@ class TextCommandEditor(tk.Toplevel):
                 label_types[label] = "state_machine"
             elif '[狀態:' in label:
                 label_types[label] = "state"
-            # ✅ v2.8.1: 識別滑鼠動作節點
+            #  v2.8.1: 識別滑鼠動作節點
             elif '[左鍵點擊' in label or '[右鍵點擊' in label or '[中鍵點擊' in label or '[左鍵雙擊' in label:
                 label_types[label] = "action"
             elif any(c.startswith('>>>') for c in commands):
@@ -8624,7 +8774,7 @@ class TextCommandEditor(tk.Toplevel):
                     if target in label_order and target not in visited:
                         assign_position(target, row + 1, col)
             
-            # ✅ v2.8.2: 處理自動順序流 - 如果下一個標籤在腳本中緊隨其後，則向右排列
+            #  v2.8.2: 處理自動順序流 - 如果下一個標籤在腳本中緊隨其後，則向右排列
             idx = label_order.index(label) if label in label_order else -1
             if idx != -1 and idx + 1 < len(label_order):
                 next_label = label_order[idx + 1]
@@ -8651,7 +8801,7 @@ class TextCommandEditor(tk.Toplevel):
             label_to_col[end_label] = final_col + 1
         
         
-        # ✅ v2.8.2: 處理並行區塊的分叉佈局
+        #  v2.8.2: 處理並行區塊的分叉佈局
         # 讓並行區塊的線程垂直分叉顯示
         if hasattr(self, 'parallel_threads') and self.parallel_threads:
             for parallel_label, thread_labels in self.parallel_threads.items():
@@ -8666,7 +8816,7 @@ class TextCommandEditor(tk.Toplevel):
                     
                     for i, thread_label in enumerate(thread_labels):
                         if thread_label in label_to_row:
-                            # ✅ v2.8.2: 增加垂直間距，讓分叉更清晰
+                            #  v2.8.2: 增加垂直間距，讓分叉更清晰
                             # 將線程均勻分布在並行區塊的上下
                             # 例如 2 個線程：row -1 和 +1（間距 2）
                             # 例如 3 個線程：row -1.5, 0, +1.5（間距 1.5）
@@ -8708,7 +8858,7 @@ class TextCommandEditor(tk.Toplevel):
             }
         
         # 解析連線
-        # ✅ v2.8.0: 首先從起點連接到所有背景任務和主線程第一個標籤
+        #  v2.8.0: 首先從起點連接到所有背景任務和主線程第一個標籤
         start_idx = label_to_idx.get('#[起點]')
         if start_idx is not None:
             # 連接到所有背景任務
@@ -8723,7 +8873,7 @@ class TextCommandEditor(tk.Toplevel):
                 if first_main_idx is not None:
                     self.pcb_connections.append((start_idx, first_main_idx, "main"))
         
-        # ✅ v2.8.2: 並行區塊連接到其所屬線程（分叉連線）
+        #  v2.8.2: 並行區塊連接到其所屬線程（分叉連線）
         if hasattr(self, 'parallel_threads') and self.parallel_threads:
             for parallel_label, thread_labels in self.parallel_threads.items():
                 parallel_idx = label_to_idx.get(parallel_label)
@@ -8753,7 +8903,7 @@ class TextCommandEditor(tk.Toplevel):
                 next_label = label_order[label_idx_in_order + 1]
                 next_idx = label_to_idx.get(next_label)
                 
-                # ✅ v2.8.2: 跳過並行區塊到線程的連線（已經用 fork 處理）
+                #  v2.8.2: 跳過並行區塊到線程的連線（已經用 fork 處理）
                 is_parallel_to_thread = False
                 if hasattr(self, 'parallel_threads') and self.parallel_threads:
                     for parallel_label, thread_labels in self.parallel_threads.items():
@@ -8796,7 +8946,7 @@ class TextCommandEditor(tk.Toplevel):
                 "name": "條件判斷區"
             })
         
-        # ✅ v2.8.1: 儲存連線標籤（用於軌跡標籤顯示）
+        #  v2.8.1: 儲存連線標籤（用於軌跡標籤顯示）
         self.pcb_connection_labels = {}
         for (from_label, to_label), label_text in connection_labels.items():
             from_idx = label_to_idx.get(from_label)
@@ -8875,8 +9025,8 @@ class TextCommandEditor(tk.Toplevel):
             tags=(tag, "pcb_node")
         )
         
-        # 圖示文字 (使用 ✓ 符號類似 GitHub Actions)
-        icon_text = "✓" if style["icon"] == "▶" else style["icon"]
+        # 圖示文字 (使用  符號類似 GitHub Actions)
+        icon_text = "" if style["icon"] == "▶" else style["icon"]
         self.workflow_canvas.create_text(
             icon_x, icon_y, text=icon_text,
             fill="white", font=("Segoe UI", 7, "bold"),
@@ -8923,24 +9073,24 @@ class TextCommandEditor(tk.Toplevel):
         self.workflow_canvas.tag_bind(tag, "<Leave>",
             lambda e: self._hide_node_tooltip())
         
-        # ✅ v2.8.0: 綁定拖曳事件
+        #  v2.8.0: 綁定拖曳事件
         self.workflow_canvas.tag_bind(tag, "<ButtonPress-1>",
             lambda e, t=tag, n=node: self._on_node_press(e, t, n))
         self.workflow_canvas.tag_bind(tag, "<B1-Motion>",
             lambda e, t=tag, n=node: self._on_node_drag(e, t, n))
-        # ✅ v2.8.1: 綁定釋放事件以清理拖曳狀態
+        #  v2.8.1: 綁定釋放事件以清理拖曳狀態
         self.workflow_canvas.tag_bind(tag, "<ButtonRelease-1>",
             lambda e: self._on_node_release(e))
     
     def _get_pcb_node_style(self, name, node_type):
         """取得節點樣式"""
-        # ✅ v2.8.0: 新增特殊節點類型樣式
+        #  v2.8.0: 新增特殊節點類型樣式
         if node_type == "start" or '[起點]' in name:
             return {"icon": "▶", "icon_color": "#3fb950", "border": "#3fb950"}
         elif node_type == "end" or '[終點]' in name:
             return {"icon": "■", "icon_color": "#6e7681", "border": "#6e7681"}  # 灰色，因為可能未連接
         elif node_type == "trigger" or '[監聽:' in name or '[定時:' in name or '[優先:' in name:
-            return {"icon": "⚡", "icon_color": "#f0883e", "border": "#f0883e"}  # 橘色
+            return {"icon": "", "icon_color": "#f0883e", "border": "#f0883e"}  # 橘色
         elif node_type == "parallel" or '[並行區塊]' in name:
             return {"icon": "⫛", "icon_color": "#a371f7", "border": "#a371f7"}  # 紫色
         elif node_type == "thread" or '[線程:' in name:
@@ -8949,22 +9099,22 @@ class TextCommandEditor(tk.Toplevel):
             return {"icon": "⊚", "icon_color": "#ec6547", "border": "#ec6547"}  # 紅橘色
         elif node_type == "state" or '[狀態:' in name:
             return {"icon": "◉", "icon_color": "#ec6547", "border": "#ec6547"}  # 紅橘色
-        # ✅ v2.8.1: 滑鼠動作節點樣式
+        #  v2.8.1: 滑鼠動作節點樣式
         elif node_type == "action" or '[左鍵點擊' in name or '[右鍵點擊' in name or '[中鍵點擊' in name or '[左鍵雙擊' in name:
-            return {"icon": "🖱", "icon_color": "#58a6ff", "border": "#58a6ff"}  # 藍色滑鼠
+            return {"icon": "", "icon_color": "#58a6ff", "border": "#58a6ff"}  # 藍色滑鼠
         elif node_type == "condition" or "檢查" in name or "驗證" in name:
             return {"icon": "?", "icon_color": "#8957e5", "border": "#8957e5"}
         elif "成功" in name:
-            return {"icon": "✓", "icon_color": "#3fb950", "border": "#3fb950"}
+            return {"icon": "", "icon_color": "#3fb950", "border": "#3fb950"}
         elif "失敗" in name:
-            return {"icon": "✗", "icon_color": "#f85149", "border": "#f85149"}
+            return {"icon": "", "icon_color": "#f85149", "border": "#f85149"}
         elif name.startswith("#"):
             return {"icon": "#", "icon_color": "#58a6ff", "border": "#58a6ff"}
         return {"icon": "●", "icon_color": "#6e7681", "border": "#6e7681"}
     
     def _on_node_press(self, event, tag, node):
         """節點按下事件"""
-        # ✅ v2.8.2: 使用畫布座標
+        #  v2.8.2: 使用畫布座標
         self._drag_data = {
             "tag": tag,
             "node": node,
@@ -8977,7 +9127,7 @@ class TextCommandEditor(tk.Toplevel):
         if not hasattr(self, '_drag_data') or self._drag_data is None:
             return
         
-        # ✅ v2.8.2: 使用畫布座標而非視窗座標，修復縮放後拖曳錯位問題
+        #  v2.8.2: 使用畫布座標而非視窗座標，修復縮放後拖曳錯位問題
         canvas_x = self.workflow_canvas.canvasx(event.x)
         canvas_y = self.workflow_canvas.canvasy(event.y)
         
@@ -8993,13 +9143,13 @@ class TextCommandEditor(tk.Toplevel):
         self._drag_data["x"] = canvas_x
         self._drag_data["y"] = canvas_y
         
-        # ✅ 重新繪製所有連線 (v2.8.2: 傳入縮放比例)
+        #  重新繪製所有連線 (v2.8.2: 傳入縮放比例)
         self.workflow_canvas.delete("pcb_connection")
         self.pcb_router = GlobalRouter(self.pcb_nodes, scale=getattr(self, "workflow_scale", 1.0))
         self._draw_pcb_connections()
     
     def _on_node_release(self, event):
-        """✅ v2.8.1: 節點釋放事件 - 清理拖曳狀態"""
+        """ v2.8.1: 節點釋放事件 - 清理拖曳狀態"""
         self._drag_data = None
     
     def _draw_pcb_connections(self):
@@ -9016,7 +9166,7 @@ class TextCommandEditor(tk.Toplevel):
             # 計算路徑
             path = self.pcb_router.route(from_node, to_node, path_type, from_idx, to_idx)
             
-            # ✅ v2.8.1: 檢查目標節點是否無作用
+            #  v2.8.1: 檢查目標節點是否無作用
             to_node_name = to_node.get("name", "")
             to_node_type = to_node.get("type", "")
             is_inactive_target = (to_node_type == "end" or '[終點]' in to_node_name)
@@ -9028,7 +9178,7 @@ class TextCommandEditor(tk.Toplevel):
                 for px, py in path:
                     points.extend([px, py])
                 
-                # ✅ 縮放連線寬度
+                #  縮放連線寬度
                 self.workflow_canvas.create_line(
                     *points, fill=color, width=max(1, int(PCB_LINE_WIDTH * scale)),
                     capstyle="round", joinstyle="round",
@@ -9040,7 +9190,7 @@ class TextCommandEditor(tk.Toplevel):
                 labels = {"success": "成功", "failure": "失敗", "loop": "重試"}
                 lx, ly = self.pcb_router.find_label_position(path)
                 
-                # ✅ 縮放標籤尺寸與字體
+                #  縮放標籤尺寸與字體
                 rw, rh = 16 * scale, 8 * scale
                 f_size = max(5, int(7 * scale))
                 
@@ -9055,7 +9205,7 @@ class TextCommandEditor(tk.Toplevel):
                     tags=("pcb_connection", "pcb_label")
                 )
             
-            # ✅ v2.8.1: 繪製軌跡標籤
+            #  v2.8.1: 繪製軌跡標籤
             if hasattr(self, 'pcb_connection_labels') and (from_idx, to_idx) in self.pcb_connection_labels:
                 trajectory_label = self.pcb_connection_labels[(from_idx, to_idx)]
                 lx, ly = self.pcb_router.find_label_position(path)
@@ -9174,7 +9324,7 @@ class TextCommandEditor(tk.Toplevel):
         is_start = label == list(self.workflow_nodes.keys())[0] if self.workflow_nodes else False
         is_end = not any(conn[0] == label for conn in self.workflow_connections)
         
-        # 🎯 根據連接數量動態調整圓圈大小
+        #  根據連接數量動態調整圓圈大小
         # 基礎半徑：45px（足夠容納4個中文字），每多一個連接增加3px
         connections = node_data.get('connections', 0)
         radius = 45 + min(connections * 3, 30)  # 基礎45px，最大75px
@@ -9207,7 +9357,7 @@ class TextCommandEditor(tk.Toplevel):
             line_width = 4
         
         # 繪製正圓形節點（Metro 站點風格）
-        # 🎨 確保圓形足夠圓滑（Tkinter的oval已經是抗鋸齒的）
+        #  確保圓形足夠圓滑（Tkinter的oval已經是抗鋸齒的）
         shape_id = self.workflow_canvas.create_oval(
             x - radius, y - radius,
             x + radius, y + radius,
@@ -9218,10 +9368,10 @@ class TextCommandEditor(tk.Toplevel):
         )
         node_data['items'].append(shape_id)
         
-        # 📝 繪製標籤文字（完整顯示，不縮短）
+        #  繪製標籤文字（完整顯示，不縮短）
         label_text = label.replace('#', '')
         
-        # 🎯 根據節點大小動態調整字體大小
+        #  根據節點大小動態調整字體大小
         if radius < 55:
             font_size = 12
         elif radius < 65:
@@ -9235,11 +9385,11 @@ class TextCommandEditor(tk.Toplevel):
             fill=text_color,
             font=("LINE Seed TW", font_size, "bold") if LINE_SEED_FONT_LOADED else ("Arial", font_size, "bold"),
             tags="node_text",
-            width=radius * 1.8  # 📝 限制文字寬度，讓長文字自動換行
+            width=radius * 1.8  #  限制文字寬度，讓長文字自動換行
         )
         node_data['items'].append(text_id)
         
-        # 💬 綁定滑鼠停留事件（顯示浮動提示）
+        #  綁定滑鼠停留事件（顯示浮動提示）
         for item_id in node_data['items']:
             self.workflow_canvas.tag_bind(item_id, "<Enter>", 
                 lambda e, lbl=label, cmds=commands: self._show_node_tooltip(e, lbl, cmds))
@@ -9304,7 +9454,7 @@ class TextCommandEditor(tk.Toplevel):
             
             connections_with_channels.append((from_label, to_label, conn_type, channel, is_loop))
         
-        # 🎨 多彩顏色系統（不限於紅綠）
+        #  多彩顏色系統（不限於紅綠）
         metro_colors = [
             "#00d084",  # 翠綠
             "#0077be",  # 寶藍
@@ -9323,21 +9473,21 @@ class TextCommandEditor(tk.Toplevel):
             from_node = self.workflow_nodes[from_label]
             to_node = self.workflow_nodes[to_label]
             
-            # 🎨 使用多彩顏色，根據索引循環選擇
+            #  使用多彩顏色，根據索引循環選擇
             color = metro_colors[idx % len(metro_colors)]
             width = 5
             
-            # 🎯 使用節點的實際半徑
+            #  使用節點的實際半徑
             from_radius = from_node.get('radius', 45)
             to_radius = to_node.get('radius', 45)
             
-            # 🎯 智能計算最佳連接點（最短距離）
+            #  智能計算最佳連接點（最短距離）
             start_x, start_y, end_x, end_y = self._calculate_optimal_connection_points(
                 from_node['x'], from_node['y'], from_radius,
                 to_node['x'], to_node['y'], to_radius
             )
             
-            # 🎯 通道偏移 - 完全並行避免重疊
+            #  通道偏移 - 完全並行避免重疊
             offset = channel * 50  # 增加到50px確保完全分離
             
             # 使用 Metro 風格的路徑規劃（只用直線和45度角）
@@ -9436,7 +9586,7 @@ class TextCommandEditor(tk.Toplevel):
         abs_dx = abs(dx)
         abs_dy = abs(dy)
         
-        # 🎯 完全並行策略：每條線在獨立通道中運行
+        #  完全並行策略：每條線在獨立通道中運行
         
         if offset == 0:
             # 中心線路：使用最簡潔的路徑
@@ -9447,14 +9597,14 @@ class TextCommandEditor(tk.Toplevel):
                 # 水平
                 return [x1, y1, x2, y2]
             elif abs(abs_dx - abs_dy) < 30:
-                # 🎨 接近45度：使用斜線！
+                #  接近45度：使用斜線！
                 return [x1, y1, x2, y2]
             else:
                 # 正交三段式
                 mid_y = (y1 + y2) / 2
                 return [x1, y1, x1, mid_y, x2, mid_y, x2, y2]
         else:
-            # 🎯 偏移線路：完全並行，永不重疊
+            #  偏移線路：完全並行，永不重疊
             # 計算獨立通道位置
             channel_x = x1 + offset
             
@@ -9468,7 +9618,7 @@ class TextCommandEditor(tk.Toplevel):
                 # 接近垂直：使用左右偏移
                 return [x1, y1, channel_x, y1, channel_x, y2, x2, y2]
             elif abs(abs_dx - abs_dy) < 50:
-                # 🎨 可以用斜線：創建平行斜線
+                #  可以用斜線：創建平行斜線
                 # 偏移方向垂直於主方向
                 angle = abs(dy) / abs_dx if abs_dx > 0 else 1
                 perp_offset_x = offset / (1 + angle)
@@ -9543,14 +9693,14 @@ class TextCommandEditor(tk.Toplevel):
         occupied[key].add(channel)
         return channel
     
-    # ❌ 已停用：點擊節點不再回到文字模式
+    #  已停用：點擊節點不再回到文字模式
     # def _on_workflow_node_click(self, label):
     #     """點擊節點時跳轉到對應的文字行 - 已停用"""
     #     pass
     
     def _on_workflow_canvas_click(self, event):
         """處理畫布點擊（支援節點拖曳和畫布平移）"""
-        # ✅ v2.8.2: 使用畫布座標而非視窗座標
+        #  v2.8.2: 使用畫布座標而非視窗座標
         canvas_x = self.workflow_canvas.canvasx(event.x)
         canvas_y = self.workflow_canvas.canvasy(event.y)
         
@@ -9576,7 +9726,7 @@ class TextCommandEditor(tk.Toplevel):
     
     def _on_workflow_canvas_drag(self, event):
         """處理畫布拖移（同步更新節點座標資料）"""
-        # ✅ v2.8.2: 如果正在拖曳節點（有 _drag_data），不執行畫布拖移
+        #  v2.8.2: 如果正在拖曳節點（有 _drag_data），不執行畫布拖移
         if hasattr(self, '_drag_data') and self._drag_data is not None:
             return
         
@@ -9588,13 +9738,13 @@ class TextCommandEditor(tk.Toplevel):
             # 移動所有視覺元素
             self.workflow_canvas.move("all", dx, dy)
             
-            # ✅ v2.8.1: 同步更新 pcb_nodes 座標資料
+            #  v2.8.1: 同步更新 pcb_nodes 座標資料
             if hasattr(self, 'pcb_nodes'):
                 for node in self.pcb_nodes:
                     node["x"] += dx
                     node["y"] += dy
             
-            # ✅ v2.8.1: 同步更新 workflow_nodes 座標資料
+            #  v2.8.1: 同步更新 workflow_nodes 座標資料
             for label, node_data in self.workflow_nodes.items():
                 node_data['x'] += dx
                 node_data['y'] += dy
@@ -9608,7 +9758,7 @@ class TextCommandEditor(tk.Toplevel):
         self.workflow_canvas.config(cursor="")
     
     def _show_node_tooltip(self, event, label, commands):
-        """💬 顯示節點浮動提示（顯示對應的程式碼）"""
+        """ 顯示節點浮動提示（顯示對應的程式碼）"""
         # 移除舊的提示框
         self._hide_node_tooltip()
         
@@ -9732,7 +9882,7 @@ class TextCommandEditor(tk.Toplevel):
         
         self.workflow_scale *= scale
         
-        # ✅ v2.8.2: 縮放時同步更新 pcb_nodes 座標
+        #  v2.8.2: 縮放時同步更新 pcb_nodes 座標
         # 計算縮放中心點（畫布座標）
         cx = self.workflow_canvas.canvasx(event.x)
         cy = self.workflow_canvas.canvasy(event.y)
@@ -9743,7 +9893,7 @@ class TextCommandEditor(tk.Toplevel):
                 # 套用縮放公式：new_pos = center + (old_pos - center) * scale
                 node["x"] = cx + (node["x"] - cx) * scale
                 node["y"] = cy + (node["y"] - cy) * scale
-                # ✅ 確保寬高也同步更新，讓路由器計算正確
+                #  確保寬高也同步更新，讓路由器計算正確
                 node["width"] = node.get("width", 150) * scale
                 node["height"] = node.get("height", 36) * scale
         
@@ -9758,8 +9908,8 @@ class TextCommandEditor(tk.Toplevel):
     def _show_workflow_context_menu(self, event):
         """顯示右鍵選單"""
         menu = tk.Menu(self, tearoff=0, bg="#2d2d30", fg="white")
-        menu.add_command(label="🏠 恢復原始大小 (100%)", command=self._reset_workflow_zoom)
-        menu.add_command(label="🔄 自動排列", command=self._auto_arrange_workflow)
+        menu.add_command(label=" 恢復原始大小 (100%)", command=self._reset_workflow_zoom)
+        menu.add_command(label=" 自動排列", command=self._auto_arrange_workflow)
         
         try:
             menu.tk_popup(event.x_root, event.y_root)
@@ -9767,14 +9917,14 @@ class TextCommandEditor(tk.Toplevel):
             menu.grab_release()
     
     def _reset_workflow_zoom(self):
-        """🏠 恢復原始大小 (100%) - 最有效的補救措施"""
+        """ 恢復原始大小 (100%) - 最有效的補救措施"""
         if not hasattr(self, 'workflow_scale') or self.workflow_scale == 1.0:
             return
             
         # 計算還原倍率 (目前的倒數)
         ratio = 1.0 / self.workflow_scale
         
-        # ✅ 還原邏輯座標資料 (以 0,0 為準還原，確保座標系統回歸標準)
+        #  還原邏輯座標資料 (以 0,0 為準還原，確保座標系統回歸標準)
         if hasattr(self, 'pcb_nodes'):
             for node in self.pcb_nodes:
                 node["x"] *= ratio
@@ -9792,7 +9942,7 @@ class TextCommandEditor(tk.Toplevel):
         # 重設全域倍率
         self.workflow_scale = 1.0
         
-        # ✅ 清除畫布並以 1.0 倍率重繪所有內容 (這會讓所有線條與字體回歸精準)
+        #  清除畫布並以 1.0 倍率重繪所有內容 (這會讓所有線條與字體回歸精準)
         self.workflow_canvas.delete("all")
         self._draw_pcb_graph()
         

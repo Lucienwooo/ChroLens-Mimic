@@ -41,11 +41,11 @@ class MSIBuilder:
         result = subprocess.run([sys.executable, "build.py"], capture_output=True)
         
         if result.returncode != 0:
-            print("❌ PyInstaller 構建失敗")
+            print(" PyInstaller 構建失敗")
             print(result.stderr.decode('utf-8', errors='ignore'))
             return False
         
-        print("✅ PyInstaller 構建完成")
+        print(" PyInstaller 構建完成")
         return True
     
     def harvest_files(self):
@@ -55,7 +55,7 @@ class MSIBuilder:
         
         internal_dir = self.dist_dir / "_internal"
         if not internal_dir.exists():
-            print(f"❌ 找不到 _internal 目錄: {internal_dir}")
+            print(f" 找不到 _internal 目錄: {internal_dir}")
             return False
         
         cmd = [
@@ -74,11 +74,11 @@ class MSIBuilder:
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode != 0:
-            print("❌ Heat 執行失敗")
+            print(" Heat 執行失敗")
             print(result.stderr)
             return False
         
-        print("✅ InternalFiles.wxs 生成完成")
+        print(" InternalFiles.wxs 生成完成")
         
         # 修正 InternalFiles.wxs 中的路徑
         self._fix_internal_files_wxs()
@@ -115,7 +115,7 @@ class MSIBuilder:
         
         result = subprocess.run(cmd_product, capture_output=True, text=True)
         if result.returncode != 0:
-            print("❌ Product.wxs 編譯失敗")
+            print(" Product.wxs 編譯失敗")
             print(result.stderr)
             return False
         
@@ -130,11 +130,11 @@ class MSIBuilder:
         
         result = subprocess.run(cmd_internal, capture_output=True, text=True)
         if result.returncode != 0:
-            print("❌ InternalFiles.wxs 編譯失敗")
+            print(" InternalFiles.wxs 編譯失敗")
             print(result.stderr)
             return False
         
-        print("✅ 編譯完成")
+        print(" 編譯完成")
         return True
     
     def link_msi(self):
@@ -156,11 +156,11 @@ class MSIBuilder:
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode != 0:
-            print("❌ MSI 連結失敗")
+            print(" MSI 連結失敗")
             print(result.stderr)
             return False
         
-        print(f"✅ MSI 構建完成: {msi_name}")
+        print(f" MSI 構建完成: {msi_name}")
         
         # 顯示檔案資訊
         msi_path = self.installer_dir / msi_name
@@ -197,13 +197,13 @@ class MSIBuilder:
         
         for step_name, step_func in steps:
             if not step_func():
-                print(f"\n❌ 構建失敗於: {step_name}")
+                print(f"\n 構建失敗於: {step_name}")
                 return False
         
         self.clean_temp_files()
         
         print("\n" + "=" * 60)
-        print("✅ MSI 構建成功！")
+        print(" MSI 構建成功！")
         print("=" * 60)
         return True
 
@@ -219,7 +219,7 @@ def main():
                 version = line.split('=')[1].strip().strip('"\'')
                 break
         else:
-            print("❌ 無法讀取版本號")
+            print(" 無法讀取版本號")
             return
     
     builder = MSIBuilder(version)

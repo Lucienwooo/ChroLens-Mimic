@@ -53,6 +53,11 @@ def show_about(parent):
     link = tk.Label(frm, text="ChroLens_模擬器討論區", font=("Microsoft JhengHei", 10, "underline"), fg="#5865F2", cursor="hand2")
     link.pack(anchor="w")
     link.bind("<Button-1>", lambda e: os.startfile("https://discord.gg/72Kbs4WPPn"))
+    
+    homepage = tk.Label(frm, text="Mimic網頁", font=("Microsoft JhengHei", 10, "underline"), fg="#0078d7", cursor="hand2")
+    homepage.pack(anchor="w", pady=(8, 0))
+    homepage.bind("<Button-1>", lambda e: os.startfile("https://lucienwooo.github.io/ChroLens-Project/mimic/"))
+
     github = tk.Label(frm, text="查看更多工具(巴哈)", font=("Microsoft JhengHei", 10, "underline"), fg="#24292f", cursor="hand2")
     github.pack(anchor="w", pady=(8, 0))
     github.bind("<Button-1>", lambda e: os.startfile("https://home.gamer.com.tw/profile/index_creation.php?owner=umiwued&folder=523848"))

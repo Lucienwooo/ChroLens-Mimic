@@ -53,6 +53,7 @@ except Exception as e:
 
 #  使用文字指令式腳本編輯器（已移除舊版圖形化編輯器）
 try:
+    from text_script_editor import TextCommandEditor as VisualScriptEditor
     print("[OK] 已載入文字指令編輯器")
 except Exception as e:
     print(f"[ERROR] 無法匯入編輯器: {e}")

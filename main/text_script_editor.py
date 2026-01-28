@@ -735,21 +735,6 @@ class TextCommandEditor(tk.Toplevel):
         )
         workflow_mode_check.pack(side="left", padx=15)
         
-        # 擬真移動開關 (貝茲曲線)
-        self.bezier_mode_var = tk.BooleanVar(value=False)
-        # 初始化時從 recorder 獲取狀態 (如果有的話)
-        if hasattr(self, 'recorder') and self.recorder:
-            self.bezier_mode_var.set(self.recorder._use_bezier)
-            
-        bezier_mode_check = tk.Checkbutton(
-            trajectory_control,
-            text="擬真移動",
-            variable=self.bezier_mode_var,
-            command=self._toggle_bezier_mode,
-            font=font_tuple(9)
-        )
-        bezier_mode_check.pack(side="left", padx=5)
-        
         # 使用 LINE Seed 字體
         editor_font = ("LINE Seed TW", 10) if LINE_SEED_FONT_LOADED else font_tuple(10, monospace=True)
         
@@ -1186,14 +1171,7 @@ class TextCommandEditor(tk.Toplevel):
             # 切換回文字模式
             self._switch_to_text_mode_from_workflow()
     
-    def _toggle_bezier_mode(self):
-        """切換擬真滑鼠移動模式"""
-        enabled = self.bezier_mode_var.get()
-        if hasattr(self, 'recorder') and self.recorder:
-            self.recorder.set_bezier_enabled(enabled)
-            status = "已啟用擬真移動 (貝茲曲線)" if enabled else "已停用擬真移動 (直線移動)"
-            self._update_status(status, "success")
-    
+
     def _switch_to_workflow_mode(self):
         """切換到 Workflow 流程圖模式"""
         try:
@@ -3111,40 +3089,20 @@ class TextCommandEditor(tk.Toplevel):
                  font=font_tuple(10), padx=20, pady=5).pack(side="left", padx=5)
         tk.Button(btn_frame, text="取消", command=dialog.destroy, bg="#757575", fg="white",
                  font=font_tuple(10), padx=20, pady=5).pack(side="left", padx=5)
-        
         # 雙擊也可以插入
         listbox.bind("<Double-Button-1>", lambda e: insert())
     
     def _show_command_reference(self):
-        """顯示指令說明視窗（使用 grid 佈局的表格）"""
+        """顯示指令說明視窗（2.7.4 版本 - 使用 grid 佈局）"""
         # 創建獨立的說明視窗
         ref_window = tk.Toplevel(self)
         ref_window.title("ChroLens Mimic - 指令說明")
-        ref_window.geometry("1200x850")  # 增加高度以容納新手入門區
+        ref_window.geometry("1200x750")
         ref_window.configure(bg="#1e1e1e")
-        
-        #  新增：搜尋欄位
-        search_frame = tk.Frame(ref_window, bg="#1e1e1e")
-        search_frame.pack(fill="x", padx=20, pady=(10, 5))
-        
-        tk.Label(search_frame, text=" 搜尋指令：", font=font_tuple(10), bg="#1e1e1e", fg="#d4d4d4").pack(side="left")
-        self.ref_search_var = tk.StringVar()
-        search_entry = tk.Entry(search_frame, textvariable=self.ref_search_var, font=font_tuple(10), bg="#2d2d30", fg="white", insertbackground="white", width=40)
-        search_entry.pack(side="left", padx=10)
-        search_entry.focus_set()
-        
-        # 搜尋功能：動態過濾
-        def on_search_change(*args):
-            self._refresh_command_grid(self.ref_scrollable_frame, self.ref_search_var.get().lower())
-        
-        self.ref_search_var.trace_add("write", on_search_change)
-        
-        # 提示文字
-        tk.Label(search_frame, text=" 提示：雙擊指令列可直接插入編輯器", font=font_tuple(9), bg="#1e1e1e", fg="#ce9178").pack(side="right")
         
         # 創建帶滾動條的 Canvas 容器
         container = tk.Frame(ref_window, bg="#1e1e1e")
-        container.pack(fill="both", expand=True, padx=10, pady=5)
+        container.pack(fill="both", expand=True, padx=10, pady=10)
         
         # 創建 Canvas 和滾動條（深色樣式）
         canvas = tk.Canvas(container, bg="#1e1e1e", highlightthickness=0)
@@ -3162,35 +3120,21 @@ class TextCommandEditor(tk.Toplevel):
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
-        #  儲存引用以便搜尋時重新整理
-        self.ref_scrollable_frame = scrollable_frame
-        
-        #  新增：新手快速入門區（更親民的說明）
-        self._insert_beginner_guide(scrollable_frame)
-        
         # 插入指令表格（使用 grid）
-        self._refresh_command_grid(scrollable_frame)
+        self._insert_command_grid_table(scrollable_frame)
         
-        # 底部提示文字（更清楚的說明）
+        # 底部提示文字
         info_frame = tk.Frame(ref_window, bg="#1e1e1e")
         info_frame.pack(fill="x", padx=10, pady=(0, 10))
         
-        # 更實用的提示文字
-        tips = [
-            " 快速上手: 按「錄製」→ 做你想自動化的動作 → 按「停止」→ 按「播放」測試",
-            " 時間格式: T=1s500 = 1.5秒 (1秒 + 500毫秒),不懂就用錄製功能自動產生!",
-            " 找不到指令? 按「指令說明」鈕,裡面有所有指令的範例",
-            " 圖片辨識: 按「圖片辨識」鈕 → 框選要找的圖 → 自動產生指令,超簡單!"
-        ]
-        for tip in tips:
-            tk.Label(
-                info_frame,
-                text=tip,
-                font=font_tuple(9),
-                bg="#1e1e1e",
-                fg="#6a9955",
-                anchor="w"
-            ).pack(anchor="w", pady=1)
+        info_text = "提示：指令中的 T= 參數表示執行時間（格式：秒s毫秒，例如 T=1s500 表示 1.5 秒）｜所有座標和時間都可以根據需要調整"
+        info_label = tk.Label(info_frame,
+                             text=info_text,
+                             font=font_tuple(9),
+                             bg="#1e1e1e",
+                             fg="#6a9955",
+                             justify="left")
+        info_label.pack(anchor="w")
         
         # 綁定滑鼠滾輪
         def _on_mousewheel(event):
@@ -3216,129 +3160,7 @@ class TextCommandEditor(tk.Toplevel):
         ref_window.transient(self)
         ref_window.lift()
         ref_window.focus_force()
-    
-    def _insert_beginner_guide(self, parent_frame):
-        """新增新手快速入門區塊（白話說明）- 可摺疊版本"""
-        # 主容器
-        container = tk.Frame(parent_frame, bg="#1e1e1e")
-        container.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 15), padx=5)
-        
-        # 摺疊狀態
-        is_expanded = [True]  # 使用列表以便在閉包中修改
-        
-        # 快速入門標題（可點擊切換展開/收合）
-        title_frame = tk.Frame(container, bg="#2d5a2d", cursor="hand2")
-        title_frame.pack(fill="x")
-        
-        # 展開/收合圖示
-        toggle_label = tk.Label(
-            title_frame,
-            text="▼",
-            font=font_tuple(10),
-            bg="#2d5a2d",
-            fg="#ffffff"
-        )
-        toggle_label.pack(side="left", padx=10, pady=8)
-        
-        title_label = tk.Label(
-            title_frame,
-            text=" 5分鐘學會寫腳本 - 這些指令超簡單! (點擊收合/展開)",
-            font=font_tuple(11, "bold"),
-            bg="#2d5a2d",
-            fg="#ffffff",
-            cursor="hand2"
-        )
-        title_label.pack(side="left", pady=8)
-        
-        # 簡易說明內容區
-        guide_frame = tk.Frame(container, bg="#1e1e1e", relief="groove", bd=1)
-        guide_frame.pack(fill="x", pady=(5, 0))
-        
-        guide_items = [
-            ("️ 滑鼠操作", 
-             "讓電腦幫你點滑鼠\n"
-             "• 左鍵點擊(100,200) → 在座標 (100,200) 點一下\n"
-             "• 不知道座標? 按「錄製」鈕,程式會自動記錄!"),
-            
-            ("️ 鍵盤操作", 
-             "讓電腦幫你打字或按按鍵\n"
-             "• 按a → 按一下鍵盤的 A 鍵\n"
-             "• 按ctrl+c → 按複製快捷鍵"),
-            
-            (" 圖片辨識", 
-             "讓電腦「看」螢幕找圖片,找到後自動點擊\n"
-             "• >左鍵點擊>登入按鈕 → 找到「登入按鈕」圖片並點擊\n"
-             "• 按「圖片辨識」鈕可以自動截圖!"),
-            
-            (" 文字辨識", 
-             "讓電腦「讀」螢幕上的文字\n"
-             "• >OCR>歡迎 → 找到螢幕上的「歡迎」字樣\n"
-             "• 可以用來判斷遊戲狀態或網頁內容"),
-            
-            ("️ 標籤跳轉", 
-             "標籤就像書籤,讓程式可以跳回去重複執行\n"
-             "• #開始 → 設定一個叫「開始」的標籤\n"
-             "• >>#開始 → 跳回「開始」標籤繼續執行"),
-            
-            ("️ 延遲等待", 
-             "讓程式暫停一下再繼續\n"
-             "• >延遲>1s → 等待 1 秒\n"
-             "• >延遲>500ms → 等待 0.5 秒 (1000ms = 1秒)"),
-            
-            (" 條件判斷", 
-             "根據情況決定下一步做什麼\n"
-             "• >if>登入按鈕 → 如果找到「登入按鈕」就執行下面的指令\n"
-             "• 找不到就跳過,繼續往下執行"),
-            
-            (" 迴圈重複", 
-             "讓一段指令重複執行多次\n"
-             "• >迴圈>10 → 重複執行 10 次\n"
-             "• >迴圈>無限 → 一直重複到按停止"),
-        ]
-        
-        for i, (title, desc) in enumerate(guide_items):
-            row_frame = tk.Frame(guide_frame, bg="#252526" if i % 2 == 0 else "#1e1e1e")
-            row_frame.pack(fill="x", padx=5, pady=3)
-            
-            # 標題
-            tk.Label(
-                row_frame,
-                text=title,
-                font=font_tuple(10, "bold"),
-                bg=row_frame["bg"],
-                fg="#4ec9b0",
-                width=12,
-                anchor="nw"  # 改為左上對齊
-            ).pack(side="left", padx=10, pady=8)
-            
-            # 說明 (支援多行)
-            tk.Label(
-                row_frame,
-                text=desc,
-                font=font_tuple(9),
-                bg=row_frame["bg"],
-                fg="#d4d4d4",
-                anchor="w",
-                wraplength=850,
-                justify="left"
-            ).pack(side="left", fill="both", expand=True, padx=5, pady=8)
-        
-        # 摺疊/展開功能
-        def toggle_guide():
-            if is_expanded[0]:
-                guide_frame.pack_forget()
-                toggle_label.config(text="▶")
-                is_expanded[0] = False
-            else:
-                guide_frame.pack(fill="x", pady=(5, 0))
-                toggle_label.config(text="▼")
-                is_expanded[0] = True
-        
-        # 綁定點擊事件
-        title_frame.bind("<Button-1>", lambda e: toggle_guide())
-        title_label.bind("<Button-1>", lambda e: toggle_guide())
-        toggle_label.bind("<Button-1>", lambda e: toggle_guide())
-    
+
     def _configure_reference_tags(self, text_widget):
         """配置指令說明的文字標籤樣式（與編輯器一致）"""
         # 表格標題樣式
@@ -3350,7 +3172,7 @@ class TextCommandEditor(tk.Toplevel):
         # 指令按鈕名稱
         text_widget.tag_config("button_name", foreground="#569cd6", font=font_tuple(10, "bold"))
         
-        #  指令內容（與編輯器語法高亮完全相同）
+        # 指令內容（與編輯器語法高亮一致）
         text_widget.tag_config("syntax_symbol", foreground="#d4d4d4")      # 淺灰色 - 符號
         text_widget.tag_config("syntax_time", foreground="#ce9178")        # 橘色 - 時間參數
         text_widget.tag_config("syntax_label", foreground="#4ec9b0")       # 青綠色 - 標籤
@@ -3367,675 +3189,161 @@ class TextCommandEditor(tk.Toplevel):
         
         # 說明文字
         text_widget.tag_config("description", foreground="#b8c5d6")
-    
-    def _insert_command_reference_content(self, text_widget):
-        """插入指令說明的內容"""
-        # 定義所有指令的說明資料
-        commands = [
-            # 圖片相關指令
-            ("圖片辨識", ">辨識>pic01, T=0s000", "截圖並儲存為pic01，用於圖片辨識"),
-            ("範圍辨識", ">辨識>pic01, 範圍(100,100,500,500), T=0s000", "在指定螢幕範圍內辨識圖片"),
-            ("移動至圖片", ">移動至>pic01, T=0s000", "移動滑鼠到圖片中心位置"),
-            ("點擊圖片", ">左鍵點擊>pic01, T=0s000", "左鍵點擊圖片中心位置"),
-            ("條件判斷", ">if>pic01, T=0s000\n>>#成功\n>>>#失敗", "判斷圖片是否存在，執行對應分支"),
-            
-            # 滑鼠操作
-            ("左鍵點擊", ">左鍵點擊(100,200), 延遲50ms, T=0s000", "在指定座標點擊左鍵"),
-            ("右鍵點擊", ">右鍵點擊(100,200), 延遲50ms, T=0s000", "在指定座標點擊右鍵"),
-            ("左鍵點擊(無座標)", ">左鍵點擊, 延遲50ms, T=0s000", "在當前滑鼠位置點擊左鍵"),
-            ("右鍵點擊(無座標)", ">右鍵點擊, 延遲50ms, T=0s000", "在當前滑鼠位置點擊右鍵"),
-            ("滑鼠移動", ">移動至(100,200), 延遲0ms, T=0s000", "移動滑鼠到指定座標"),
-            ("滑鼠滾輪", ">滾輪(1), 延遲0ms, T=0s000", "滾動滑鼠滾輪（正數向上，負數向下）"),
-            
-            # 鍵盤操作
-            ("按下按鍵", ">按a, 延遲50ms, T=0s000", "按下並放開a鍵（含延遲時間）"),
-            ("按下組合鍵", ">按下Ctrl,Shift,A, 延遲0ms, T=0s000", "同時按下多個按鍵（組合鍵）"),
-            ("放開按鍵", ">放開a, 延遲0ms, T=0s000", "放開指定按鍵"),
-            
-            # 流程控制
-            ("新增標籤", "#標籤名稱", "定義一個跳轉標籤"),
-            ("跳轉標籤", ">>#標籤名稱", "跳轉到指定標籤（成功分支）"),
-            ("條件失敗跳轉", ">>>#標籤名稱", "條件失敗時跳轉到指定標籤"),
-            
-            # OCR文字辨識
-            ("OCR文字判斷", ">if文字>登入, T=0s000\n>>#找到\n>>>#沒找到", "判斷螢幕上是否有指定文字"),
-            ("OCR等待文字", ">等待文字>完成, 最長10s, T=0s000", "等待指定文字出現（最長等待時間）"),
-            ("OCR點擊文字", ">點擊文字>確認, T=0s000", "自動定位並點擊螢幕上的文字"),
-            
-            # 延遲控制
-            ("延遲等待", ">延遲1000ms, T=0s000", "等待指定時間（毫秒）"),
-            
-            # 變數系統
-            ("設定變數", ">設定變數>count, 0, T=0s000", "設定變數count的值為0"),
-            ("變數加1", ">變數加1>count, T=0s000", "將變數count的值加1"),
-            ("變數減1", ">變數減1>count, T=0s000", "將變數count的值減1"),
-            ("變數條件", ">if變數>count, >=, 10, T=0s000\n>>#成功\n>>>#失敗", "判斷變數值，執行對應分支"),
-            
-            # 循環控制
-            ("重複N次", ">重複>10次, T=0s000\n  # 在此處添加要重複的指令\n>重複結束, T=0s000", "重複執行指定次數"),
-            ("條件循環", ">當圖片存在>loading, T=0s000\n  # 在此處添加循環內的指令\n>循環結束, T=0s000", "當條件滿足時持續循環"),
-            
-            # 多條件判斷
-            ("全部圖片存在", ">if全部存在>pic01,pic02,pic03, T=0s000\n>>#全部找到\n>>>#缺少某個", "判斷所有圖片都存在"),
-            ("任一圖片存在", ">if任一存在>pic01,pic02,pic03, T=0s000\n>>#找到其中一個\n>>>#全部都沒有", "判斷任一圖片存在"),
-            
-            # 隨機功能
-            ("隨機延遲", ">隨機延遲>100ms,500ms, T=0s000", "在指定範圍內隨機延遲"),
-            ("隨機分支", ">隨機執行>30%, T=0s000\n>>#執行A\n>>>#執行B", "按機率執行不同分支"),
-            
-            # 計數器與計時器
-            ("計數器觸發", ">計數器>找圖失敗, 3次後, T=0s000\n>>#下一步", "計數達到指定次數後觸發"),
-            ("計時器觸發", ">計時器>等待載入, 60秒後, T=0s000\n>>#逾時處理", "時間達到後觸發"),
-            ("重置計數器", ">重置計數器>找圖失敗, T=0s000", "重置指定計數器"),
-            ("重置計時器", ">重置計時器>等待載入, T=0s000", "重置指定計時器"),
-        ]
-        
-        #  定義欄位寬度（使用等寬字體確保對齊）
-        col1_width = 22  # 指令按鈕
-        col2_width = 50  # 指令內容
-        col3_width = 40  # 說明
-        
-        # 輔助函數：計算顯示寬度（中文=2，英數=1）
-        def display_width(text):
-            return sum(2 if ord(c) > 127 else 1 for c in text)
-        
-        # 輔助函數：填充空格以達到指定寬度
-        def pad_text(text, width):
-            current_width = display_width(text)
-            padding = ' ' * (width - current_width)
-            return text + padding
-        
-        # 插入表格標題（固定在最上方）- 使用框線
-        text_widget.insert("end", "┌" + "─" * (col1_width-2) + "┬" + "─" * (col2_width-2) + "┬" + "─" * (col3_width-2) + "┐\n", "table_border")
-        text_widget.insert("end", "│ ", "table_border")
-        text_widget.insert("end", pad_text('指令按鈕', col1_width-4), "header")
-        text_widget.insert("end", " │ ", "table_border")
-        text_widget.insert("end", pad_text('指令內容', col2_width-4), "header")
-        text_widget.insert("end", " │ ", "table_border")
-        text_widget.insert("end", pad_text('說明', col3_width-4), "header")
-        text_widget.insert("end", " │\n", "table_border")
-        text_widget.insert("end", "├" + "─" * (col1_width-2) + "┼" + "─" * (col2_width-2) + "┼" + "─" * (col3_width-2) + "┤\n", "table_border")
-        
-        # 插入每個指令
-        for button_name, command, description in commands:
-            # 左框線
-            text_widget.insert("end", "│ ", "table_border")
-            
-            # 按鈕名稱（固定寬度，左對齊）
-            text_widget.insert("end", pad_text(button_name, col1_width-4), "button_name")
-            
-            # 中框線
-            text_widget.insert("end", " │ ", "table_border")
-            
-            # 指令內容（套用語法高亮，固定寬度）
-            self._insert_highlighted_command(text_widget, command, col2_width-4)
-            
-            # 右框線
-            text_widget.insert("end", " │ ", "table_border")
-            
-            # 說明（固定寬度，左對齊）
-            text_widget.insert("end", pad_text(description, col3_width-4), "description")
-            
-            # 右框線和換行
-            text_widget.insert("end", " │\n", "table_border")
-        
-        # 表格底部框線
-        text_widget.insert("end", "└" + "─" * (col1_width-2) + "┴" + "─" * (col2_width-2) + "┴" + "─" * (col3_width-2) + "┘\n", "table_border")
-        
-        text_widget.insert("end", "\n")
-        text_widget.insert("end", "提示：指令中的 T= 參數表示執行時間（格式：秒s毫秒，例如 T=1s500 表示 1.5 秒）\n", "description")
-        text_widget.insert("end", "提示：所有座標和時間都可以根據需要調整\n", "description")
-    
-    def _insert_highlighted_command(self, text_widget, command, max_width):
-        """插入帶語法高亮的指令內容（固定寬度，左對齊）"""
-        # 將多行指令合併為單行顯示（用 | 分隔）
-        lines = command.split('\n')
-        display_text = ' | '.join(lines)
-        
-        # 計算實際顯示長度（考慮中文字符）
-        actual_length = sum(2 if ord(c) > 127 else 1 for c in display_text)
-        
-        # 截斷過長的文字
-        if actual_length > max_width:
-            truncated = ""
-            current_len = 0
-            for c in display_text:
-                char_width = 2 if ord(c) > 127 else 1
-                if current_len + char_width > max_width - 3:
-                    break
-                truncated += c
-                current_len += char_width
-            display_text = truncated + "..."
-            actual_length = current_len + 3
-        
-        # 套用語法高亮
-        pos = 0
-        while pos < len(display_text):
-            # 操作符號 >
-            if display_text[pos] == '>':
-                text_widget.insert("end", display_text[pos], "syntax_operator")
-                pos += 1
-            # 註解 #
-            elif display_text[pos] == '#':
-                # 找到行尾或分隔符
-                end = display_text.find('|', pos)
-                if end == -1:
-                    end = len(display_text)
-                text_widget.insert("end", display_text[pos:end], "syntax_comment")
-                pos = end
-            # 時間標記 T=
-            elif display_text[pos:pos+2] == 'T=':
-                end = pos + 2
-                while end < len(display_text) and display_text[end] not in ' ,|\n':
-                    end += 1
-                text_widget.insert("end", display_text[pos:end], "syntax_time")
-                pos = end
-            # 圖片名稱 pic
-            elif display_text[pos:pos+3] == 'pic':
-                end = pos + 3
-                while end < len(display_text) and display_text[end] not in ' ,|\n>':
-                    end += 1
-                text_widget.insert("end", display_text[pos:end], "syntax_image")
-                pos = end
-            # 關鍵字
-            elif display_text[pos:pos+2] in ['if', '辨識', '移動', '點擊', '按', '延遲', '設定', '重複', '當', '等待']:
-                end = pos
-                while end < len(display_text) and display_text[end] not in ' ,|\n>':
-                    end += 1
-                text_widget.insert("end", display_text[pos:end], "syntax_keyword")
-                pos = end
-            # 滑鼠操作
-            elif any(keyword in display_text[pos:pos+10] for keyword in ['左鍵', '右鍵', '滾輪', '移動至']):
-                end = pos
-                while end < len(display_text) and display_text[end] not in ' ,|\n>(':
-                    end += 1
-                text_widget.insert("end", display_text[pos:end], "syntax_mouse")
-                pos = end
-            else:
-                text_widget.insert("end", display_text[pos], "description")
-                pos += 1
-        
-        #  補齊寬度（使用空格填充到固定寬度）
-        padding = " " * (max_width - actual_length)
-        text_widget.insert("end", padding)
-    
-    def _refresh_command_grid(self, parent_frame, filter_text=""):
-        """重新整理指令列表（支援搜尋過濾）"""
-        # 清除舊內容（保留新手入門區）
-        for widget in parent_frame.winfo_children():
-            # 获取 widget 在 grid 中的位置，新手入門區通常在 row=0
-            info = widget.grid_info()
-            if info and int(info.get("row", 0)) > 0:
-                widget.destroy()
-        
-        # 指令資料 (複用原本的資料庫)
-        commands = [
-            ("️ 滑鼠操作", [
-                ("左鍵點擊", ">左鍵點擊(100,200), 延遲50ms, T=0s000", "在指定座標點擊左鍵"),
-                ("右鍵點擊", ">右鍵點擊(100,200), 延遲50ms, T=0s000", "在指定座標點擊右鍵"),
-                ("左鍵按下", ">左鍵按下, T=0s000", "按下左鍵不放"),
-                ("左鍵放開", ">左鍵放開, T=0s000", "放開左鍵"),
-                ("滑鼠移動", ">移動至(100,200), 延遲0ms, T=0s000", "移動滑鼠到指定座標"),
-                ("滑鼠滾輪", ">滾輪(1), 延遲0ms, T=0s000", "滾動滑鼠滾輪（正數向上，負數向下）"),
-            ]),
-            ("️ 鍵盤操作", [
-                ("按下按鍵", ">按a, 延遲50ms, T=0s000", "按下並放開a鍵"),
-                ("按下組合鍵", ">按下Ctrl,Shift,A, 延遲0ms, T=0s000", "同時按下多個按鍵"),
-                ("放開按鍵", ">放開a, 延遲0ms, T=0s000", "放開指定按鍵"),
-                ("按下文字輸入", ">輸入文字>Hello, T=0s000", "模擬鍵盤輸入一段文字"),
-            ]),
-            (" 圖片與OCR", [
-                ("點擊圖片", ">左鍵點擊>pic01, T=0s000", "左鍵點擊圖片中心位置"),
-                ("圖片判斷", ">if>pic01, T=0s000\n>>#成功\n>>>#失敗", "判斷圖片是否存在並分支"),
-                ("遺失判斷", ">if遺失>pic01, T=0s000\n>>#遺失了", "判斷圖片是否消失"),
-                ("OCR點擊文字", ">點擊文字>確認, T=0s000", "找到螢幕上的文字並點擊"),
-                ("OCR文字判斷", ">if文字>登入, T=0s000\n>>#有看到\n>>>#沒看到", "判斷螢幕上是否有指定文字"),
-            ]),
-            (" 流程與邏輯", [
-                ("新增標籤", "#標籤名稱", "定義一個書籤位置"),
-                ("跳轉標籤", ">>#標籤名稱", "執行成功後跳轉"),
-                ("失敗跳轉", ">>>#標籤名稱", "條件不成立時跳轉"),
-                ("延遲等待", ">延遲1000ms, T=0s000", "等待指定時間（毫秒）"),
-                ("計數器觸發", ">計數器>找圖失敗, 3次後, T=0s000\n>>#下一步", "次數累積後執行動作"),
-                ("變數條件", ">if變數>count, >=, 10, T=0s000\n>>#達標", "判斷變數數值"),
-            ])
-        ]
 
-        # 表格標題
-        headers = ["類別 / 指令", "腳本語法範例", "詳細說明"]
-        for col, head in enumerate(headers):
-            lbl = tk.Label(parent_frame, text=head, font=font_tuple(10, "bold"), bg="#2d2d30", fg="#46DDC3", padx=10, pady=8, relief="flat")
-            lbl.grid(row=1, column=col, sticky="ew")
-        
-        current_row = 2
-        for cat_name, cmd_list in commands:
-            # 如果搜尋文字不為空，過濾指令
-            visible_cmds = []
-            for name, syntax, desc in cmd_list:
-                if not filter_text or filter_text in name.lower() or filter_text in syntax.lower() or filter_text in desc.lower():
-                    visible_cmds.append((name, syntax, desc))
-            
-            if not visible_cmds:
-                continue
-                
-            # 分類標題
-            cat_lbl = tk.Label(parent_frame, text=cat_name, font=font_tuple(9, "bold"), bg="#1e1e1e", fg="#9cdcfe", padx=10, pady=10, anchor="w")
-            cat_lbl.grid(row=current_row, column=0, columnspan=3, sticky="ew")
-            current_row += 1
-            
-            for name, syntax, desc in visible_cmds:
-                bg_color = "#252526" if current_row % 2 == 0 else "#1e1e1e"
-                
-                # 建立一整列的容器（方便綁定點擊事件）
-                for col, val in enumerate([name, syntax, desc]):
-                    fg = "white"
-                    if col == 1: fg = "#ce9178" # 語法顏色
-                    if col == 2: fg = "#d4d4d4" # 說明顏色
-                    
-                    item_lbl = tk.Label(parent_frame, text=val, font=font_tuple(9), bg=bg_color, fg=fg, padx=10, pady=12, anchor="w", wraplength=500 if col == 2 else 400)
-                    item_lbl.grid(row=current_row, column=col, sticky="nsew")
-                    
-                    # 雙擊事件：插入到編輯器
-                    def insert_cmd(cmd_text=syntax):
-                        self.text_editor.insert(tk.INSERT, f"\n{cmd_text}\n")
-                        self._apply_syntax_highlighting()
-                        self._update_status(f" 已插入指令")
-                    
-                    item_lbl.bind("<Double-Button-1>", lambda e, c=syntax: insert_cmd(c))
-                    
-                current_row += 1
-
-    def _insert_treeview_commands(self, tree):
-        """保留原有的 Treeview 插入方法供其他地方使用"""
-        pass # 此處程式碼已由 _refresh_command_grid 替代功能樣式
-    
     def _insert_command_grid_table(self, parent_frame):
-        """使用 grid 佈局插入指令表格"""
+        """使用 grid 佈局插入指令表格（2.7.4 完整版本）"""
         # 定義所有指令的說明資料
         commands = [
-            # 圖片相關指令
             ("圖片辨識", ">辨識>pic01, T=0s000", "截圖並儲存為pic01，用於圖片辨識"),
             ("範圍辨識", ">辨識>pic01, 範圍(100,100,500,500), T=0s000", "在指定螢幕範圍內辨識圖片"),
             ("移動至圖片", ">移動至>pic01, T=0s000", "移動滑鼠到圖片中心位置"),
             ("點擊圖片", ">左鍵點擊>pic01, T=0s000", "左鍵點擊圖片中心位置"),
-            ("條件判斷", ">if>pic01, T=0s000 | >>#成功 | >>>#失敗", "判斷圖片是否存在，執行對應分支"),
-            
-            # 滑鼠操作
+            ("條件判斷", ">if>pic01, T=0s000 | >>成功 | >>>失敗", "判斷圖片是否存在，執行對應分支"),
             ("左鍵點擊", ">左鍵點擊(100,200), 延遲50ms, T=0s000", "在指定座標點擊左鍵"),
             ("右鍵點擊", ">右鍵點擊(100,200), 延遲50ms, T=0s000", "在指定座標點擊右鍵"),
             ("左鍵點擊(無座標)", ">左鍵點擊, 延遲50ms, T=0s000", "在當前滑鼠位置點擊左鍵"),
             ("右鍵點擊(無座標)", ">右鍵點擊, 延遲50ms, T=0s000", "在當前滑鼠位置點擊右鍵"),
             ("滑鼠移動", ">移動至(100,200), 延遲0ms, T=0s000", "移動滑鼠到指定座標"),
             ("滑鼠滾輪", ">滾輪(1), 延遲0ms, T=0s000", "滾動滑鼠滾輪（正數向上，負數向下）"),
-            
-            # 鍵盤操作
             ("按下按鍵", ">按a, 延遲50ms, T=0s000", "按下並放開a鍵（含延遲時間）"),
             ("按下組合鍵", ">按下Ctrl,Shift,A, 延遲0ms, T=0s000", "同時按下多個按鍵（組合鍵）"),
             ("放開按鍵", ">放開a, 延遲0ms, T=0s000", "放開指定按鍵"),
-            
-            # 流程控制
             ("新增標籤", "#標籤名稱", "定義一個跳轉標籤"),
             ("跳轉標籤", ">>#標籤名稱", "跳轉到指定標籤（成功分支）"),
             ("條件失敗跳轉", ">>>#標籤名稱", "條件失敗時跳轉到指定標籤"),
-            
-            # OCR文字辨識
             ("OCR文字判斷", ">if文字>登入, T=0s000 | >>#找到 | >>>#沒找到", "判斷螢幕上是否有指定文字"),
             ("OCR等待文字", ">等待文字>完成, 最長10s, T=0s000", "等待指定文字出現（最長等待時間）"),
             ("OCR點擊文字", ">點擊文字>確認, T=0s000", "自動定位並點擊螢幕上的文字"),
-            
-            # 延遲控制
             ("延遲等待", ">延遲1000ms, T=0s000", "等待指定時間（毫秒）"),
-            
-            # 變數系統
             ("設定變數", ">設定變數>count, 0, T=0s000", "設定變數count的值為0"),
             ("變數加1", ">變數加1>count, T=0s000", "將變數count的值加1"),
             ("變數減1", ">變數減1>count, T=0s000", "將變數count的值減1"),
             ("變數條件", ">if變數>count, >=, 10, T=0s000 | >>#成功 | >>>#失敗", "判斷變數值，執行對應分支"),
-            
-            # 循環控制
             ("重複N次", ">重複>10次, T=0s000 | >重複結束, T=0s000", "重複執行指定次數"),
             ("條件循環", ">當圖片存在>loading, T=0s000 | >循環結束, T=0s000", "當條件滿足時持續循環"),
-            
-            # 多條件判斷
             ("全部圖片存在", ">if全部存在>pic01,pic02,pic03, T=0s000 | >>#全部找到 | >>>#缺少某個", "判斷所有圖片都存在"),
             ("任一圖片存在", ">if任一存在>pic01,pic02,pic03, T=0s000 | >>#找到其中一個 | >>>#全部都沒有", "判斷任一圖片存在"),
-            
-            # 隨機功能
             ("隨機延遲", ">隨機延遲>100ms,500ms, T=0s000", "在指定範圍內隨機延遲"),
-            ("隨機分支", ">隨機執行>30%, T=0s000 | >>#執行A | >>>#執行B", "按機率執行不同分支"),
-            
-            # 計數器與計時器
+            ("隨機執行", ">隨機執行>30%, T=0s000 | >>#執行A | >>>#執行B", "按機率執行不同分支"),
             ("計數器觸發", ">計數器>找圖失敗, 3次後, T=0s000 | >>#下一步", "計數達到指定次數後觸發"),
-            ("計時器觸發", ">計時器>等待載入, 60秒後, T=0s000 | >>#逾時處理", "時間達到後觸發"),
+            ("計時器觸發", ">計時器>等待載入, 60秒後, T=0s000 | >>#超時處理", "時間達到後觸發"),
             ("重置計數器", ">重置計數器>找圖失敗, T=0s000", "重置指定計數器"),
             ("重置計時器", ">重置計時器>等待載入, T=0s000", "重置指定計時器"),
         ]
         
-        # 設定統一的欄位寬度（像素）
-        col_widths = [150, 480, 320]  # 指令按鈕、指令內容、說明
-        
-        # 表頭（使用與資料列相同的結構確保對齊）
-        base_row = 1  # 從 row=1 開始，row=0 被新手入門區塊使用
-        header_frame = tk.Frame(parent_frame, bg="#2d2d30")
-        header_frame.grid(row=base_row, column=0, columnspan=3, sticky="ew", padx=5)
-        
+        # 表頭
         headers = ["指令按鈕", "指令內容", "說明"]
-        for col, (header, width) in enumerate(zip(headers, col_widths)):
-            label = tk.Label(
-                header_frame,
-                text=header,
-                font=font_tuple(10, "bold"),
-                bg="#2d2d30",
-                fg="#ffffff",
-                width=width // 8,  # 大約轉換為字元寬度
-                padx=10,
-                pady=8,
-                anchor="w",
-                relief="solid",
-                borderwidth=1
-            )
-            label.pack(side="left", fill="x", expand=(col == 1))  # 中間欄位可伸縮
+        for col, header in enumerate(headers):
+            label = tk.Label(parent_frame, text=header, font=font_tuple(10), bg="#2d2d30", fg="#ffffff", padx=10, pady=8, relief="solid", borderwidth=1)
+            label.grid(row=0, column=col, sticky="ew")
         
-        # 插入指令資料（從 base_row + 1 開始）
-        for row, (button_name, command, description) in enumerate(commands, start=base_row + 1):
+        # 配置列寬度
+        parent_frame.grid_columnconfigure(0, minsize=180)
+        parent_frame.grid_columnconfigure(1, minsize=500)
+        parent_frame.grid_columnconfigure(2, minsize=350)
+        
+        # 插入指令資料
+        for row, (button_name, command, description) in enumerate(commands, start=1):
             # 創建整行的框架
-            row_frame = tk.Frame(parent_frame, bg="#1e1e1e", highlightthickness=2)
-            row_frame.grid(row=row, column=0, columnspan=3, sticky="ew", padx=5)
+            row_frame = tk.Frame(parent_frame, bg="#1e1e1e", relief="solid", borderwidth=2, highlightthickness=0)
+            row_frame.grid(row=row, column=0, columnspan=3, sticky="ew")
             row_frame.config(highlightbackground="#1e1e1e", highlightcolor="#1e1e1e")
             
+            row_frame.grid_columnconfigure(0, minsize=180)
+            row_frame.grid_columnconfigure(1, minsize=500)
+            row_frame.grid_columnconfigure(2, minsize=350)
+            
             # 按鈕名稱
-            btn_label = tk.Label(
-                row_frame,
-                text=button_name,
-                font=font_tuple(9),
-                bg="#1e1e1e",
-                fg="#569cd6",
-                width=col_widths[0] // 8,
-                padx=10,
-                pady=5,
-                anchor="w",
-                relief="solid",
-                borderwidth=1
-            )
-            btn_label.pack(side="left", fill="y")
+            btn_label = tk.Label(row_frame, text=button_name, font=font_tuple(9), bg="#1e1e1e", fg="#569cd6", padx=10, pady=5, anchor="w", relief="solid", borderwidth=1)
+            btn_label.grid(row=0, column=0, sticky="ew")
             
-            # 指令內容（帶語法高亮）
+            # 指令內容
             cmd_frame = tk.Frame(row_frame, bg="#1e1e1e", relief="solid", borderwidth=1)
-            cmd_frame.pack(side="left", fill="both", expand=True)
+            cmd_frame.grid(row=0, column=1, sticky="ew")
             
-            cmd_text = tk.Text(
-                cmd_frame,
-                font=font_tuple(9, monospace=True),
-                bg="#1e1e1e",
-                fg="#d4d4d4",
-                height=1,
-                wrap="none",
-                padx=10,
-                pady=5,
-                relief="flat",
-                borderwidth=0
-            )
+            cmd_text = tk.Text(cmd_frame, font=font_tuple(9, monospace=True), bg="#1e1e1e", fg="#d4d4d4", height=1, wrap="none", padx=10, pady=5, relief="flat", borderwidth=0)
             cmd_text.pack(fill="both", expand=True)
             
-            # 配置語法高亮標籤
             self._configure_reference_tags(cmd_text)
-            
-            # 插入指令並套用高亮
             self._insert_command_with_syntax_highlight(cmd_text, command)
             cmd_text.config(state="disabled")
             
             # 說明
-            desc_label = tk.Label(
-                row_frame,
-                text=description,
-                font=font_tuple(9),
-                bg="#1e1e1e",
-                fg="#b8c5d6",
-                width=col_widths[2] // 8,
-                padx=10,
-                pady=5,
-                anchor="w",
-                relief="solid",
-                borderwidth=1,
-                wraplength=col_widths[2] - 20
-            )
-            desc_label.pack(side="left", fill="y")
+            desc_label = tk.Label(row_frame, text=description, font=font_tuple(9), bg="#1e1e1e", fg="#b8c5d6", padx=10, pady=5, anchor="w", relief="solid", borderwidth=1)
+            desc_label.grid(row=0, column=2, sticky="ew")
             
-            # 為整行添加點擊事件，顯示選取框
             def make_click_handler(frame, labels):
                 def on_click(event=None):
-                    # 移除所有選取（改變邊框顏色而不是寬度,避免浮動）
                     for child in parent_frame.winfo_children():
                         if isinstance(child, tk.Frame) and child != parent_frame:
                             child.config(borderwidth=2, bg="#1e1e1e", highlightbackground="#1e1e1e", highlightcolor="#1e1e1e")
                             for widget in child.winfo_children():
-                                if isinstance(widget, tk.Label):
+                                if isinstance(widget, (tk.Label, tk.Frame)):
                                     widget.config(bg="#1e1e1e")
-                                elif isinstance(widget, tk.Frame):
-                                    widget.config(bg="#1e1e1e")
-                                    for sub in widget.winfo_children():
-                                        if isinstance(sub, tk.Text):
-                                            sub.config(bg="#1e1e1e")
+                                    if isinstance(widget, tk.Frame):
+                                        for sub in widget.winfo_children():
+                                            if isinstance(sub, tk.Text): sub.config(bg="#1e1e1e")
                     
-                    # 顯示當前選取（使用邊框顏色高亮,保持寬度不變）
                     frame.config(borderwidth=2, bg="#264f78", highlightbackground="#569cd6", highlightcolor="#569cd6")
                     for widget in labels:
-                        if isinstance(widget, tk.Label):
-                            widget.config(bg="#264f78")
-                        elif isinstance(widget, tk.Frame):
-                            widget.config(bg="#264f78")
+                        widget.config(bg="#264f78")
+                        if isinstance(widget, tk.Frame):
                             for sub in widget.winfo_children():
-                                if isinstance(sub, tk.Text):
-                                    sub.config(bg="#264f78")
+                                if isinstance(sub, tk.Text): sub.config(bg="#264f78")
                 return on_click
             
             widgets = [btn_label, cmd_frame, desc_label]
             click_handler = make_click_handler(row_frame, widgets)
             
-            # 綁定點擊事件
             row_frame.bind("<Button-1>", click_handler)
             btn_label.bind("<Button-1>", click_handler)
             cmd_frame.bind("<Button-1>", click_handler)
             cmd_text.bind("<Button-1>", click_handler)
             desc_label.bind("<Button-1>", click_handler)
-    
-    def _insert_command_reference_with_highlight(self, text_widget):
-        """插入帶語法高亮的指令說明（使用固定寬度對齊）"""
-        # 定義所有指令的說明資料
-        commands = [
-            # 圖片相關指令
-            ("圖片辨識", ">辨識>pic01, T=0s000", "截圖並儲存為pic01，用於圖片辨識"),
-            ("範圍辨識", ">辨識>pic01, 範圍(100,100,500,500), T=0s000", "在指定螢幕範圍內辨識圖片"),
-            ("移動至圖片", ">移動至>pic01, T=0s000", "移動滑鼠到圖片中心位置"),
-            ("點擊圖片", ">左鍵點擊>pic01, T=0s000", "左鍵點擊圖片中心位置"),
-            ("條件判斷", ">if>pic01, T=0s000 | >>#成功 | >>>#失敗", "判斷圖片是否存在，執行對應分支"),
-            
-            # 滑鼠操作
-            ("左鍵點擊", ">左鍵點擊(100,200), 延遲50ms, T=0s000", "在指定座標點擊左鍵"),
-            ("右鍵點擊", ">右鍵點擊(100,200), 延遲50ms, T=0s000", "在指定座標點擊右鍵"),
-            ("左鍵點擊(無座標)", ">左鍵點擊, 延遲50ms, T=0s000", "在當前滑鼠位置點擊左鍵"),
-            ("右鍵點擊(無座標)", ">右鍵點擊, 延遲50ms, T=0s000", "在當前滑鼠位置點擊右鍵"),
-            ("滑鼠移動", ">移動至(100,200), 延遲0ms, T=0s000", "移動滑鼠到指定座標"),
-            ("滑鼠滾輪", ">滾輪(1), 延遲0ms, T=0s000", "滾動滑鼠滾輪（正數向上，負數向下）"),
-            
-            # 鍵盤操作
-            ("按下按鍵", ">按a, 延遲50ms, T=0s000", "按下並放開a鍵（含延遲時間）"),
-            ("按下組合鍵", ">按下Ctrl,Shift,A, 延遲0ms, T=0s000", "同時按下多個按鍵（組合鍵）"),
-            ("放開按鍵", ">放開a, 延遲0ms, T=0s000", "放開指定按鍵"),
-            
-            # 流程控制
-            ("新增標籤", "#標籤名稱", "定義一個跳轉標籤"),
-            ("跳轉標籤", ">>#標籤名稱", "跳轉到指定標籤（成功分支）"),
-            ("條件失敗跳轉", ">>>#標籤名稱", "條件失敗時跳轉到指定標籤"),
-            
-            # OCR文字辨識
-            ("OCR文字判斷", ">if文字>登入, T=0s000 | >>#找到 | >>>#沒找到", "判斷螢幕上是否有指定文字"),
-            ("OCR等待文字", ">等待文字>完成, 最長10s, T=0s000", "等待指定文字出現（最長等待時間）"),
-            ("OCR點擊文字", ">點擊文字>確認, T=0s000", "自動定位並點擊螢幕上的文字"),
-            
-            # 延遲控制
-            ("延遲等待", ">延遲1000ms, T=0s000", "等待指定時間（毫秒）"),
-            
-            # 變數系統
-            ("設定變數", ">設定變數>count, 0, T=0s000", "設定變數count的值為0"),
-            ("變數加1", ">變數加1>count, T=0s000", "將變數count的值加1"),
-            ("變數減1", ">變數減1>count, T=0s000", "將變數count的值減1"),
-            ("變數條件", ">if變數>count, >=, 10, T=0s000 | >>#成功 | >>>#失敗", "判斷變數值，執行對應分支"),
-            
-            # 循環控制
-            ("重複N次", ">重複>10次, T=0s000 | >重複結束, T=0s000", "重複執行指定次數"),
-            ("條件循環", ">當圖片存在>loading, T=0s000 | >循環結束, T=0s000", "當條件滿足時持續循環"),
-            
-            # 多條件判斷
-            ("全部圖片存在", ">if全部存在>pic01,pic02,pic03, T=0s000 | >>#全部找到 | >>>#缺少某個", "判斷所有圖片都存在"),
-            ("任一圖片存在", ">if任一存在>pic01,pic02,pic03, T=0s000 | >>#找到其中一個 | >>>#全部都沒有", "判斷任一圖片存在"),
-            
-            # 隨機功能
-            ("隨機延遲", ">隨機延遲>100ms,500ms, T=0s000", "在指定範圍內隨機延遲"),
-            ("隨機分支", ">隨機執行>30%, T=0s000 | >>#執行A | >>>#執行B", "按機率執行不同分支"),
-            
-            # 計數器與計時器
-            ("計數器觸發", ">計數器>找圖失敗, 3次後, T=0s000 | >>#下一步", "計數達到指定次數後觸發"),
-            ("計時器觸發", ">計時器>等待載入, 60秒後, T=0s000 | >>#逾時處理", "時間達到後觸發"),
-            ("重置計數器", ">重置計數器>找圖失敗, T=0s000", "重置指定計數器"),
-            ("重置計時器", ">重置計時器>等待載入, T=0s000", "重置指定計時器"),
-        ]
-        
-        # 計算顯示寬度的輔助函數（中文=2，英文=1）
-        def display_width(text):
-            return sum(2 if ord(c) > 127 else 1 for c in text)
-        
-        # 填充到指定寬度的輔助函數
-        def pad_to_width(text, target_width):
-            current = display_width(text)
-            if current < target_width:
-                return text + ' ' * (target_width - current)
-            return text
-        
-        # 欄位寬度定義
-        col1_width = 20  # 指令按鈕
-        col2_width = 55  # 指令內容
-        col3_width = 35  # 說明
-        
-        # 插入表頭
-        text_widget.insert("end", "┌" + "─" * col1_width + "┬" + "─" * col2_width + "┬" + "─" * col3_width + "┐\n", "header")
-        text_widget.insert("end", "│ ", "header")
-        text_widget.insert("end", pad_to_width("指令按鈕", col1_width-1), "header")
-        text_widget.insert("end", "│ ", "header")
-        text_widget.insert("end", pad_to_width("指令內容", col2_width-1), "header")
-        text_widget.insert("end", "│ ", "header")
-        text_widget.insert("end", pad_to_width("說明", col3_width-1), "header")
-        text_widget.insert("end", "│\n", "header")
-        text_widget.insert("end", "├" + "─" * col1_width + "┼" + "─" * col2_width + "┼" + "─" * col3_width + "┤\n", "header")
-        
-        # 插入每個指令
-        for button_name, command, description in commands:
-            text_widget.insert("end", "│ ", "description")
-            
-            # 插入按鈕名稱（固定寬度）
-            text_widget.insert("end", pad_to_width(button_name, col1_width-1), "button_name")
-            text_widget.insert("end", "│ ", "description")
-            
-            # 插入指令內容（帶語法高亮，固定寬度）
-            cmd_start = text_widget.index("end-1c")
-            self._insert_command_with_syntax_highlight(text_widget, command)
-            cmd_text = text_widget.get(cmd_start, "end-1c")
-            cmd_width = display_width(cmd_text)
-            if cmd_width < col2_width - 1:
-                text_widget.insert("end", ' ' * (col2_width - 1 - cmd_width))
-            
-            text_widget.insert("end", "│ ", "description")
-            
-            # 插入說明（固定寬度）
-            text_widget.insert("end", pad_to_width(description, col3_width-1), "description")
-            text_widget.insert("end", "│\n", "description")
-        
-        # 表格底部
-        text_widget.insert("end", "└" + "─" * col1_width + "┴" + "─" * col2_width + "┴" + "─" * col3_width + "┘\n", "header")
-    
+
     def _insert_command_with_syntax_highlight(self, text_widget, command):
-        """插入單一指令並套用語法高亮（與編輯器相同配色）"""
-        lines = command.split('\n')
-        for i, line in enumerate(lines):
-            if i > 0:
-                text_widget.insert("end", " ")  # 多行用空格分隔
-            
-            pos = 0
-            while pos < len(line):
-                # 操作符號 >
-                if line[pos] == '>':
-                    text_widget.insert("end", line[pos], "syntax_symbol")
-                    pos += 1
-                # 註解 #
-                elif line[pos] == '#':
-                    text_widget.insert("end", line[pos:], "syntax_comment")
-                    break
-                # 時間標記 T=
-                elif line[pos:pos+2] == 'T=':
-                    end = pos + 2
-                    while end < len(line) and line[end] not in ' ,\n':
-                        end += 1
-                    text_widget.insert("end", line[pos:end], "syntax_time")
-                    pos = end
-                # 圖片名稱 pic
-                elif line[pos:pos+3] == 'pic':
-                    end = pos + 3
-                    while end < len(line) and line[end] not in ' ,\n>':
-                        end += 1
-                    text_widget.insert("end", line[pos:end], "syntax_image")
-                    pos = end
-                # 標籤相關
-                elif line[pos:pos+2] in ['if', '辨識', '移動', '點擊', '等待', '設定', '重複', '當', '延遲']:
-                    end = pos
-                    while end < len(line) and line[end] not in ' ,>\n':
-                        end += 1
-                    keyword = line[pos:end]
-                    
-                    # 根據關鍵字類型選擇標籤
-                    if keyword in ['if', 'if文字', 'if變數', 'if全部存在', 'if任一存在']:
-                        tag = "syntax_condition"
-                    elif keyword in ['辨識', '移動至', '點擊圖片']:
-                        tag = "syntax_image"
-                    elif keyword in ['點擊文字', '等待文字']:
-                        tag = "syntax_ocr"
-                    elif keyword in ['延遲', '隨機延遲']:
-                        tag = "syntax_delay"
-                    elif keyword in ['重複', '重複結束', '當', '循環結束', '隨機執行']:
-                        tag = "syntax_flow"
-                    else:
-                        tag = "syntax_label"
-                    
-                    text_widget.insert("end", keyword, tag)
-                    pos = end
-                # 滑鼠操作
-                elif any(keyword in line[pos:pos+10] for keyword in ['左鍵', '右鍵', '滾輪', '移動至', '按', '按下', '放開']):
-                    end = pos
-                    while end < len(line) and line[end] not in ' ,\n>(':
-                        end += 1
-                    keyword = line[pos:end]
-                    
-                    if keyword in ['左鍵', '右鍵', '滾輪', '左鍵點擊', '右鍵點擊', '移動至']:
-                        tag = "syntax_mouse"
-                    else:
-                        tag = "syntax_keyboard"
-                    
-                    text_widget.insert("end", keyword, tag)
-                    pos = end
-                # 變數操作
-                elif line[pos:pos+4] in ['設定變數', '變數加1', '變數減1']:
-                    end = pos + 4
-                    text_widget.insert("end", line[pos:end], "syntax_flow")
-                    pos = end
-                # 計數器/計時器
-                elif line[pos:pos+3] in ['計數器', '計時器'] or line[pos:pos+5] in ['重置計數器', '重置計時器']:
-                    end = pos
-                    while end < len(line) and line[end] not in ' ,>\n':
-                        end += 1
-                    text_widget.insert("end", line[pos:end], "syntax_flow")
-                    pos = end
-                else:
-                    text_widget.insert("end", line[pos], "description")
-                    pos += 1
+        """插入單一指令並套用語法高亮"""
+        pos = 0
+        while pos < len(command):
+            if command[pos] == '>':
+                text_widget.insert("end", '>', "syntax_symbol")
+                pos += 1
+            elif command[pos] == '#':
+                text_widget.insert("end", command[pos:], "syntax_comment")
+                break
+            elif command[pos:pos+2] == 'T=':
+                end = pos + 2
+                while end < len(command) and command[end] not in ' ,\n': end += 1
+                text_widget.insert("end", command[pos:end], "syntax_time")
+                pos = end
+            elif command[pos:pos+3] == 'pic':
+                end = pos + 3
+                while end < len(command) and command[end] not in ' ,\n>': end += 1
+                text_widget.insert("end", command[pos:end], "syntax_image")
+                pos = end
+            elif any(command.startswith(kw, pos) for kw in ['if', '辨識', '移動', '點擊', '等待', '設定', '重複', '當', '延遲']):
+                end = pos
+                while end < len(command) and command[end] not in ' ,>\n': end += 1
+                keyword = command[pos:end]
+                tag = "syntax_label"
+                if keyword.startswith('if'): tag = "syntax_condition"
+                elif keyword in ['辨識', '移動至', '點擊圖片']: tag = "syntax_image"
+                elif '文字' in keyword: tag = "syntax_ocr"
+                elif '延遲' in keyword: tag = "syntax_delay"
+                elif keyword in ['重複', '重複結束', '當', '循環結束', '隨機執行']: tag = "syntax_flow"
+                text_widget.insert("end", keyword, tag)
+                pos = end
+            elif any(command.startswith(kw, pos) for kw in ['左鍵', '右鍵', '滾輪', '移動至', '按', '按下', '放開']):
+                end = pos
+                while end < len(command) and command[end] not in ' ,\n>(': end += 1
+                keyword = command[pos:end]
+                tag = "syntax_mouse" if any(k in keyword for k in ['左鍵', '右鍵', '滾輪', '移動至']) else "syntax_keyboard"
+                text_widget.insert("end", keyword, tag)
+                pos = end
+            else:
+                text_widget.insert("end", command[pos], "description")
+                pos += 1
+
     
     def _on_combo_click(self, event):
         """點擊下拉選單時重新整理列表"""

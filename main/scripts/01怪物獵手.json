@@ -1,0 +1,131 @@
+{
+  "events": [
+    {
+      "type": "label",
+      "name": "尋找怪物",
+      "time": 0.0
+    },
+    {
+      "type": "if_image_exists",
+      "image": "小怪A",
+      "image_file": "小怪A.png",
+      "confidence": 0.75,
+      "on_success": {
+        "action": "jump",
+        "target": "開始打怪",
+        "repeat_count": 999999
+      },
+      "on_failure": {
+        "action": "jump",
+        "target": "等待重生",
+        "repeat_count": 999999
+      },
+      "time": 0.0
+    },
+    {
+      "type": "label",
+      "name": "等待重生",
+      "time": 0.0
+    },
+    {
+      "type": "delay",
+      "duration": 2.0,
+      "time": 0.0
+    },
+    {
+      "type": "branch_success",
+      "target": "尋找怪物",
+      "repeat_count": 999999,
+      "time": 0.0,
+      "_standalone": true
+    },
+    {
+      "type": "label",
+      "name": "開始打怪",
+      "time": 0.1
+    },
+    {
+      "type": "click_image",
+      "button": "left",
+      "image": "小怪A",
+      "image_file": "小怪A.png",
+      "confidence": 0.7,
+      "return_to_origin": false,
+      "time": 0.1
+    },
+    {
+      "type": "keyboard",
+      "event": "down",
+      "name": "1",
+      "time": 0.2,
+      "_auto_pair": true
+    },
+    {
+      "type": "keyboard",
+      "event": "up",
+      "name": "1",
+      "time": 0.30000000000000004,
+      "_auto_pair": true
+    },
+    {
+      "type": "keyboard",
+      "event": "down",
+      "name": "2",
+      "time": 0.3,
+      "_auto_pair": true
+    },
+    {
+      "type": "keyboard",
+      "event": "up",
+      "name": "2",
+      "time": 0.4,
+      "_auto_pair": true
+    },
+    {
+      "type": "keyboard",
+      "event": "down",
+      "name": "3",
+      "time": 0.4,
+      "_auto_pair": true
+    },
+    {
+      "type": "keyboard",
+      "event": "up",
+      "name": "3",
+      "time": 0.5,
+      "_auto_pair": true
+    },
+    {
+      "type": "delay",
+      "duration": 0.5,
+      "time": 0.5
+    },
+    {
+      "type": "if_image_exists",
+      "image": "小怪A",
+      "image_file": "小怪A.png",
+      "confidence": 0.75,
+      "on_success": {
+        "action": "jump",
+        "target": "開始打怪",
+        "repeat_count": 999999
+      },
+      "on_failure": {
+        "action": "jump",
+        "target": "尋找怪物",
+        "repeat_count": 999999
+      },
+      "time": 1.0
+    }
+  ],
+  "settings": {
+    "speed": "100",
+    "repeat": "1",
+    "repeat_time": "00:00:00",
+    "repeat_interval": "00:00:00",
+    "random_interval": false,
+    "script_hotkey": "",
+    "script_actions": [],
+    "window_info": null
+  }
+}

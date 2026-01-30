@@ -997,8 +997,10 @@ class CoreRecorder:
                     VK_CONTROL = 0x11
                     VK_SHIFT = 0x10
                     VK_MENU = 0x12  # Alt
+                    VK_LWIN = 0x5B
+                    VK_RWIN = 0x5C
                     
-                    for vk in [VK_CONTROL, VK_SHIFT, VK_MENU]:
+                    for vk in [VK_CONTROL, VK_SHIFT, VK_MENU, VK_LWIN, VK_RWIN]:
                         ctypes.windll.user32.keybd_event(vk, 0, 0x0002, 0)  # KEYEVENTF_KEYUP
                 except:
                     pass
@@ -1100,6 +1102,10 @@ class CoreRecorder:
             #  修復：執行結束後確保所有按鍵都被釋放
             try:
                 self._release_pressed_keys()
+                # 額外發送一次全局修飾鍵釋放
+                import ctypes
+                for vk in [0x10, 0x11, 0x12]: # Shift, Ctrl, Alt
+                    ctypes.windll.user32.keybd_event(vk, 0, 0x0002, 0)
             except:
                 pass
             
@@ -1111,6 +1117,15 @@ class CoreRecorder:
         pause_start_time = None  # 暫停開始時間
         total_pause_time = 0  # 累計暫停時間
         last_pause_state = False  # 上一次的暫停狀態
+        
+        #  核心修復：在一輪執行開始前，強制釋放所有修飾鍵，防止殘留
+        try:
+            import ctypes
+            for vk in [0x10, 0x11, 0x12]: # Shift, Ctrl, Alt
+                ctypes.windll.user32.keybd_event(vk, 0, 0x0002, 0)
+            time.sleep(0.01)
+        except:
+            pass
         
         #  標籤與索引的映射
         label_map = {}  # {'label_name': index}
@@ -1694,6 +1709,9 @@ class CoreRecorder:
                         pass
                     #  2.5 風格：即時輸出鍵盤事件
                     self.logger(f"[鍵盤] {event['event']} {event['name']}")
+                    #  核心修復：修飾鍵放開後加入微小延遲，確保 Windows 訊息隊列處理同步
+                    if event['name'] in ['alt', 'ctrl', 'shift', 'windows', 'left alt', 'right alt', 'left ctrl', 'right ctrl', 'left shift', 'right shift']:
+                        time.sleep(0.005)
             except Exception as e:
                 self.logger(f"鍵盤事件執行失敗: {e}")
                 

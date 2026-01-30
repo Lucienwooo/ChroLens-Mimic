@@ -138,66 +138,42 @@ echo.
 REM ===================================================================
 REM Step 5: Run PyInstaller
 REM ===================================================================
-echo [5/5] Running PyInstaller...
+echo [5/7] Running PyInstaller...
 echo -------------------------------------------------------------------
 
-REM Check if icon exists and build command accordingly
+set PYINSTALLER_CMD=pyinstaller --onedir --windowed ^
+    --name "ChroLens_Mimic" ^
+    --add-data "images;images" ^
+    --add-data "TTF;TTF" ^
+    --add-data "yolov8s.pt;." ^
+    --hidden-import "ttkbootstrap" ^
+    --hidden-import "keyboard" ^
+    --hidden-import "mouse" ^
+    --hidden-import "mss" ^
+    --hidden-import "PIL" ^
+    --hidden-import "cv2" ^
+    --hidden-import "numpy" ^
+    --hidden-import "pystray" ^
+    --hidden-import "bezier_mouse" ^
+    --hidden-import "yolo_detector" ^
+    --hidden-import "recorder" ^
+    --hidden-import "text_script_editor" ^
+    --hidden-import "lang" ^
+    --hidden-import "script_io" ^
+    --hidden-import "about" ^
+    --hidden-import "mini" ^
+    --hidden-import "window_selector" ^
+    --hidden-import "version_manager" ^
+    --hidden-import "version_info_dialog" ^
+    --collect-all "ttkbootstrap" ^
+    --collect-all "ultralytics" ^
+    --noconfirm ^
+    "ChroLens_Mimic.py"
+
 if defined ICON_PARAM (
-    pyinstaller --onedir --windowed ^
-        --name "ChroLens_Mimic" ^
-        %ICON_PARAM% ^
-        --add-data "..\umi_奶茶色.ico;." ^
-        --add-data "images;images" ^
-        --add-data "TTF;TTF" ^
-        --add-data "yolov8s.pt;." ^
-        --hidden-import "ttkbootstrap" ^
-        --hidden-import "keyboard" ^
-        --hidden-import "mouse" ^
-        --hidden-import "mss" ^
-        --hidden-import "PIL" ^
-        --hidden-import "cv2" ^
-        --hidden-import "numpy" ^
-        --hidden-import "pystray" ^
-        --hidden-import "bezier_mouse" ^
-        --hidden-import "yolo_detector" ^
-        --hidden-import "recorder" ^
-        --hidden-import "text_script_editor" ^
-        --hidden-import "lang" ^
-        --hidden-import "script_io" ^
-        --hidden-import "about" ^
-        --hidden-import "mini" ^
-        --hidden-import "window_selector" ^
-        --collect-all "ttkbootstrap" ^
-        --collect-all "ultralytics" ^
-        --noconfirm ^
-        "ChroLens_Mimic.py"
+    %PYINSTALLER_CMD% --icon "..\umi_奶茶色.ico" --add-data "..\umi_奶茶色.ico;."
 ) else (
-    pyinstaller --onedir --windowed ^
-        --name "ChroLens_Mimic" ^
-        --add-data "images;images" ^
-        --add-data "TTF;TTF" ^
-        --add-data "yolov8s.pt;." ^
-        --hidden-import "ttkbootstrap" ^
-        --hidden-import "keyboard" ^
-        --hidden-import "mouse" ^
-        --hidden-import "mss" ^
-        --hidden-import "PIL" ^
-        --hidden-import "cv2" ^
-        --hidden-import "numpy" ^
-        --hidden-import "pystray" ^
-        --hidden-import "bezier_mouse" ^
-        --hidden-import "yolo_detector" ^
-        --hidden-import "recorder" ^
-        --hidden-import "text_script_editor" ^
-        --hidden-import "lang" ^
-        --hidden-import "script_io" ^
-        --hidden-import "about" ^
-        --hidden-import "mini" ^
-        --hidden-import "window_selector" ^
-        --collect-all "ttkbootstrap" ^
-        --collect-all "ultralytics" ^
-        --noconfirm ^
-        "ChroLens_Mimic.py"
+    %PYINSTALLER_CMD%
 )
 
 set PACK_RESULT=%errorlevel%
@@ -207,55 +183,69 @@ if %PACK_RESULT% neq 0 (
     color 0C
     echo.
     echo ERROR: Package failed (code: %PACK_RESULT%)
-    echo Please check error messages above
-    echo.
+    if exist "*.spec" del /f /q "*.spec"
     pause
     exit /b %PACK_RESULT%
 )
+
+REM ===================================================================
+REM Step 6: Smoke Test
+REM ===================================================================
 echo.
-
-REM ===================================================================
-REM Verify
-REM ===================================================================
-echo Verifying...
-
-if not exist "dist\ChroLens_Mimic" (
-    color 0C
-    echo ERROR: Output directory not found
+echo [6/7] Running Smoke Test...
+echo -------------------------------------------------------------------
+echo 正在啟動程式進行測試...
+start "" "dist\ChroLens_Mimic\ChroLens_Mimic.exe"
+echo.
+echo 請檢查程式是否正常啟動，並測試基本功能。
+echo 確認沒問題後，請【關閉程式】。
+echo.
+set /p CONFIRM="所有功能運作正常嗎？ (Y/N): "
+if /i "%CONFIRM%" neq "Y" (
+    color 0E
+    echo.
+    echo 測試未通過或已取消。保留 build 資料夾以便除錯。
+    if exist "*.spec" del /f /q "*.spec"
     pause
     exit /b 1
 )
-echo OK: Output directory exists
 
-if not exist "dist\ChroLens_Mimic\ChroLens_Mimic.exe" (
-    color 0C
-    echo ERROR: Executable not found
-    pause
-    exit /b 1
-)
-echo OK: Executable exists
+REM ===================================================================
+REM Step 7: Packaging and Cleanup
+REM ===================================================================
 echo.
+echo [7/7] Finalizing Package...
+echo -------------------------------------------------------------------
+
+echo 1. 清除 build 資料夾與 spec 檔案...
+if exist "build" rmdir /s /q "build"
+if exist "*.spec" del /f /q "*.spec"
+
+echo 2. 建立 ZIP 壓縮檔...
+set ZIP_NAME=ChroLens_Mimic.zip
+if exist "dist\%ZIP_NAME%" del /q "dist\%ZIP_NAME%"
+
+powershell -Command "Compress-Archive -Path 'dist\ChroLens_Mimic' -DestinationPath 'dist\%ZIP_NAME%' -Force"
+
+if %errorlevel% neq 0 (
+    echo WARNING: ZIP compression failed!
+) else (
+    echo OK: ZIP created as dist\%ZIP_NAME%
+)
 
 REM ===================================================================
 REM Done
 REM ===================================================================
 color 0A
+echo.
 echo ===================================================================
-echo    Package Complete!
+echo    Package Complete! 🚀
 echo ===================================================================
 echo.
-echo Output: dist\ChroLens_Mimic\
+echo Output Directory: dist\
 echo.
-echo Test Steps:
-echo    1. Run dist\ChroLens_Mimic\ChroLens_Mimic.exe
-echo    2. Test recording and playback
-echo    3. Test script merge feature
-echo.
-echo Release Steps:
-echo    1. Test all features
-echo    2. Compress dist\ChroLens_Mimic\ to ZIP
-echo    3. Commit to GitHub
-echo    4. Create new Release and upload ZIP
+echo [Files in dist]
+dir /b "dist"
 echo.
 echo ===================================================================
 echo.

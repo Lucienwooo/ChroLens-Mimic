@@ -3627,6 +3627,29 @@ class RecorderApp(tb.Window):
         tb.Button(btn_frame, text="儲存", command=save_and_apply, width=15, bootstyle=SUCCESS).pack(pady=5)
 
 
+    def _is_safe_hotkey(self, hotkey_str):
+        """檢查快捷鍵是否安全（禁止單一修飾鍵）"""
+        if not hotkey_str:
+            return False
+            
+        modifiers = {
+            'alt', 'ctrl', 'shift', 'win', 'windows', 
+            'left alt', 'right alt', 'left ctrl', 'right ctrl', 
+            'left shift', 'right shift', 'command', 'option', 'control'
+        }
+        
+        h = hotkey_str.lower().strip()
+        # 1. 不能只是單個修飾鍵
+        if h in modifiers:
+            return False
+            
+        # 2. 不能只是多個修飾鍵的組合 (例如 ctrl+alt)
+        parts = [p.strip() for p in h.split('+')]
+        if all(p in modifiers for p in parts):
+            return False
+            
+        return True
+
     def _register_hotkeys(self):
         """
         註冊系統快捷鍵
@@ -3668,6 +3691,11 @@ class RecorderApp(tb.Window):
                 
             callback = getattr(self, method_name, None)
             if not callable(callback):
+                continue
+            
+            # 安全檢查：禁止註冊單一修飾鍵
+            if not self._is_safe_hotkey(hotkey):
+                self.log(f"[跳過] 非法快捷鍵 '{hotkey}' (不能僅包含修飾鍵)")
                 continue
             
             #  註冊並儲存 handle (加入重試機制)
@@ -3747,7 +3775,12 @@ class RecorderApp(tb.Window):
                 elif "script_hotkey" in data:
                     hotkey = data["script_hotkey"]
                 
+                
                 if hotkey:
+                    # 安全檢查：禁止註冊單一修飾鍵
+                    if not self._is_safe_hotkey(hotkey):
+                        self.log(f"[跳過] 腳本 '{script}' 含有非法快捷鍵 '{hotkey}'")
+                        continue
                     try:
                         # 使用 lambda 捕獲當前的 script 值
                         handler = keyboard.add_hotkey(
@@ -4268,6 +4301,11 @@ class RecorderApp(tb.Window):
         
         if not script_name or not hotkey or hotkey == "輸入按鍵":
             self.log("請先選擇腳本並輸入有效的快捷鍵。")
+            return
+            
+        # 安全性檢查
+        if not self._is_safe_hotkey(hotkey):
+            self.log(f"錯誤：'{hotkey}' 不能作為快捷鍵。請組合其他非修飾鍵（如 Alt+W）。")
             return
         
         # 確保有 .json 副檔名

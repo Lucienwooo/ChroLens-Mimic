@@ -3650,6 +3650,98 @@ class RecorderApp(tb.Window):
             
         return True
 
+    def _is_physically_triggered(self, hotkey_str):
+        """
+        驗證快捷鍵是否確實由使用者實體按下，而非腳本模擬。
+        利用 Win32 API GetAsyncKeyState(vk) & 0x8000 檢查硬體層級狀態。
+        """
+        try:
+            import win32api
+            import win32con
+        except ImportError:
+            return True # 若無庫則退而求其次允許通過
+
+        if not hotkey_str:
+            return False
+
+        # 將 "alt+ctrl+f9" 拆解並清除多餘空格
+        parts = [p.strip().lower() for p in hotkey_str.split('+')]
+        
+        # 鍵名與 VKCode 映射表 (匹配 keyboard 模組慣用法)
+        vk_map = {
+            'alt': win32con.VK_MENU,
+            'left alt': win32con.VK_LMENU,
+            'right alt': win32con.VK_RMENU,
+            'ctrl': win32con.VK_CONTROL,
+            'control': win32con.VK_CONTROL,
+            'left ctrl': win32con.VK_LCONTROL,
+            'right ctrl': win32con.VK_RCONTROL,
+            'shift': win32con.VK_SHIFT,
+            'left shift': win32con.VK_LSHIFT,
+            'right shift': win32con.VK_RSHIFT,
+            'win': win32con.VK_LWIN,
+            'windows': win32con.VK_LWIN,
+            'enter': win32con.VK_RETURN,
+            'space': win32con.VK_SPACE,
+            'tab': win32con.VK_TAB,
+            'backspace': win32con.VK_BACK,
+            'delete': win32con.VK_DELETE,
+            'del': win32con.VK_DELETE,
+            'esc': win32con.VK_ESCAPE,
+            'escape': win32con.VK_ESCAPE,
+            'up': win32con.VK_UP,
+            'down': win32con.VK_DOWN,
+            'left': win32con.VK_LEFT,
+            'right': win32con.VK_RIGHT,
+            '`': 192, '~': 192,
+            '-': 189, '=': 187,
+            '[': 219, ']': 221,
+            '\\': 220, ';': 186,
+            "'": 222, ',': 188,
+            '.': 190, '/': 191,
+        }
+        # F1-F24
+        for i in range(1, 25):
+            vk_map[f'f{i}'] = win32con.VK_F1 + (i - 1)
+        # 數字鍵盤
+        for i in range(0, 10):
+            vk_map[f'num {i}'] = win32con.VK_NUMPAD0 + i
+
+        for part in parts:
+            vk = 0
+            if part in vk_map:
+                vk = vk_map[part]
+            elif len(part) == 1:
+                if 'a' <= part <= 'z':
+                    vk = ord(part.upper())
+                elif '0' <= part <= '9':
+                    vk = ord(part)
+            
+            if vk > 0:
+                # 實體按鍵狀態檢查：0x8000 代表該鍵目前正是被按下 (Pressed) 的狀態
+                # 即使腳本模擬了按鍵事件，硬體層級的鍵盤掃描通常不會產生 0x8000 標誌
+                if not (win32api.GetAsyncKeyState(vk) & 0x8000):
+                    return False
+        
+        return True
+
+    def _handle_hotkey_wrapper(self, hotkey, callback):
+        """封裝熱鍵回調，加入實體按鍵驗證"""
+        # 徹底排除模擬按鍵：只有當按鍵在硬體層級確實被按下時，才執行回調
+        if not self._is_physically_triggered(hotkey):
+            return
+                
+        # 執行原本的回調
+        if callable(callback):
+            callback()
+
+    def _handle_script_hotkey_wrapper(self, hotkey, script_name):
+        """封裝腳本熱鍵回調，加入實體按鍵驗證"""
+        if not self._is_physically_triggered(hotkey):
+            return
+        
+        self._play_script_by_hotkey(script_name)
+
     def _register_hotkeys(self):
         """
         註冊系統快捷鍵
@@ -3704,7 +3796,7 @@ class RecorderApp(tb.Window):
                 try:
                     handler = keyboard.add_hotkey(
                         hotkey, 
-                        callback,
+                        lambda h=hotkey, c=callback: self._handle_hotkey_wrapper(h, c),
                         suppress=False,
                         trigger_on_release=False
                     )
@@ -3782,10 +3874,10 @@ class RecorderApp(tb.Window):
                         self.log(f"[跳過] 腳本 '{script}' 含有非法快捷鍵 '{hotkey}'")
                         continue
                     try:
-                        # 使用 lambda 捕獲當前的 script 值
+                        # 使用 lambda 捕獲當前的 script 值與 hotkey
                         handler = keyboard.add_hotkey(
                             hotkey,
-                            lambda s=script: self._play_script_by_hotkey(s),
+                            lambda h=hotkey, s=script: self._handle_script_hotkey_wrapper(h, s),
                             suppress=False,
                             trigger_on_release=False
                         )

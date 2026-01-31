@@ -3628,8 +3628,14 @@ class RecorderApp(tb.Window):
 
 
     def _is_safe_hotkey(self, hotkey_str):
-        """檢查快捷鍵是否安全（禁止單一修飾鍵）"""
-        if not hotkey_str:
+        """
+        檢查快捷鍵是否安全且有效。
+        禁止情形：
+        1. 空字串或純空格
+        2. 僅包含修飾鍵 (如 "alt", "ctrl+shift")
+        3. 包含無效的空片段 (如 "alt+")
+        """
+        if not hotkey_str or not hotkey_str.strip():
             return False
             
         modifiers = {
@@ -3639,12 +3645,15 @@ class RecorderApp(tb.Window):
         }
         
         h = hotkey_str.lower().strip()
-        # 1. 不能只是單個修飾鍵
-        if h in modifiers:
+        
+        # 拆解並過濾空片段
+        parts = [p.strip() for p in h.split('+')]
+        
+        # 檢查是否有空片段 (例如 "alt+")
+        if any(not p for p in parts):
             return False
             
-        # 2. 不能只是多個修飾鍵的組合 (例如 ctrl+alt)
-        parts = [p.strip() for p in h.split('+')]
+        # 不能只是修飾鍵的組合
         if all(p in modifiers for p in parts):
             return False
             
@@ -3659,15 +3668,19 @@ class RecorderApp(tb.Window):
             import win32api
             import win32con
         except ImportError:
-            return True # 若無庫則退而求其次允許通過
+            return True 
 
-        if not hotkey_str:
+        if not hotkey_str or not hotkey_str.strip():
             return False
 
-        # 將 "alt+ctrl+f9" 拆解並清除多餘空格
-        parts = [p.strip().lower() for p in hotkey_str.split('+')]
+        # 拆解並過濾空片段
+        raw_parts = [p.strip().lower() for p in hotkey_str.split('+')]
+        parts = [p for p in raw_parts if p]
         
-        # 鍵名與 VKCode 映射表 (匹配 keyboard 模組慣用法)
+        if not parts:
+            return False
+            
+        # 鍵名與 VKCode 映射表
         vk_map = {
             'alt': win32con.VK_MENU,
             'left alt': win32con.VK_LMENU,
@@ -3700,13 +3713,13 @@ class RecorderApp(tb.Window):
             "'": 222, ',': 188,
             '.': 190, '/': 191,
         }
-        # F1-F24
         for i in range(1, 25):
             vk_map[f'f{i}'] = win32con.VK_F1 + (i - 1)
-        # 數字鍵盤
         for i in range(0, 10):
             vk_map[f'num {i}'] = win32con.VK_NUMPAD0 + i
 
+        # 嚴格驗證：快捷鍵中的「每一個部分」都必須能被驗證為實體按下
+        # 如果有任何一部分無法對應到 VKCode，或者對應到的 VK 目前沒被按下，就視為無效觸發
         for part in parts:
             vk = 0
             if part in vk_map:
@@ -3717,11 +3730,13 @@ class RecorderApp(tb.Window):
                 elif '0' <= part <= '9':
                     vk = ord(part)
             
-            if vk > 0:
-                # 實體按鍵狀態檢查：0x8000 代表該鍵目前正是被按下 (Pressed) 的狀態
-                # 即使腳本模擬了按鍵事件，硬體層級的鍵盤掃描通常不會產生 0x8000 標誌
-                if not (win32api.GetAsyncKeyState(vk) & 0x8000):
-                    return False
+            # 如果這部分無法識別 (vk == 0)，為了安全起見，我們假設它沒被按下
+            if vk == 0:
+                return False # 無法辨識的鍵名，保守不執行
+                
+            # 實體按鍵狀態檢查
+            if not (win32api.GetAsyncKeyState(vk) & 0x8000):
+                return False
         
         return True
 
@@ -3733,13 +3748,19 @@ class RecorderApp(tb.Window):
                 
         # 執行原本的回調
         if callable(callback):
+            # self.log(f"[快捷鍵觸發] {hotkey}")
             callback()
 
     def _handle_script_hotkey_wrapper(self, hotkey, script_name):
         """封裝腳本熱鍵回調，加入實體按鍵驗證"""
+        # 防止連點或模擬觸發
+        if self.playing or self.recording:
+            return
+            
         if not self._is_physically_triggered(hotkey):
             return
         
+        self.log(f"[腳本熱鍵觸發] {hotkey} -> {script_name}")
         self._play_script_by_hotkey(script_name)
 
     def _register_hotkeys(self):

@@ -3474,11 +3474,10 @@ class RecorderApp(tb.Window):
                 'meta_l', 'meta_r'
             }
             
-            # 如果只按了修飾鍵本身，先不設定（等待主按鍵）
-            if key_name in modifier_keysyms:
-                return "break"
+            # v2.8.3 修復：允許捕捉修飾鍵本身為快捷鍵
+            is_modifier = key_name in modifier_keysyms
             
-            # 檢測真正按住的修飾鍵（排除修飾鍵本身的 keysym）
+            # 檢測真正按住的修飾鍵
             modifiers = []
             
             # Ctrl 鍵：state bit 2 (0x0004)
@@ -3489,9 +3488,9 @@ class RecorderApp(tb.Window):
             if event.state & 0x0001:
                 modifiers.append("shift")
             
-            # Alt 鍵：Windows 上 Alt 是 state bit 17 (0x20000)，也可能是 bit 3 (0x0008)
-            # 注意：只有在非 Alt 本身按鍵時才加入
-            if event.state & 0x20000 or event.state & 0x0008:
+            # Alt 鍵：Windows 上 Alt 主要是 state bit 17 (0x20000)
+            # v2.8.3 修復：移除 0x0008 (Mod1) 避免在某些系統上導致所有按鍵都綁定 Alt
+            if event.state & 0x20000:
                 modifiers.append("alt")
             
             # Win 鍵：state bit 6 (0x0040)
@@ -3548,10 +3547,18 @@ class RecorderApp(tb.Window):
             elif key_name.startswith('kp_'):
                 main_key = key_name.replace('kp_', 'num_')
             # 一般按鍵（字母、數字）
+            # 一般按鍵（字母、數字）
             elif len(key_name) == 1 and key_name.isalnum():
                 main_key = key_name
+            # 修飾鍵處理（當使用者想設定單獨修飾鍵時）
+            elif is_modifier:
+                if 'control' in key_name: main_key = 'ctrl'
+                elif 'alt' in key_name: main_key = 'alt'
+                elif 'shift' in key_name: main_key = 'shift'
+                elif 'win' in key_name or 'super' in key_name: main_key = 'win'
+                else: main_key = key_name.replace('_l', '').replace('_r', '')
             # 其他按鍵
-            elif key_name not in modifier_keysyms:
+            else:
                 main_key = key_name
             
             # 組合最終結果
@@ -3571,8 +3578,12 @@ class RecorderApp(tb.Window):
                         seen.add(m)
                         unique_modifiers.append(m)
                 
-                result_parts = unique_modifiers + [main_key]
-                result = "+".join(result_parts)
+                # 如果主按鍵本身就是修飾鍵，且 modifiers 中已經包含它，則不需要重複顯示
+                if is_modifier and main_key in unique_modifiers:
+                    result = "+".join(unique_modifiers)
+                else:
+                    result_parts = unique_modifiers + [main_key]
+                    result = "+".join(result_parts)
                 
                 var.set(result)
             
@@ -3653,10 +3664,10 @@ class RecorderApp(tb.Window):
         if any(not p for p in parts):
             return False
             
-        # 不能只是修飾鍵的組合
-        if all(p in modifiers for p in parts):
-            return False
-            
+        # 允許單獨按鍵、單獨修飾鍵或任何有效組合
+        # (v2.8.2 已放寬限制，滿足使用者「不受任何限制」的需求)
+        # 只要不是空片段即可。格式錯誤（如 "alt+"）將被過濾。
+        
         return True
 
     def _is_physically_triggered(self, hotkey_str):
@@ -4307,9 +4318,8 @@ class RecorderApp(tb.Window):
             'meta_l', 'meta_r'
         }
         
-        # 如果只按了修飾鍵本身，先不設定（等待主按鍵）
-        if key_name in modifier_keysyms:
-            return "break"
+        # v2.8.3 修復：允許捕捉修飾鍵本身為快捷鍵
+        is_modifier = key_name in modifier_keysyms
         
         # 檢測真正按住的修飾鍵
         modifiers = []
@@ -4322,8 +4332,9 @@ class RecorderApp(tb.Window):
         if event.state & 0x0001:
             modifiers.append("shift")
         
-        # Alt 鍵：Windows 上 Alt 是 state bit 17 (0x20000)，也可能是 bit 3 (0x0008)
-        if event.state & 0x20000 or event.state & 0x0008:
+        # Alt 鍵：Windows 上 Alt 是 state bit 17 (0x20000)
+        # v2.8.3 修復：移除 0x0008 (Mod1) 避免在某些系統上導致所有按鍵都綁定 Alt
+        if event.state & 0x20000:
             modifiers.append("alt")
         
         # Win 鍵：state bit 6 (0x0040)
@@ -4382,8 +4393,15 @@ class RecorderApp(tb.Window):
         # 一般按鍵（字母、數字）
         elif len(key_name) == 1 and key_name.isalnum():
             main_key = key_name
+        # 修飾鍵處理（當使用者想設定單獨修飾鍵時）
+        elif is_modifier:
+            if 'control' in key_name: main_key = 'ctrl'
+            elif 'alt' in key_name: main_key = 'alt'
+            elif 'shift' in key_name: main_key = 'shift'
+            elif 'win' in key_name or 'super' in key_name: main_key = 'win'
+            else: main_key = key_name.replace('_l', '').replace('_r', '')
         # 其他按鍵
-        elif key_name not in modifier_keysyms:
+        else:
             main_key = key_name
         
         # 組合最終結果
@@ -4400,8 +4418,12 @@ class RecorderApp(tb.Window):
                     seen.add(m)
                     unique_modifiers.append(m)
             
-            result_parts = unique_modifiers + [main_key]
-            result = "+".join(result_parts)
+            # 如果主按鍵本身就是修飾鍵，且 modifiers 中已經包含它，則不需要重複顯示
+            if is_modifier and main_key in unique_modifiers:
+                result = "+".join(unique_modifiers)
+            else:
+                result_parts = unique_modifiers + [main_key]
+                result = "+".join(result_parts)
             
             self.hotkey_capture_var.set(result)
         
@@ -4418,7 +4440,7 @@ class RecorderApp(tb.Window):
             
         # 安全性檢查
         if not self._is_safe_hotkey(hotkey):
-            self.log(f"錯誤：'{hotkey}' 不能作為快捷鍵。請組合其他非修飾鍵（如 Alt+W）。")
+            self.log(f"錯誤：'{hotkey}' 是無效的快捷鍵格式（例如包含空的 '+'）。")
             return
         
         # 確保有 .json 副檔名

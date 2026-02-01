@@ -28,10 +28,11 @@ export default function ScriptEditor() {
                 padding: '20px',
                 borderRadius: '10px',
                 marginBottom: '30px',
-                border: '2px solid #4CAF50'
+                border: '2px solid #4CAF50',
+                color: '#333'
             }}>
-                <h2>📦 範例模板庫</h2>
-                <p>複製以下範例,快速開始你的自動化之旅!</p>
+                <h2 style={{ color: '#333' }}>📦 範例模板庫</h2>
+                <p style={{ color: '#555' }}>複製以下範例,快速開始你的自動化之旅!</p>
 
                 <details style={{ marginBottom: '15px' }}>
                     <summary style={{ cursor: 'pointer', fontWeight: 'bold', padding: '10px', background: '#e8f5e9', borderRadius: '5px' }}>

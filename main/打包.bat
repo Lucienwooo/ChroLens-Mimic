@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 REM ===================================================================
 REM ChroLens_Mimic Package Tool v2.7.6
 REM ===================================================================
@@ -217,21 +218,80 @@ echo.
 echo [7/7] Finalizing Package...
 echo -------------------------------------------------------------------
 
+
 echo 1. 清除 build 資料夾與 spec 檔案...
-if exist "build" rmdir /s /q "build"
-if exist "*.spec" del /f /q "*.spec"
+if exist "build" (
+    echo Removing build folder...
+    rmdir /s /q "build" 2>nul
+    timeout /t 1 /nobreak >nul
+    if exist "build" (
+        echo WARNING: build folder still exists, retrying...
+        rmdir /s /q "build" 2>nul
+        timeout /t 1 /nobreak >nul
+        if exist "build" (
+            echo ERROR: Cannot remove build folder! Please close any programs using these files.
+        ) else (
+            echo OK: build folder removed (retry successful)
+        )
+    ) else (
+        echo OK: build folder removed
+    )
+) else (
+    echo OK: build folder not exist
+)
+
+if exist "*.spec" (
+    echo Removing spec files...
+    del /f /q "*.spec" 2>nul
+    echo OK: spec files removed
+) else (
+    echo OK: spec files not exist
+)
 
 echo 2. 建立 ZIP 壓縮檔...
 set ZIP_NAME=ChroLens_Mimic.zip
 if exist "dist\%ZIP_NAME%" del /q "dist\%ZIP_NAME%"
 
-powershell -Command "Compress-Archive -Path 'dist\ChroLens_Mimic' -DestinationPath 'dist\%ZIP_NAME%' -Force"
+REM 取得當前目錄的絕對路徑
+set CURRENT_DIR=%CD%
+
+REM 使用絕對路徑進行壓縮
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& {Compress-Archive -Path '%CURRENT_DIR%\dist\ChroLens_Mimic' -DestinationPath '%CURRENT_DIR%\dist\%ZIP_NAME%' -Force}"
 
 if %errorlevel% neq 0 (
-    echo WARNING: ZIP compression failed!
+    echo WARNING: ZIP compression failed! (Error code: %errorlevel%)
+    echo Trying alternative method...
+    
+    REM 備用方案：使用 PowerShell 的另一種語法
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -LiteralPath '%CURRENT_DIR%\dist\ChroLens_Mimic' -DestinationPath '%CURRENT_DIR%\dist\%ZIP_NAME%' -Force"
+    
+    if !errorlevel! neq 0 (
+        echo ERROR: Both ZIP methods failed!
+        echo Please manually compress the dist\ChroLens_Mimic folder
+    ) else (
+        echo OK: ZIP created as dist\%ZIP_NAME% (using alternative method)
+    )
 ) else (
     echo OK: ZIP created as dist\%ZIP_NAME%
 )
+
+echo.
+echo 3. 最終清理驗證...
+REM 最後再次確認清除 build 資料夾
+if exist "build" (
+    echo Final cleanup: Removing build folder...
+    rmdir /s /q "build" 2>nul
+    timeout /t 1 /nobreak >nul
+    if exist "build" (
+        echo WARNING: build folder still exists after final cleanup!
+        echo This may be due to file locks. Please manually delete it.
+    ) else (
+        echo OK: Final cleanup successful
+    )
+) else (
+    echo OK: No build artifacts remaining
+)
+
 
 REM ===================================================================
 REM Done

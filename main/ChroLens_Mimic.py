@@ -9,7 +9,7 @@
 # 該檔案包含所有開發規範、流程說明、版本管理規則和重要備註
 # ═══════════════════════════════════════════════════════════════════════════
 
-VERSION = "2.7.6"
+VERSION = "2.7.7"
 
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
@@ -25,6 +25,19 @@ import pywintypes
 import random  # 新增
 import tkinter.font as tkfont
 import sys
+
+# 🔧 快捷鍵修復：使用 pynput 替代 keyboard 模組（解決需要長按才能觸發的問題）
+try:
+    import pynput_hotkey
+    # 替換 keyboard.add_hotkey 和 keyboard.remove_hotkey
+    _original_keyboard = keyboard
+    keyboard.add_hotkey = pynput_hotkey.add_hotkey
+    keyboard.remove_hotkey = pynput_hotkey.remove_hotkey
+    print("[OK] 已啟用 Pynput 快捷鍵系統（按下立即觸發）")
+except ImportError as e:
+    print(f"[警告] 無法載入 Pynput 快捷鍵系統: {e}")
+    print("[提示] 快捷鍵將使用原有的 keyboard 模組（可能需要長按）")
+
 
 # 新增：系統托盤支援
 try:

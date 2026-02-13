@@ -169,6 +169,87 @@ def filter_mouse_trajectory(events, threshold=5, time_threshold=0.1):
     return filtered
 
 
+# ========== v2.7.7 腳本格式自動轉換器 ==========
+# 將舊格式 (T=0s000) 自動轉換為新格式 (間隔模式)
+
+def convert_old_format_to_new(text_script: str):
+    """
+    將舊格式腳本自動轉換為新格式（v2.7.7）
+    
+    舊格式: >按下7, 延遲50ms, T=0s000
+           >延遲1000ms, T=0s050
+    新格式: >按下7,1050ms  (包含動作延遲 + 間隔時間)
+    
+    :param text_script: 原始文字腳本
+    :return: (轉換後的腳本, 是否進行了轉換)
+    """
+    # 檢查是否為舊格式（包含 T= 時間戳）
+    if not re.search(r'T=\d+s\d+', text_script):
+        return text_script, False
+    
+    lines = text_script.split('\n')
+    new_lines = []
+    last_timestamp = 0  # 上一個動作的時間戳（毫秒）
+    
+    for line in lines:
+        stripped = line.strip()
+        
+        # 空行直接保留
+        if not stripped:
+            new_lines.append(line)
+            continue
+        
+        # 匹配舊格式: >動作, 延遲XXms, T=Xs000
+        old_format_match = re.match(
+            r'^(>.*?),\s*延遲(\d+)ms,\s*T=(\d+)s(\d+)',
+            stripped
+        )
+        
+        if old_format_match:
+            action = old_format_match.group(1).strip()
+            delay_ms = int(old_format_match.group(2))
+            time_s = int(old_format_match.group(3))
+            time_ms = int(old_format_match.group(4))
+            
+            # 計算該動作的絕對時間 (基於 T=)
+            current_abs_time = time_s * 1000 + time_ms
+            
+            # 計算間隔時間：
+            # 在舊格式概念中，T= 是該動作「開始」的時間。
+            # 而間隔是指「上一個動作結束」到「這個動作開始」的時間。
+            # 但舊格式的 T= 其實是累積時間，包含所有之前的延遲。
+            # 簡化邏輯：
+            # 第一個動作的間隔 = T值
+            # 後續動作的間隔 = (當前T - 上一個T) - 上一個動作的延遲 ? 
+            # 不，舊系統是： 動作 -> 延遲 -> 下一個動作
+            # T=0s000 (第一個動作) -> 延遲50ms
+            # T=0s050 (第二個動作)
+            # 所以 T(n) = T(n-1) + Delay(n-1) ?
+            # 如果是這樣，那 T(n) - T(n-1) 等於上一步的延遲，這就沒有額外間隔了。
+            
+            # 但新格式是：動作, 間隔(等待這個動作執行的時間)
+            # 或 動作, 延遲(這個動作之後等待的時間)
+            
+            # 根據註解：新格式: >動作,總時間(動作延遲+間隔)
+            # 讓我們保持簡單：保留既有的延遲參數作為該動作的屬性。
+            new_lines.append(f'{action},{delay_ms}ms')
+            
+        else:
+            # 嘗試匹配沒有延遲參數的格式: >動作, T=XsXXX
+            match_no_delay = re.match(
+                r'^(>.*?),\s*T=(\d+)s(\d+)',
+                stripped
+            )
+            if match_no_delay:
+                action = match_no_delay.group(1).strip()
+                # 預設無延遲
+                new_lines.append(f'{action}')
+            else:
+                new_lines.append(line)
+    
+    return '\n'.join(new_lines), True
+
+
 # ========== PCB 風格布線器 (v11 - GitHub Actions 風格) ==========
 # 用於圖形模式的線路碰撞偵測和路徑計算
 

@@ -4277,8 +4277,104 @@ class TextCommandEditor(tk.Toplevel):
         
         return total_seconds
     
+    def _expand_alias_commands(self, text_content):
+        """
+        展開口語化指令與拖曳指令 (Alias System v1.0)
+        讓腳本語法更貼近自然語言
+        """
+        if not text_content:
+            return ""
+            
+        lines = text_content.split('\n')
+        expanded_lines = []
+        
+        for line in lines:
+            stripped = line.strip()
+            
+            # 保留註解與空行
+            if not stripped or stripped.startswith('#'):
+                expanded_lines.append(line)
+                continue
+
+            # 1. 拖曳指令: >拖曳至(100,200), 延遲1000ms, T=0s000
+            if stripped.startswith('>拖曳至'):
+                # 提取座標
+                coords = re.search(r'\((\d+),(\d+)\)', stripped)
+                if coords:
+                    x, y = coords.group(1), coords.group(2)
+                    
+                    # 提取延遲 (耗時)
+                    duration_match = re.search(r'延遲(\d+)ms', stripped)
+                    duration = int(duration_match.group(1)) if duration_match else 500
+                    
+                    # 提取時間 T=
+                    time_match = re.search(r'T=([\w\d]+)', stripped)
+                    time_str = f", T={time_match.group(1)}" if time_match else ", T=0s000"
+                    
+                    # 展開為複合指令
+                    # 1. 按下 (當前位置)
+                    expanded_lines.append(f">按下左鍵, 延遲50ms{time_str}")
+                    # 2. 移動 (帶延遲模擬拖曳過程)
+                    # 注意：這裡使用 move 事件，recorder.py 需確保 move 事件會等待延遲時間
+                    expanded_lines.append(f">移動至({x},{y}), 延遲{duration}ms{time_str}")
+                    # 3. 放開
+                    expanded_lines.append(f">放開左鍵, 延遲50ms{time_str}")
+                    continue
+
+            # 2. 口語化別名轉換
+            
+            # >如果看見[pic01] -> >if>pic01
+            if stripped.startswith('>如果看見['):
+                match = re.search(r'\[(.*?)\]', stripped)
+                if match:
+                    content = match.group(1)
+                    # 保留後續參數 (T=...)
+                    rest_match = re.search(r'(,\s*T=[\w\d]+)', stripped)
+                    rest = rest_match.group(1) if rest_match else ", T=0s000"
+                    expanded_lines.append(f">if>{content}{rest}")
+                    continue
+
+            # >成功時前往[標籤] -> >>#標籤
+            if stripped.startswith('>成功時前往['):
+                match = re.search(r'\[(.*?)\]', stripped)
+                if match:
+                    label = match.group(1)
+                    expanded_lines.append(f">>#{label}")
+                    continue
+
+            # >失敗時前往[標籤] -> >>>#標籤
+            if stripped.startswith('>失敗時前往['):
+                match = re.search(r'\[(.*?)\]', stripped)
+                if match:
+                    label = match.group(1)
+                    expanded_lines.append(f">>>#{label}")
+                    continue
+            
+            # >當圖片消失[pic01] -> >if遺失>pic01 (目前核心未支援，暫不轉換或轉為備註)
+            if stripped.startswith('>當圖片消失['):
+                expanded_lines.append(f"# 核心暫未支援: {line}")
+                continue
+
+            # >點擊圖片[pic01] -> >左鍵點擊>pic01
+            if stripped.startswith('>點擊圖片['):
+                match = re.search(r'\[(.*?)\]', stripped)
+                if match:
+                    content = match.group(1)
+                    rest_match = re.search(r'(,\s*T=[\w\d]+)', stripped)
+                    rest = rest_match.group(1) if rest_match else ", T=0s000"
+                    expanded_lines.append(f">左鍵點擊>{content}{rest}")
+                    continue
+
+            # 沒匹配到別名，保留原行
+            expanded_lines.append(line)
+            
+        return '\n'.join(expanded_lines)
+
     def _text_to_json(self, text: str) -> Dict:
         """將文字指令轉換回JSON格式 (支援圖片指令)"""
+        # Alias System: Expand colloquial aliases first
+        text = self._expand_alias_commands(text)
+
         import time
         lines = text.split("\n")
         events = []
@@ -7899,6 +7995,9 @@ class TextCommandEditor(tk.Toplevel):
     
     def _parse_and_draw_workflow(self, text_content):
         """解析文字指令並繪製 Workflow 流程圖（PCB v11 風格）"""
+        # Alias System: Expand colloquial aliases first
+        text_content = self._expand_alias_commands(text_content)
+
         # 清空畫布
         self.workflow_canvas.delete("all")
         self.workflow_nodes = {}

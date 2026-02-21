@@ -6,7 +6,7 @@
 
 .mainContent {
     flex: 1;
-    padding: 30px;
     overflow-y: auto;
-    background: var(--bg-primary);
+    background: var(--content-bg);
+    /* No padding here - pages manage their own layout */
 }

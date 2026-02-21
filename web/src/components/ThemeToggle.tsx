@@ -8,17 +8,13 @@ interface ThemeToggleProps {
 }
 
 export default function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
+    const isDark = theme === 'dark';
     return (
         <div className={styles.themeToggle}>
-            <div
-                className={`${styles.toggleButton} ${theme === 'light' ? styles.lightMode : ''}`}
-                onClick={onToggle}
-            >
-                <span className={styles.icon}>
-                    {theme === 'dark' ? '🌙' : '☀️'}
-                </span>
-                <div className={styles.slider}></div>
-            </div>
+            <button className={styles.toggleBtn} onClick={onToggle}>
+                <span className={styles.icon}>{isDark ? '🌙' : '☀️'}</span>
+                <span className={styles.label}>{isDark ? '深色模式' : '淺色模式'}</span>
+            </button>
         </div>
     );
 }

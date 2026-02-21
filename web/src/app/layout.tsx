@@ -1,20 +1,18 @@
-'use client';
-
 import { ReactNode } from 'react';
-import Sidebar from '@/components/Sidebar';
-import { useTheme } from '@/hooks/useTheme';
+import ClientShell from '@/components/ClientShell';
 import './globals.css';
-import styles from './layout.module.css';
+
+export const metadata = {
+    title: 'ChroLens Mimic 完整使用手冊',
+    description: '輕量級 Windows 巨集錄製與回放工具，支援腳本編輯器、圖片辨識、OCR等進階功能。',
+};
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-    const { theme, toggleTheme } = useTheme();
-
     return (
         <html lang="zh-TW">
             <head>
                 <meta charSet="UTF-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                <title>ChroLens Mimic 完整使用手冊</title>
                 <script
                     type="text/javascript"
                     dangerouslySetInnerHTML={{
@@ -29,12 +27,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 />
             </head>
             <body>
-                <div className={styles.container}>
-                    <Sidebar theme={theme} onThemeToggle={toggleTheme} />
-                    <main className={styles.mainContent}>
-                        {children}
-                    </main>
-                </div>
+                <ClientShell>{children}</ClientShell>
             </body>
         </html>
     );

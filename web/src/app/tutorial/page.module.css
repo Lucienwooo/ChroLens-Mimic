@@ -1,302 +1,250 @@
-/* ============================================
-   ChroLens Mimic Tutorial Page Styles
-   Modern, responsive design with rich aesthetics
-   ============================================ */
+/* ============================================================
+   Tutorial page — RMT wiki-doc style
+   ============================================================ */
 
 .main {
-  min-height: 100vh;
-  padding: 2rem;
-  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
-  color: #e0e0e0;
+  max-width: var(--content-max-width, 860px);
+  margin: 0 auto;
+  padding: 40px 40px 80px;
 }
 
-/* Header Section */
+/* ── Page header ── */
 .header {
-  text-align: center;
-  margin-bottom: 3rem;
-  padding: 2rem;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--content-border);
 }
 
 .header h1 {
-  font-size: 2.5rem;
+  font-size: 2rem;
+  font-weight: 700;
   margin-bottom: 0.5rem;
-  background: linear-gradient(90deg, #4ec9b0, #58a6ff, #c586c0);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text-primary);
 }
 
 .header p {
-  font-size: 1.1rem;
-  color: #9ca3af;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
 }
 
-/* Progress Indicator */
+/* ── Progress indicator ── */
 .progressContainer {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  margin-top: 1.5rem;
+  gap: 12px;
+  margin-top: 0.75rem;
 }
 
 .progressBar {
-  width: 200px;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  flex: 1;
+  height: 6px;
+  background: var(--content-border);
+  border-radius: 3px;
   overflow: hidden;
 }
 
 .progressFill {
   height: 100%;
-  background: linear-gradient(90deg, #3fb950, #4ec9b0);
-  border-radius: 4px;
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal));
+  border-radius: 3px;
+  transition: width 0.4s ease;
 }
 
 .progressText {
-  color: #4ec9b0;
-  font-weight: 600;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
-/* Navigation */
+/* ── Inline nav ── */
 .nav {
   display: flex;
-  justify-content: center;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  gap: 8px;
   flex-wrap: wrap;
+  margin-bottom: 2rem;
 }
 
 .nav a {
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #9ca3af;
-  text-decoration: none;
-  transition: all 0.2s ease;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: inline-block;
+  padding: 6px 14px;
+  background: var(--content-surface);
+  border: 1px solid var(--content-border);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: var(--text-secondary) !important;
+  text-decoration: none !important;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
 }
 
 .nav a:hover {
-  background: rgba(78, 201, 176, 0.2);
-  color: #4ec9b0;
-  border-color: #4ec9b0;
-  transform: translateY(-2px);
+  background: var(--btn-secondary-hover);
+  border-color: var(--accent-blue);
+  color: var(--text-primary) !important;
 }
 
-/* Tutorial List */
+/* ── Step cards ── */
 .tutorialList {
-  max-width: 900px;
-  margin: 0 auto 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-/* Step Card */
 .stepCard {
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 12px;
-  margin-bottom: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--content-surface);
+  border: 1px solid var(--content-border);
+  border-radius: var(--radius-md);
   overflow: hidden;
-  transition: all 0.3s ease;
-}
-
-.stepCard:hover {
-  border-color: rgba(78, 201, 176, 0.3);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transition: border-color var(--transition);
 }
 
 .stepCard.expanded {
-  border-color: #4ec9b0;
-  box-shadow: 0 8px 32px rgba(78, 201, 176, 0.15);
+  border-color: var(--accent-blue);
 }
 
 .stepHeader {
   display: flex;
   align-items: center;
-  padding: 1.25rem;
+  gap: 16px;
+  padding: 14px 20px;
   cursor: pointer;
   user-select: none;
+  transition: background var(--transition);
+}
+
+.stepHeader:hover {
+  background: var(--table-hover);
 }
 
 .stepNumber {
-  width: 48px;
-  height: 48px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #4ec9b0, #3fb950);
-  color: #0a0a0a;
+  background: var(--accent-blue);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
+  font-size: 0.875rem;
   font-weight: 700;
   flex-shrink: 0;
 }
 
+.stepCard.expanded .stepNumber {
+  background: var(--accent-teal);
+}
+
 .stepInfo {
   flex: 1;
-  margin-left: 1rem;
 }
 
 .stepInfo h3 {
-  font-size: 1.2rem;
-  margin: 0 0 0.25rem;
-  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 2px;
+  color: var(--text-primary);
 }
 
 .stepInfo p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
   margin: 0;
-  color: #9ca3af;
-  font-size: 0.9rem;
 }
 
 .expandIcon {
-  color: #4ec9b0;
-  font-size: 0.8rem;
-  transition: transform 0.3s ease;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
-.stepCard.expanded .expandIcon {
-  transform: rotate(180deg);
-}
-
-/* Step Content */
 .stepContent {
-  padding: 0 1.5rem 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  animation: slideDown 0.3s ease;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  padding: 0 20px 20px;
+  border-top: 1px solid var(--content-border);
 }
 
 .stepContent h4 {
-  color: #4ec9b0;
-  margin: 1.5rem 0 0.75rem;
-  font-size: 1.1rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 1.25rem 0 0.5rem;
 }
 
 .stepContent ol,
 .stepContent ul {
   padding-left: 1.5rem;
-  line-height: 1.8;
+  margin: 0.5rem 0 1rem;
 }
 
 .stepContent li {
-  margin-bottom: 0.5rem;
-}
-
-.stepContent code {
-  background: rgba(78, 201, 176, 0.15);
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  font-family: "Consolas", "Monaco", monospace;
-  color: #4ec9b0;
-  font-size: 0.9em;
+  margin-bottom: 0.4rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  font-size: 0.9375rem;
 }
 
 .stepContent a {
-  color: #58a6ff;
-  text-decoration: none;
+  color: var(--accent-blue);
 }
 
-.stepContent a:hover {
-  text-decoration: underline;
-}
-
-/* Keyboard keys */
-.stepContent kbd {
-  display: inline-block;
-  padding: 0.2rem 0.5rem;
-  background: linear-gradient(180deg, #3a3a4a, #2a2a3a);
-  border: 1px solid #4a4a5a;
-  border-radius: 4px;
-  font-family: "Consolas", monospace;
-  font-size: 0.85em;
-  color: #e0e0e0;
-  box-shadow: 0 2px 0 #1a1a2a;
-}
-
-/* Hotkey Table */
-.hotkeyTable {
-  width: 100%;
-  border-collapse: collapse;
+/* ── Tip / Warning boxes ── */
+.tipBox {
+  background: var(--tip-bg);
+  border: 1px solid var(--tip-border);
+  border-left: 4px solid var(--tip-border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
   margin: 1rem 0;
 }
 
-.hotkeyTable th,
-.hotkeyTable td {
-  padding: 0.75rem 1rem;
-  text-align: left;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+.warningBox {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-left: 4px solid var(--warning-border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 1rem 0;
 }
 
-.hotkeyTable th {
-  background: rgba(255, 255, 255, 0.05);
-  color: #4ec9b0;
-}
-
-.hotkeyTable tr:hover td {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-/* Code Block */
+/* ── Code block inside steps ── */
 .codeBlock {
-  background: #1e1e2e;
-  border-radius: 8px;
-  padding: 1rem;
-  margin: 1rem 0;
-  overflow-x: auto;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 0.75rem 0;
 }
 
 .codeBlock pre {
   margin: 0;
-  font-family: "Consolas", "Monaco", monospace;
+  font-size: 0.875rem;
+}
+
+/* ── Hotkey table ── */
+.hotkeyTable {
   font-size: 0.9rem;
-  line-height: 1.6;
-  color: #d4d4d4;
 }
 
-/* Info/Warning Boxes */
-.tipBox,
-.warningBox {
-  padding: 1rem;
-  border-radius: 8px;
+/* ── Video placeholder ── */
+.videoPlaceholder {
+  background: var(--content-bg);
+  border: 2px dashed var(--content-border);
+  border-radius: var(--radius-md);
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
   margin: 1rem 0;
+  font-size: 0.9rem;
 }
 
-.tipBox {
-  background: rgba(78, 201, 176, 0.1);
-  border-left: 4px solid #4ec9b0;
-}
-
-.warningBox {
-  background: rgba(248, 81, 73, 0.1);
-  border-left: 4px solid #f85149;
-}
-
-/* Video Container */
+/* ── Video embed ── */
 .videoContainer {
   position: relative;
-  width: 100%;
-  padding-bottom: 56.25%; /* 16:9 aspect ratio */
-  margin: 1rem 0;
-  border-radius: 8px;
+  padding-bottom: 56.25%;
+  height: 0;
   overflow: hidden;
+  border-radius: var(--radius-md);
+  margin: 1rem 0;
+  background: var(--content-bg);
 }
 
 .videoContainer iframe {
@@ -308,114 +256,88 @@
   border: none;
 }
 
-.videoPlaceholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 200px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 2px dashed rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  margin: 1rem 0;
-  color: #6e7681;
-}
-
-/* Complete Button */
+/* ── Complete button ── */
 .completeBtn {
-  display: inline-block;
-  padding: 0.75rem 1.5rem;
-  margin-top: 1rem;
-  background: linear-gradient(135deg, #3fb950, #4ec9b0);
-  color: #0a0a0a;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 1.25rem;
+  padding: 8px 16px;
+  background: var(--btn-primary-bg);
+  color: #fff;
   border: none;
-  border-radius: 8px;
-  font-size: 1rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background var(--transition), transform 0.1s;
+  font-family: inherit;
 }
 
 .completeBtn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(63, 185, 80, 0.4);
+  background: var(--btn-primary-hover);
+  transform: translateY(-1px);
 }
 
-/* Next Steps Section */
+/* ── Next steps section ── */
 .nextSteps {
-  max-width: 900px;
-  margin: 0 auto;
+  margin-top: 3rem;
 }
 
 .nextSteps h2 {
-  text-align: center;
-  color: #ffffff;
-  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
 }
 
 .nextGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  margin-top: 1rem;
 }
 
 .nextCard {
   display: block;
-  padding: 1.5rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  text-decoration: none;
-  transition: all 0.3s ease;
+  background: var(--content-surface);
+  border: 1px solid var(--content-border);
+  border-radius: var(--radius-md);
+  padding: 1.125rem;
+  text-decoration: none !important;
+  transition: border-color var(--transition), transform 0.15s;
 }
 
 .nextCard:hover {
-  background: rgba(78, 201, 176, 0.1);
-  border-color: #4ec9b0;
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  border-color: var(--accent-blue);
+  transform: translateY(-2px);
 }
 
 .nextCard h3 {
-  color: #ffffff;
-  margin: 0 0 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--accent-blue) !important;
+  margin: 0 0 4px;
 }
 
 .nextCard p {
-  color: #9ca3af;
+  font-size: 0.875rem;
+  color: var(--text-muted);
   margin: 0;
-  font-size: 0.9rem;
 }
 
-/* Responsive Design */
+/* ── Responsive ── */
 @media (max-width: 768px) {
   .main {
-    padding: 1rem;
-  }
-
-  .header h1 {
-    font-size: 1.75rem;
+    padding: 24px 20px 60px;
   }
 
   .stepHeader {
-    padding: 1rem;
+    padding: 12px 14px;
   }
 
-  .stepNumber {
-    width: 40px;
-    height: 40px;
-    font-size: 1rem;
+  .stepContent {
+    padding: 0 14px 14px;
   }
 
-  .stepInfo h3 {
-    font-size: 1rem;
-  }
-
-  .nav {
-    gap: 0.5rem;
-  }
-
-  .nav a {
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
+  .nextGrid {
+    grid-template-columns: 1fr;
   }
 }

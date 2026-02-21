@@ -1,3 +1,10 @@
+/* =====================================================
+   Global Design System - RMT-inspired Documentation Style
+   Wiki-style: Dark sidebar + Clean content area
+   ===================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 * {
   margin: 0;
   padding: 0;
@@ -5,122 +12,327 @@
 }
 
 :root {
-  /* 深色主題顏色 */
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #2b2b2b;
-  --bg-tertiary: #1a1a1a;
-  --border-color: #3a3a3a;
-  --text-primary: #dce4ee;
-  --text-secondary: #b8c5d6;
-  --text-muted: #8996a6;
-  --accent-primary: #46DDC3;
-  --accent-blue: #1f6aa5;
-  --accent-blue-light: #52a8ec;
-  --accent-orange: #ff9500;
-  --hover-bg: #343638;
-  --table-even: #232323;
-  --table-hover: #2d2d2d;
+  /* --- Core Palette (Dark) --- */
+  --sidebar-bg:         #1b1e23;
+  --sidebar-border:     #2e3440;
+  --sidebar-text:       #c9d1d9;
+  --sidebar-muted:      #6e7681;
+  --sidebar-active-bg:  #21262d;
+  --sidebar-active-bar: #58a6ff;
+  --sidebar-hover-bg:   #21262d;
+
+  --content-bg:         #0d1117;
+  --content-surface:    #161b22;
+  --content-border:     #30363d;
+
+  --text-primary:       #e6edf3;
+  --text-secondary:     #8b949e;
+  --text-muted:         #6e7681;
+
+  /* --- Accent Colors --- */
+  --accent-blue:        #58a6ff;
+  --accent-teal:        #46ddc3;
+  --accent-green:       #3fb950;
+  --accent-orange:      #d29922;
+  --accent-red:         #f85149;
+  --accent-purple:      #bc8cff;
+
+  /* --- Semantic UI --- */
+  --tip-bg:             rgba(56, 139, 253, 0.1);
+  --tip-border:         #1f6feb;
+  --warning-bg:         rgba(187, 128, 9, 0.15);
+  --warning-border:     #9e6a03;
+  --danger-bg:          rgba(248, 81, 73, 0.1);
+  --danger-border:      #da3633;
+
+  --badge-bg:           #1f6feb33;
+  --badge-color:        #58a6ff;
+
+  --code-bg:            #161b22;
+  --code-inline-bg:     #2d333b;
+  --code-border:        #30363d;
+
+  --table-even:         #161b22;
+  --table-hover:        #1c2128;
+
+  --btn-primary-bg:     #238636;
+  --btn-primary-hover:  #2ea043;
+  --btn-secondary-bg:   #21262d;
+  --btn-secondary-hover:#30363d;
+
+  /* --- Layout --- */
+  --sidebar-width:      280px;
+  --content-max-width:  860px;
+  --radius-sm:          4px;
+  --radius-md:          8px;
+  --radius-lg:          12px;
+  --transition:         0.2s ease;
 }
 
+/* Light theme */
 [data-theme="light"] {
-  --bg-primary: #f5f5f5;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #ffffff;
-  --border-color: #e0e0e0;
-  --text-primary: #333333;
-  --text-secondary: #555555;
-  --text-muted: #666666;
-  --accent-primary: #46DDC3;
-  --accent-blue: #1f6aa5;
-  --accent-blue-light: #52a8ec;
-  --accent-orange: #ff9500;
-  --hover-bg: #f0f0f0;
-  --table-even: #f9f9f9;
-  --table-hover: #f0f0f0;
+  --sidebar-bg:         #f6f8fa;
+  --sidebar-border:     #d0d7de;
+  --sidebar-text:       #24292f;
+  --sidebar-muted:      #57606a;
+  --sidebar-active-bg:  #eaeef2;
+  --sidebar-active-bar: #0969da;
+  --sidebar-hover-bg:   #eaeef2;
+
+  --content-bg:         #ffffff;
+  --content-surface:    #f6f8fa;
+  --content-border:     #d0d7de;
+
+  --text-primary:       #24292f;
+  --text-secondary:     #57606a;
+  --text-muted:         #6e7781;
+
+  --accent-blue:        #0969da;
+  --accent-teal:        #0e7490;
+  --accent-green:       #1a7f37;
+  --accent-orange:      #9a6700;
+  --accent-red:         #cf222e;
+
+  --tip-bg:             #ddf4ff;
+  --tip-border:         #54aeff;
+  --warning-bg:         #fff8c5;
+  --warning-border:     #d4a72c;
+  --danger-bg:          #ffebe9;
+  --danger-border:      #ff8182;
+
+  --code-bg:            #f6f8fa;
+  --code-inline-bg:     #eff1f3;
+  --code-border:        #d0d7de;
+
+  --table-even:         #f6f8fa;
+  --table-hover:        #eaeef2;
+
+  --btn-primary-bg:     #1f883d;
+  --btn-primary-hover:  #1a7f37;
+  --btn-secondary-bg:   #f6f8fa;
+  --btn-secondary-hover:#eaeef2;
+}
+
+/* =====================================================
+   Base Styles
+   ===================================================== */
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
 }
 
 body {
-  font-family: "Segoe UI", "Microsoft JhengHei", Arial, sans-serif;
-  background: var(--bg-primary);
+  font-family: 'Inter', 'Microsoft JhengHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  background: var(--content-bg);
   color: var(--text-primary);
   height: 100vh;
   overflow: hidden;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
-  color: inherit;
+  color: var(--accent-blue);
   text-decoration: none;
+  transition: color var(--transition);
 }
 
+a:hover {
+  text-decoration: underline;
+}
+
+/* =====================================================
+   Typography
+   ===================================================== */
+h1 { font-size: 2rem;   font-weight: 700; line-height: 1.25; margin-bottom: 0.5rem; }
+h2 { font-size: 1.5rem; font-weight: 600; line-height: 1.3;  margin: 2rem 0 1rem;  border-bottom: 1px solid var(--content-border); padding-bottom: 0.5rem; }
+h3 { font-size: 1.25rem;font-weight: 600; line-height: 1.4;  margin: 1.5rem 0 0.75rem; }
+h4 { font-size: 1rem;   font-weight: 600; margin: 1.25rem 0 0.5rem; color: var(--text-secondary); }
+
+p { margin-bottom: 1rem; color: var(--text-secondary); }
+
+/* =====================================================
+   Code blocks
+   ===================================================== */
 code {
-  background: var(--bg-tertiary);
-  color: var(--accent-blue-light);
-  padding: 3px 7px;
-  border-radius: 4px;
-  font-family: "Consolas", "Courier New", monospace;
-  font-size: 13px;
-  border: 1px solid var(--border-color);
+  background: var(--code-inline-bg);
+  color: var(--accent-teal);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-family: 'Consolas', 'SFMono-Regular', 'Courier New', monospace;
+  font-size: 0.875em;
+  border: 1px solid var(--code-border);
+  word-break: break-all;
 }
 
 pre {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  padding: 18px;
-  border-radius: 8px;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
   overflow-x: auto;
-  margin: 20px 0;
-  line-height: 1.6;
-  border: 1px solid var(--border-color);
+  margin: 1rem 0;
+  position: relative;
 }
 
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+/* =====================================================
+   Keyboard shortcut pills
+   ===================================================== */
+kbd {
+  display: inline-block;
+  background: var(--content-surface);
+  border: 1px solid var(--content-border);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-family: 'Consolas', monospace;
+  font-size: 0.8em;
+  color: var(--text-secondary);
+  box-shadow: 0 1px 0 var(--content-border);
+  white-space: nowrap;
+}
+
+/* =====================================================
+   Tables
+   ===================================================== */
 table {
   width: 100%;
   border-collapse: collapse;
-  margin: 20px 0;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
+  margin: 1.5rem 0;
+  font-size: 0.9375rem;
+  border: 1px solid var(--content-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
-table th {
-  background: var(--accent-blue);
-  color: #ffffff;
-  padding: 14px;
+thead {
+  background: var(--content-surface);
+}
+
+th {
+  padding: 12px 16px;
   text-align: left;
   font-weight: 600;
-  border-bottom: 2px solid var(--border-color);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--content-border);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
-table td {
-  padding: 12px 14px;
-  border: 1px solid var(--border-color);
+td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--content-border);
   color: var(--text-secondary);
 }
 
-table td code {
-  background: var(--bg-secondary);
-  color: var(--accent-blue-light);
+tr:last-child td {
+  border-bottom: none;
 }
 
-table tr:nth-child(even) {
+tbody tr:nth-child(even) {
   background: var(--table-even);
 }
 
-table tr:hover {
+tbody tr:hover {
   background: var(--table-hover);
 }
 
-/* 語法高亮 */
-.syntax-operator {
+/* =====================================================
+   UI Components: Callout boxes
+   ===================================================== */
+.callout {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  margin: 1.25rem 0;
+  border-left: 4px solid;
+  font-size: 0.9375rem;
+}
+
+.callout-tip {
+  background: var(--tip-bg);
+  border-color: var(--tip-border);
+}
+
+.callout-warning {
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+}
+
+.callout-danger {
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+}
+
+/* =====================================================
+   Version badges
+   ===================================================== */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--badge-bg);
+  color: var(--badge-color);
+  border: 1px solid var(--accent-blue);
+  border-radius: 2em;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+.badge-green {
+  background: rgba(63, 185, 80, 0.1);
+  color: var(--accent-green);
+  border-color: var(--accent-green);
+}
+.badge-orange {
+  background: rgba(210, 153, 34, 0.15);
   color: var(--accent-orange);
-  font-weight: bold;
+  border-color: var(--accent-orange);
 }
 
-.syntax-keyword {
-  color: var(--accent-blue-light);
-  font-weight: bold;
+/* =====================================================
+   Syntax highlighting
+   ===================================================== */
+.syntax-keyword   { color: var(--accent-purple);  font-weight: 600; }
+.syntax-operator  { color: var(--accent-orange);  font-weight: 600; }
+.syntax-comment   { color: var(--text-muted);     font-style: italic; }
+.syntax-string    { color: var(--accent-teal); }
+.syntax-number    { color: var(--accent-blue); }
+.syntax-label     { color: var(--accent-green);   font-weight: 600; }
+
+/* =====================================================
+   Scrollbar
+   ===================================================== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--content-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
-.syntax-comment {
-  color: #6c757d;
-  font-style: italic;
+/* =====================================================
+   Selection
+   ===================================================== */
+::selection {
+  background: rgba(88, 166, 255, 0.25);
 }

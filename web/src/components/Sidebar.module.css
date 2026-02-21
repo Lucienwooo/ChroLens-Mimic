@@ -1,56 +1,158 @@
+/* ============================================================
+   Sidebar — RMT wiki-style left navigation panel
+   ============================================================ */
+
 .sidebar {
-    width: 260px;
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    padding: 25px 20px;
-    overflow-y: auto;
-    border-right: 1px solid var(--border-color);
+    width: var(--sidebar-width, 280px);
+    min-width: var(--sidebar-width, 280px);
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--sidebar-border);
     height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
 }
 
-.sidebar h1 {
-    font-size: 20px;
-    margin-bottom: 30px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid var(--border-color);
-    font-weight: 600;
+/* ── Brand header ── */
+.brand {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--sidebar-border);
 }
 
-.sidebar h1 a {
-    color: var(--accent-primary);
+.brandLink {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     text-decoration: none;
-    transition: opacity 0.2s ease;
+    color: var(--text-primary) !important;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    transition: opacity 0.2s;
 }
 
-.sidebar h1 a:hover {
+.brandLink:hover {
     opacity: 0.8;
+    text-decoration: none !important;
 }
 
-.sidebar nav ul {
+.brandLogo {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.brandName {
+    color: var(--accent-blue);
+    display: block;
+    font-size: 0.95rem;
+}
+
+.brandVersion {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--sidebar-muted);
+    font-weight: 400;
+    margin-top: 2px;
+}
+
+/* ── Navigation ── */
+.nav {
+    flex: 1;
+    padding: 12px 12px;
+    overflow-y: auto;
+}
+
+.navSection {
+    margin-bottom: 20px;
+}
+
+.navSectionTitle {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--sidebar-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0 8px;
+    margin-bottom: 4px;
+}
+
+.navList {
     list-style: none;
 }
 
-.sidebar nav li {
-    margin-bottom: 8px;
+.navList li {
+    margin: 0;
 }
 
-.sidebar nav a {
-    color: var(--text-primary);
-    text-decoration: none;
-    display: block;
-    padding: 12px 16px;
+.navLink {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
     border-radius: 6px;
-    transition: all 0.2s ease;
-    background: transparent;
-    font-size: 14px;
+    font-size: 0.875rem;
+    color: var(--sidebar-text) !important;
+    text-decoration: none !important;
+    transition: background 0.15s, color 0.15s;
+    cursor: pointer;
+    border-left: 2px solid transparent;
+    line-height: 1.4;
 }
 
-.sidebar nav a:hover {
-    background: var(--hover-bg);
-    color: var(--text-primary);
+.navLink:hover {
+    background: var(--sidebar-hover-bg);
+    color: var(--text-primary) !important;
+    text-decoration: none !important;
 }
 
-.sidebar nav a.active {
-    background: var(--accent-blue);
-    color: #ffffff;
+.navLink.active {
+    background: var(--sidebar-active-bg);
+    color: var(--text-primary) !important;
+    border-left-color: var(--sidebar-active-bar);
+    font-weight: 500;
+}
+
+.navIcon {
+    font-size: 0.875rem;
+    flex-shrink: 0;
+    width: 18px;
+    text-align: center;
+}
+
+/* ── Footer area (theme toggle etc.) ── */
+.sidebarFooter {
+    padding: 12px 12px 16px;
+    border-top: 1px solid var(--sidebar-border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.externalLink {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    color: var(--sidebar-muted) !important;
+    text-decoration: none !important;
+    transition: background 0.15s, color 0.15s;
+}
+
+.externalLink:hover {
+    background: var(--sidebar-hover-bg);
+    color: var(--sidebar-text) !important;
+    text-decoration: none !important;
+}
+
+.externalLink svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
 }

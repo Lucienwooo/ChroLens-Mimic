@@ -73,7 +73,7 @@ class PynputHotkeyManager:
         Args:
             hotkey_str: 快捷鍵字串，例如 'f9', 'ctrl+shift+f9'
             callback: 回調函數
-            suppress: 是否抑制原始按鍵（pynput 不支持，保留參數以兼容）
+            suppress: 是否抑制原始按鍵（pynput 不支援，保留參數以兼容）
             trigger_on_release: 是否在釋放時觸發（預設 False，按下時觸發）
         """
         hotkey_parts = self._parse_hotkey(hotkey_str)
@@ -121,7 +121,7 @@ class PynputHotkeyManager:
                 if current_time - last_time > self.cooldown:
                     self.last_trigger_time[hotkey_str] = current_time
                     
-                    # 在新線程中執行回調，避免阻塞監聽器
+                    # 在新執行緒中執行回調，避免阻塞監聽器
                     threading.Thread(
                         target=hotkey_info['callback'],
                         daemon=True

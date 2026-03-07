@@ -229,7 +229,7 @@ echo 等待主程式關閉... >> "%LOG_FILE%"
 
 timeout /t 3 /nobreak >nul
 
-REM 強制終止所有相關程序
+REM 強制終止所有相關程式
 taskkill /F /IM ChroLens_Mimic.exe >nul 2>&1
 
 REM 再等待一下確保資源釋放

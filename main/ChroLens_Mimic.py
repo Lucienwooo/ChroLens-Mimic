@@ -39,13 +39,13 @@ except ImportError as e:
     print("[提示] 快捷鍵將使用原有的 keyboard 模組（可能需要長按）")
 
 
-# 新增：系統托盤支援
+# 新增：系統匣支援
 try:
     import pystray
     from PIL import Image as PILImage
     PYSTRAY_AVAILABLE = True
 except ImportError:
-    print("pystray 或 Pillow 未安裝，系統托盤功能將停用")
+    print("pystray 或 Pillow 未安裝，系統匣功能將停用")
     PYSTRAY_AVAILABLE = False
 
 
@@ -509,7 +509,7 @@ class RecorderApp(tb.Window):
         lang = self.user_config.get("language", "繁體中文")
         super().__init__(themename=skin)
         
-        # 如果不是管理員，顯示警告對話框
+        # 如果不是管理員，顯示警告對話視窗
         if not is_admin():
             self.after(1000, self._show_admin_warning)
         
@@ -681,15 +681,15 @@ class RecorderApp(tb.Window):
         self.main_auto_mini_check.grid(row=0, column=8, padx=4)
         Tooltip(self.main_auto_mini_check, lang_map["勾選時，程式錄製/執行將自動轉換"])
         
-        # ====== 隱藏到系統托盤勾選框 ======
+        # ====== 隱藏到系統匣勾選框 ======
         self.hide_to_tray_var = tk.BooleanVar(value=self.user_config.get("hide_to_tray", False))
         self.hide_to_tray_check = tb.Checkbutton(
             frm_top, text=lang_map.get("隱藏", "隱藏"), variable=self.hide_to_tray_var, style="My.TCheckbutton"
         )
         self.hide_to_tray_check.grid(row=0, column=9, padx=4)
-        Tooltip(self.hide_to_tray_check, lang_map.get("勾選後最小化將隱藏至系統托盤", "勾選後最小化將隱藏至系統托盤"))
+        Tooltip(self.hide_to_tray_check, lang_map.get("勾選後最小化將隱藏至系統匣", "勾選後最小化將隱藏至系統匣"))
         
-        # 系統托盤圖示實例
+        # 系統匣圖示實例
         self.tray_icon = None
         
         # 綁定最小化事件
@@ -798,7 +798,7 @@ class RecorderApp(tb.Window):
         time_frame.pack(side="right", padx=0)
         self.time_label_prefix = tb.Label(time_frame, text="錄製: ", font=font_tuple(12, monospace=True), foreground="#15D3BD")
         self.time_label_prefix.pack(side="left", padx=0)
-        # 分段顯示：時:分:秒 (可獨立設置顏色)
+        # 分段顯示：時:分:秒 (可獨立設定顏色)
         self.time_label_h = tb.Label(time_frame, text="00", font=font_tuple(12, monospace=True), foreground="#888888")
         self.time_label_h.pack(side="left", padx=0)
         tb.Label(time_frame, text=":", font=font_tuple(12, monospace=True), foreground="#888888").pack(side="left", padx=0)
@@ -1077,7 +1077,7 @@ class RecorderApp(tb.Window):
             self.core_recorder.set_background_mode(mode)
         # 靜默設定，不顯示日誌
 
-    # ====== 系統托盤相關方法 ======
+    # ====== 系統匣相關方法 ======
     def _on_minimize(self, event):
         """當視窗最小化時觸發"""
         if not self.hide_to_tray_var.get():
@@ -1088,7 +1088,7 @@ class RecorderApp(tb.Window):
             self._hide_to_tray()
     
     def _hide_to_tray(self):
-        """完全隱藏視窗到系統托盤"""
+        """完全隱藏視窗到系統匣"""
         if not PYSTRAY_AVAILABLE:
             return
         
@@ -1100,7 +1100,7 @@ class RecorderApp(tb.Window):
             self._create_tray_icon()
     
     def _create_tray_icon(self):
-        """建立系統托盤圖示"""
+        """建立系統匣圖示"""
         if not PYSTRAY_AVAILABLE:
             return
         
@@ -1143,7 +1143,7 @@ class RecorderApp(tb.Window):
         tray_thread.start()
     
     def _show_from_tray(self, icon=None, item=None):
-        """從系統托盤顯示主視窗"""
+        """從系統匣顯示主視窗"""
         # 停止托盤圖示
         if self.tray_icon is not None:
             try:
@@ -1162,7 +1162,7 @@ class RecorderApp(tb.Window):
         self.focus_force()  # 獲得焦點
     
     def _quit_from_tray(self, icon=None, item=None):
-        """從系統托盤退出程式"""
+        """從系統匣退出程式"""
         # 停止托盤圖示
         if self.tray_icon is not None:
             try:
@@ -1575,7 +1575,7 @@ class RecorderApp(tb.Window):
             print(f"顯示 about 視窗失敗: {e}")
     
     def show_version_info(self):
-        """顯示版本資訊對話框"""
+        """顯示版本資訊對話視窗"""
         try:
             from version_manager import VersionManager
             from version_info_dialog import VersionInfoDialog
@@ -1583,7 +1583,7 @@ class RecorderApp(tb.Window):
             # 創建版本管理器
             vm = VersionManager(VERSION, logger=self.log)
             
-            # 顯示版本資訊對話框
+            # 顯示版本資訊對話視窗
             def on_update_complete():
                 """更新完成後關閉主程式"""
                 self.log("準備關閉程式以進行更新...")
@@ -1767,24 +1767,24 @@ class RecorderApp(tb.Window):
             else:
                 script_duration = 0
             
-            # 獲取當前循環計數
+            # 獲取當前迴圈計數
             current_repeat = getattr(self.core_recorder, '_current_repeat_count', 0)
             
-            # 檢測循環變化（開始新的循環）
+            # 檢測迴圈變化（開始新的迴圈）
             if not hasattr(self, '_last_repeat_count'):
                 self._last_repeat_count = 0
             
             if current_repeat != self._last_repeat_count:
-                # 循環變化，重置循環起始時間
+                # 迴圈變化，重置迴圈起始時間
                 self._current_cycle_start_time = time.time()
                 self._last_repeat_count = current_repeat
             
             # 獲取單次執行的起始時間
             if not hasattr(self, '_current_cycle_start_time') or self._current_cycle_start_time is None:
-                # 初始化當前循環起始時間
+                # 初始化當前迴圈起始時間
                 self._current_cycle_start_time = time.time()
             
-            # 計算當前循環內的實際經過時間
+            # 計算當前迴圈內的實際經過時間
             elapsed_real = time.time() - self._current_cycle_start_time
             
             # 應用速度係數來計算邏輯時間
@@ -2047,7 +2047,7 @@ class RecorderApp(tb.Window):
                     resolution_mismatch = (current_info['screen_resolution'] != recorded_info['screen_resolution'])
                     
                     if size_mismatch or pos_mismatch or dpi_mismatch or resolution_mismatch:
-                        # 創建詳細的對話框
+                        # 創建詳細的對話視窗
                         dialog = tk.Toplevel(self)
                         dialog.title("視窗狀態檢測")
                         dialog.geometry("720x820")
@@ -2320,7 +2320,7 @@ class RecorderApp(tb.Window):
         self._total_play_time = total_time
 
         self._play_start_time = time.time()
-        self._current_cycle_start_time = time.time()  #  初始化當前循環起始時間
+        self._current_cycle_start_time = time.time()  #  初始化當前迴圈起始時間
         self.update_total_time_label(self._total_play_time)
         self.playing = True
         self.paused = False
@@ -3084,12 +3084,13 @@ class RecorderApp(tb.Window):
         self.rename_var.set("")  # 更名後清空輸入框
 
     def merge_scripts(self):
-        """開啟腳本合併對話框，允許將多個腳本按順序合併為一個新腳本"""
+        """開啟腳本合併對話視窗，允許將多個腳本按順序合併為一個新腳本"""
         lang = self.language_var.get()
         lang_map = LANG_MAP.get(lang, LANG_MAP["繁體中文"])
         
-        # 創建合併對話框
+        # 創建合併對話視窗
         merge_win = tb.Toplevel(self)
+        set_window_icon(merge_win)
         merge_win.title(lang_map.get("合併腳本", "合併腳本"))
         merge_win.geometry("850x550")
         merge_win.resizable(True, True)
@@ -3185,8 +3186,9 @@ class RecorderApp(tb.Window):
                 return
             script_name = self.merge_data_list[index]["name"]
             
-            # 創建輸入對話框
+            # 創建輸入對話視窗
             delay_win = tb.Toplevel(merge_win)
+            set_window_icon(delay_win)
             delay_win.title("設定延遲")
             delay_win.geometry("300x150")
             delay_win.resizable(False, False)
@@ -3391,7 +3393,7 @@ class RecorderApp(tb.Window):
                 self.refresh_script_list()
                 self.refresh_script_listbox()
                 
-                # 關閉對話框
+                # 關閉對話視窗
                 merge_win.destroy()
                 
                 # 詢問是否載入新腳本
@@ -3435,7 +3437,7 @@ class RecorderApp(tb.Window):
         win.title("Hotkey")
         win.geometry("400x450")  # 增大尺寸以容納強制停止欄位
         win.resizable(True, True)  # 允許調整大小
-        win.minsize(350, 400)  # 設置最小尺寸
+        win.minsize(350, 400)  # 設定最小尺寸
         # 設定視窗圖示
         set_window_icon(win)
         
@@ -4980,7 +4982,7 @@ class RecorderApp(tb.Window):
         def enum_callback(hwnd, _):
             nonlocal found_hwnd
             if found_hwnd:
-                return True  # 已經找到，繼續枚舉但不處理
+                return True  # 已經找到，繼續列舉但不處理
             
             try:
                 if not win32gui.IsWindowVisible(hwnd):
@@ -4989,7 +4991,7 @@ class RecorderApp(tb.Window):
                 window_text = win32gui.GetWindowText(hwnd)
                 if window_text and window_text == original_title:
                     found_hwnd = hwnd
-                    return False  # 找到了，停止枚舉
+                    return False  # 找到了，停止列舉
             except Exception:
                 pass
             return True
@@ -4997,7 +4999,7 @@ class RecorderApp(tb.Window):
         try:
             win32gui.EnumWindows(enum_callback, None)
         except Exception as e:
-            self.log(f"枚舉視窗時發生錯誤：{e}")
+            self.log(f"列舉視窗時發生錯誤：{e}")
         
         if found_hwnd:
             # 更新視窗控制碼

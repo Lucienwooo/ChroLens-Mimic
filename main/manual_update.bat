@@ -231,10 +231,10 @@ if exist "%OLD_VERSION_DIR%\_internal\version_manager.pyc" (
 )
 
 if exist "%OLD_VERSION_DIR%\_internal\version_info_dialog.pyc" (
-    echo ✓ 版本資訊對話框: version_info_dialog.pyc
+    echo ✓ 版本資訊對話視窗: version_info_dialog.pyc
 ) else (
     if exist "%OLD_VERSION_DIR%\version_info_dialog.pyc" (
-        echo ✓ 版本資訊對話框: version_info_dialog.pyc
+        echo ✓ 版本資訊對話視窗: version_info_dialog.pyc
     ) else (
         echo ⚠️  找不到: version_info_dialog.pyc
         set VERIFY_OK=0

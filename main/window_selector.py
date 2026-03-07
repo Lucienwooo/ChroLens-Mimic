@@ -65,7 +65,7 @@ class WindowSelectorDialog(tb.Toplevel):
         self.grab_set()
         self.on_select = on_select
         self.geometry("700x450")  # 增大初始尺寸
-        self.minsize(600, 350)  # 設置最小尺寸
+        self.minsize(600, 350)  # 設定最小尺寸
         # 設定視窗圖示
         set_window_icon(self)
 

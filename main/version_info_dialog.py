@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-版本資訊對話框 - ChroLens_Mimic
+版本資訊對話視窗 - ChroLens_Mimic
 顯示當前版本、更新日誌和檢查更新
 
 作者: Lucien
@@ -35,11 +35,11 @@ def get_icon_path():
 
 
 class VersionInfoDialog(tb.Toplevel):
-    """版本資訊與更新對話框（合併版）"""
+    """版本資訊與更新對話視窗（合併版）"""
     
     def __init__(self, parent, version_manager, current_version, on_update_callback=None):
         """
-        初始化版本資訊對話框
+        初始化版本資訊對話視窗
         
         Args:
             parent: 父視窗
@@ -73,7 +73,7 @@ class VersionInfoDialog(tb.Toplevel):
         y = (self.winfo_screenheight() // 2) - (self.winfo_height() // 2)
         self.geometry(f"+{x}+{y}")
         
-        # 設定為模態對話框
+        # 設定為模態對話視窗
         self.transient(parent)
         self.grab_set()
         

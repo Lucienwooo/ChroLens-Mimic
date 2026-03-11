@@ -1,4 +1,4 @@
-﻿
+
 # ChroLens Studio - Lucienwooo
 # python "C:\Users\Lucien\Documents\GitHub\ChroLens_Mimic\main\ChroLens_Mimic.py"
 #
@@ -9,7 +9,7 @@
 # 該檔案包含所有開發規範、流程說明、版本管理規則和重要備註
 # ═══════════════════════════════════════════════════════════════════════════
 
-VERSION = "2.7.7"
+VERSION = "2.7.8"
 
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
@@ -882,7 +882,7 @@ class RecorderApp(tb.Window):
         from tkinter import ttk
         self.script_treeview = ttk.Treeview(
             list_frame,
-            columns=("name", "hotkey", "schedule"),
+            columns=("name", "hotkey", "schedule", "threshold"),
             show="headings",
             height=15,
             selectmode="extended"  # 支援多選（Ctrl+點擊 或 Shift+點擊）
@@ -890,9 +890,11 @@ class RecorderApp(tb.Window):
         self.script_treeview.heading("name", text="腳本名稱")
         self.script_treeview.heading("hotkey", text="快捷鍵")
         self.script_treeview.heading("schedule", text="定時")
+        self.script_treeview.heading("threshold", text="容錯率")
         self.script_treeview.column("name", width=250, anchor="w")
         self.script_treeview.column("hotkey", width=80, anchor="center")
         self.script_treeview.column("schedule", width=120, anchor="center")
+        self.script_treeview.column("threshold", width=120, anchor="center")
         self.script_treeview.grid(row=0, column=0, sticky="nsew")
         
         # 加入捲軸
@@ -920,6 +922,63 @@ class RecorderApp(tb.Window):
         hotkey_entry.bind("<KeyPress>", self.on_hotkey_entry_key)
         hotkey_entry.bind("<FocusIn>", lambda e: self.hotkey_capture_var.set("輸入按鍵"))
         hotkey_entry.bind("<FocusOut>", lambda e: None)
+
+        # ====== 圖片辨識強度 ======
+        self.img_threshold_label = tb.Label(self.script_right_frame, text="容錯率：", style="My.TLabel")
+        self.img_threshold_label.pack(anchor="w", pady=(10,2))
+        
+        self.img_threshold_var = tk.StringVar()
+        thresholds = [
+            "0.6 (極度寬鬆)", "0.65", "0.7 (預設較寬鬆)", "0.75", 
+            "0.8 (建議值)", "0.85", "0.9 (嚴格)", "0.95 (極為嚴格)"
+        ]
+        self.img_threshold_combo = tb.Combobox(
+            self.script_right_frame, textvariable=self.img_threshold_var, values=thresholds, 
+            width=14, state="readonly", style="My.TCombobox"
+        )
+        self.img_threshold_combo.pack(anchor="w", pady=(0,8))
+        
+        self._is_updating_threshold = False
+        def on_threshold_change(*args):
+            if self._is_updating_threshold:
+                return
+            # 取出開頭的數值，例如從 "0.8 (建議值)" 取出 0.8
+            val_str = self.img_threshold_var.get().split(" ")[0]
+            try:
+                # 寫入目前選擇的腳本
+                selection = self.script_treeview.selection()
+                if not selection:
+                    return
+                item = selection[0]
+                values = list(self.script_treeview.item(item, "values"))
+                if not values:
+                    return
+                
+                script_file = values[0] + ".json"
+                path = os.path.join(self.script_dir, script_file)
+                if not os.path.exists(path):
+                    return
+                    
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                
+                if "settings" not in data:
+                    data["settings"] = {}
+                data["settings"]["image_recognition_threshold"] = float(val_str)
+                
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                    
+                # 更新 Treeview 中的該行
+                if len(values) >= 4:
+                    values[3] = self.img_threshold_var.get()
+                else:
+                    values.append(self.img_threshold_var.get())
+                self.script_treeview.item(item, values=values)
+            except Exception as e:
+                self.log(f"更新容錯率失敗: {e}")
+                
+        self.img_threshold_var.trace_add("write", on_threshold_change)
 
         # a) 設定快捷鍵按鈕：將捕捉到的快捷鍵寫入選定腳本並註冊
         self.set_hotkey_btn = tb.Button(self.script_right_frame, text="設定快捷鍵", width=16, bootstyle=SUCCESS, command=self.set_script_hotkey)
@@ -1837,8 +1896,41 @@ class RecorderApp(tb.Window):
                         except Exception:
                             pass
             
+            # ====== 自動重新綁定目標視窗（hwnd 失效檢查） ======
+            # 每 5 秒檢查一次目標視窗是否仍然有效，若失效則自動重新綁定
+            if self.target_hwnd and self.target_title:
+                _hwnd_check_interval = 50  # 100ms * 50 = 5000ms
+                if not hasattr(self, '_hwnd_check_counter'):
+                    self._hwnd_check_counter = 0
+                self._hwnd_check_counter += 1
+                if self._hwnd_check_counter >= _hwnd_check_interval:
+                    self._hwnd_check_counter = 0
+                    try:
+                        if not win32gui.IsWindow(self.target_hwnd):
+                            self.log(f"[視窗] 目標視窗 hwnd 已失效，嘗試重新綁定「{self.target_title}」...")
+                            found = None
+                            def _find_cb(hwnd, _):
+                                nonlocal found
+                                if found: return True
+                                try:
+                                    if win32gui.IsWindowVisible(hwnd) and win32gui.GetWindowText(hwnd) == self.target_title:
+                                        found = hwnd
+                                except Exception: pass
+                                return True
+                            win32gui.EnumWindows(_find_cb, None)
+                            if found:
+                                self.target_hwnd = found
+                                if hasattr(self.core_recorder, 'set_target_window'):
+                                    self.core_recorder.set_target_window(found)
+                                self.log(f"[視窗] 已自動重新綁定至「{self.target_title}」")
+                            else:
+                                self.log(f"[視窗] ⚠️ 無法找到「{self.target_title}」，繼續等待...")
+                    except Exception:
+                        pass  # 靜默失敗，不中斷執行
+
             # 持續更新（100ms 重新整理率）
             self.after(100, self._update_play_time)
+
         else:
             # 執行停止時重置所有時間顯示
             self.update_time_label(0)
@@ -2215,6 +2307,13 @@ class RecorderApp(tb.Window):
         if os.path.exists(images_dir):
             self.core_recorder.set_images_directory(images_dir)
             self.log(f"[圖片辨識] 已設定圖片目錄: {images_dir}")
+            
+        # 傳遞圖片辨識容錯率
+        try:
+            val_str = self.img_threshold_var.get().split(" ")[0]
+            self.core_recorder.image_threshold = float(val_str)
+        except:
+            self.core_recorder.image_threshold = 0.8  # Default fallback
         
         # 獲取當前視窗位置（如果有目標視窗）
         current_window_x = 0
@@ -4203,6 +4302,7 @@ class RecorderApp(tb.Window):
                 # 讀取快捷鍵和定時
                 hotkey = ""
                 schedule_time = ""
+                threshold = ""
                 try:
                     path = os.path.join(self.script_dir, script_file)
                     with open(path, "r", encoding="utf-8") as f:
@@ -4212,14 +4312,28 @@ class RecorderApp(tb.Window):
                                 hotkey = data["settings"]["script_hotkey"]
                             if "schedule_time" in data["settings"]:
                                 schedule_time = data["settings"]["schedule_time"]
+                            if "image_recognition_threshold" in data["settings"]:
+                                th_val = data["settings"]["image_recognition_threshold"]
+                                # 找對應文字
+                                thresholds = [
+                                    "0.6 (極度寬鬆)", "0.65", "0.7 (預設較寬鬆)", "0.75", 
+                                    "0.8 (建議值)", "0.85", "0.9 (嚴格)", "0.95 (極為嚴格)"
+                                ]
+                                for opt in thresholds:
+                                    if opt.startswith(str(th_val)):
+                                        threshold = opt
+                                        break
+                                if not threshold:
+                                    threshold = str(th_val)
                 except Exception:
                     pass
                 
-                # 插入到 Treeview（三欄：名稱、快捷鍵、定時）
+                # 插入到 Treeview（四欄：名稱、快捷鍵、定時、容錯率）
                 self.script_treeview.insert("", "end", values=(
                     script_name, 
                     hotkey if hotkey else "", 
-                    schedule_time if schedule_time else ""
+                    schedule_time if schedule_time else "",
+                    threshold if threshold else ""
                 ))
                 
         except Exception as ex:
@@ -4295,6 +4409,24 @@ class RecorderApp(tb.Window):
                     self.repeat_time_var.set(data["settings"].get("repeat_time", "00:00:00"))
                     self.repeat_interval_var.set(data["settings"].get("repeat_interval", "00:00:00"))
                     self.random_interval_var.set(data["settings"].get("random_interval", False))
+                    
+                    # 載入容錯率並更新 combobox（避免觸發儲存事件）
+                    th_val = data["settings"].get("image_recognition_threshold", 0)
+                    self._is_updating_threshold = True
+                    found_th = False
+                    if th_val > 0:
+                        thresholds = [
+                            "0.6 (極度寬鬆)", "0.65", "0.7 (預設較寬鬆)", "0.75", 
+                            "0.8 (建議值)", "0.85", "0.9 (嚴格)", "0.95 (極為嚴格)"
+                        ]
+                        for opt in thresholds:
+                            if opt.startswith(str(th_val)):
+                                self.img_threshold_combo.set(opt)
+                                found_th = True
+                                break
+                    if not found_th:
+                        self.img_threshold_combo.set("0.8 (建議值)")
+                    self._is_updating_threshold = False
                 
                 # 載入事件
                 self.events = data.get("events", [])

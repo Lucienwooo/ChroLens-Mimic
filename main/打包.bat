@@ -1,7 +1,6 @@
 @echo off
-setlocal enabledelayedexpansion
 REM ===================================================================
-REM ChroLens_Mimic Package Tool v2.7.6
+REM ChroLens_Mimic Auto Package Tool
 REM ===================================================================
 chcp 65001 >nul
 title ChroLens_Mimic Package Tool
@@ -9,191 +8,93 @@ color 0A
 
 echo.
 echo ===================================================================
-echo    ChroLens_Mimic Auto Package Tool v2.7.6
+echo    ChroLens_Mimic Auto Package Tool
 echo ===================================================================
 echo.
 
 REM ===================================================================
-REM Step 1: Check Python
+REM Step 1: Check Python and PyInstaller
 REM ===================================================================
-echo [1/5] Checking Python...
+echo [1/6] Checking Python and PyInstaller...
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
     color 0C
-    echo.
-    echo ERROR: Python not found
-    echo Please install Python 3.8+
-    echo.
+    echo ERROR: Python not found. Please install Python 3.8+
     pause
     exit /b 1
 )
-for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PY_VER=%%i
-echo OK: Python %PY_VER%
-echo.
 
-REM ===================================================================
-REM Step 2: Check PyInstaller
-REM ===================================================================
-echo [2/5] Checking PyInstaller...
 python -c "import PyInstaller" >nul 2>&1
 if %errorlevel% neq 0 (
     color 0C
-    echo.
-    echo ERROR: PyInstaller not installed
-    echo Please run: pip install pyinstaller
-    echo.
+    echo ERROR: PyInstaller not installed. Please run: pip install pyinstaller
     pause
     exit /b 1
 )
-echo OK: PyInstaller installed
+echo OK: Python and PyInstaller are ready.
 echo.
 
 REM ===================================================================
-REM Step 3: Check Files
+REM Step 2: Check Required Files
 REM ===================================================================
-echo [3/5] Checking files...
+echo [2/6] Checking required files...
 set FILE_MISSING=0
-
-if not exist "ChroLens_Mimic.py" (
-    echo MISSING: ChroLens_Mimic.py
-    set FILE_MISSING=1
-) else (
-    echo OK: ChroLens_Mimic.py
+for %%f in (ChroLens_Mimic.py recorder.py text_script_editor.py lang.py) do (
+    if not exist "%%f" (
+        echo MISSING: %%f
+        set FILE_MISSING=1
+    ) else (
+        echo OK: %%f
+    )
 )
 
-if not exist "recorder.py" (
-    echo MISSING: recorder.py
-    set FILE_MISSING=1
-) else (
-    echo OK: recorder.py
-)
-
-if not exist "text_script_editor.py" (
-    echo MISSING: text_script_editor.py
-    set FILE_MISSING=1
-) else (
-    echo OK: text_script_editor.py
-)
-
-if not exist "lang.py" (
-    echo MISSING: lang.py
-    set FILE_MISSING=1
-) else (
-    echo OK: lang.py
-)
-
-REM Check icon file
 if not exist "..\umi_奶茶色.ico" (
     echo WARNING: Icon file not found at ..\umi_奶茶色.ico
     set ICON_PARAM=
 ) else (
     echo OK: Icon file found
-    set ICON_PARAM=--icon "..\umi_奶茶色.ico"
+    set ICON_PARAM=--icon "..\umi_奶茶色.ico" --add-data "..\umi_奶茶色.ico;."
 )
 
-if %FILE_MISSING%==1 (
+if "%FILE_MISSING%"=="1" (
     color 0C
-    echo.
     echo ERROR: Missing required files
-    echo.
     pause
     exit /b 1
 )
 echo.
 
 REM ===================================================================
-REM Step 4: Clean old build
+REM Step 3: Clean old build files
 REM ===================================================================
-echo [4/5] Cleaning old build...
-if exist "dist" (
-    echo Removing dist...
-    rmdir /s /q "dist" 2>nul
-    if exist "dist" (
-        echo WARNING: Cannot fully clean dist
-    ) else (
-        echo OK: dist cleaned
-    )
-) else (
-    echo OK: dist not exist
-)
-
-if exist "build" (
-    echo Removing build...
-    rmdir /s /q "build" 2>nul
-    if exist "build" (
-        echo WARNING: Cannot fully clean build
-    ) else (
-        echo OK: build cleaned
-    )
-) else (
-    echo OK: build not exist
-)
-
-if exist "*.spec" (
-    echo Removing spec files...
-    del /q "*.spec" 2>nul
-    echo OK: spec files cleaned
-)
+echo [3/6] Cleaning old build files...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-Item -Path 'build' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'dist' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path '*.spec' -Force -ErrorAction SilentlyContinue"
+echo OK: Cleanup finished.
 echo.
 
 REM ===================================================================
-REM Step 5: Run PyInstaller
+REM Step 4: Run PyInstaller
 REM ===================================================================
-echo [5/7] Running PyInstaller...
+echo [4/6] Running PyInstaller...
 echo -------------------------------------------------------------------
+set PYINSTALLER_CMD=pyinstaller --onedir --windowed --name "ChroLens_Mimic" --add-data "images;images" --add-data "TTF;TTF" --add-data "yolov8s.pt;." --hidden-import "ttkbootstrap" --hidden-import "keyboard" --hidden-import "mouse" --hidden-import "mss" --hidden-import "PIL" --hidden-import "cv2" --hidden-import "numpy" --hidden-import "pystray" --hidden-import "bezier_mouse" --hidden-import "yolo_detector" --hidden-import "recorder" --hidden-import "text_script_editor" --hidden-import "lang" --hidden-import "script_io" --hidden-import "about" --hidden-import "mini" --hidden-import "window_selector" --hidden-import "version_manager" --hidden-import "version_info_dialog" --collect-all "ttkbootstrap" --collect-all "ultralytics" --noconfirm %ICON_PARAM% "ChroLens_Mimic.py"
 
-set PYINSTALLER_CMD=pyinstaller --onedir --windowed ^
-    --name "ChroLens_Mimic" ^
-    --add-data "images;images" ^
-    --add-data "TTF;TTF" ^
-    --add-data "yolov8s.pt;." ^
-    --hidden-import "ttkbootstrap" ^
-    --hidden-import "keyboard" ^
-    --hidden-import "mouse" ^
-    --hidden-import "mss" ^
-    --hidden-import "PIL" ^
-    --hidden-import "cv2" ^
-    --hidden-import "numpy" ^
-    --hidden-import "pystray" ^
-    --hidden-import "bezier_mouse" ^
-    --hidden-import "yolo_detector" ^
-    --hidden-import "recorder" ^
-    --hidden-import "text_script_editor" ^
-    --hidden-import "lang" ^
-    --hidden-import "script_io" ^
-    --hidden-import "about" ^
-    --hidden-import "mini" ^
-    --hidden-import "window_selector" ^
-    --hidden-import "version_manager" ^
-    --hidden-import "version_info_dialog" ^
-    --collect-all "ttkbootstrap" ^
-    --collect-all "ultralytics" ^
-    --noconfirm ^
-    "ChroLens_Mimic.py"
+%PYINSTALLER_CMD%
 
-if defined ICON_PARAM (
-    %PYINSTALLER_CMD% --icon "..\umi_奶茶色.ico" --add-data "..\umi_奶茶色.ico;."
-) else (
-    %PYINSTALLER_CMD%
-)
-
-set PACK_RESULT=%errorlevel%
-echo -------------------------------------------------------------------
-
-if %PACK_RESULT% neq 0 (
+if %errorlevel% neq 0 (
     color 0C
     echo.
-    echo ERROR: Package failed (code: %PACK_RESULT%)
-    if exist "*.spec" del /f /q "*.spec"
+    echo ERROR: Package failed (code: %errorlevel%)
     pause
-    exit /b %PACK_RESULT%
+    exit /b %errorlevel%
 )
+echo -------------------------------------------------------------------
+echo.
 
 REM ===================================================================
-REM Step 6: Smoke Test
+REM Step 5: Smoke Test
 REM ===================================================================
-echo.
-echo [6/7] Running Smoke Test...
+echo [5/6] Running Smoke Test...
 echo -------------------------------------------------------------------
 echo 正在啟動程式進行測試...
 start "" "dist\ChroLens_Mimic\ChroLens_Mimic.exe"
@@ -206,96 +107,42 @@ if /i "%CONFIRM%" neq "Y" (
     color 0E
     echo.
     echo 測試未通過或已取消。保留 build 資料夾以便除錯。
-    if exist "*.spec" del /f /q "*.spec"
     pause
     exit /b 1
 )
 
 REM ===================================================================
-REM Step 7: Packaging and Cleanup
+REM Step 6: Finalizing Package (Zip and Cleanup)
 REM ===================================================================
 echo.
-echo [7/7] Finalizing Package...
+echo [6/6] Finalizing Package (Zip and Cleanup)...
 echo -------------------------------------------------------------------
+echo 1. 建立 ZIP 壓縮檔...
 
+REM 使用獨立 PowerShell 腳本避免 CMD 變數衝突
+set PS_TEMP=%TEMP%\pack_zip_%RANDOM%.ps1
+echo $ErrorActionPreference = 'Stop' > "%PS_TEMP%"
+echo $verMatches = Select-String -Path '.\ChroLens_Mimic.py' -Pattern 'VERSION = "(.*?)"' >> "%PS_TEMP%"
+echo if ($verMatches) { $ver = $verMatches.Matches.Groups[1].Value } else { $ver = 'Unknown' } >> "%PS_TEMP%"
+echo $zipName = "ChroLens_Mimic_v${ver}.zip" >> "%PS_TEMP%"
+echo Write-Host "打包版本: v$ver" -ForegroundColor Cyan >> "%PS_TEMP%"
+echo $src = Join-Path (Get-Location).Path "dist\ChroLens_Mimic" >> "%PS_TEMP%"
+echo $dst = Join-Path (Get-Location).Path "dist\$zipName" >> "%PS_TEMP%"
+echo if (Test-Path $dst) { Remove-Item $dst -Force -ErrorAction SilentlyContinue } >> "%PS_TEMP%"
+echo Compress-Archive -Path $src -DestinationPath $dst -Force >> "%PS_TEMP%"
+echo if (Test-Path $dst) { Write-Host "OK: ZIP created at dist\$zipName" -ForegroundColor Green } else { Write-Host "ERROR: Compression Failed" -ForegroundColor Red } >> "%PS_TEMP%"
 
-echo 1. 清除 build 資料夾與 spec 檔案...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_TEMP%"
+del "%PS_TEMP%" 2>nul
+
+echo 2. 清除 build 資料夾與 spec 檔案...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-Item -Path 'build' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path '*.spec' -Force -ErrorAction SilentlyContinue"
 if exist "build" (
-    echo Removing build folder...
-    rmdir /s /q "build" 2>nul
-    timeout /t 1 /nobreak >nul
-    if exist "build" (
-        echo WARNING: build folder still exists, retrying...
-        rmdir /s /q "build" 2>nul
-        timeout /t 1 /nobreak >nul
-        if exist "build" (
-            echo ERROR: Cannot remove build folder! Please close any programs using these files.
-        ) else (
-            echo OK: build folder removed (retry successful)
-        )
-    ) else (
-        echo OK: build folder removed
-    )
-) else (
-    echo OK: build folder not exist
-)
-
-if exist "*.spec" (
-    echo Removing spec files...
-    del /f /q "*.spec" 2>nul
-    echo OK: spec files removed
-) else (
-    echo OK: spec files not exist
-)
-
-echo 2. 建立 ZIP 壓縮檔...
-set ZIP_NAME=ChroLens_Mimic.zip
-if exist "dist\%ZIP_NAME%" del /q "dist\%ZIP_NAME%"
-
-REM 取得當前目錄的絕對路徑
-set CURRENT_DIR=%CD%
-
-REM 使用絕對路徑進行壓縮
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& {Compress-Archive -Path '%CURRENT_DIR%\dist\ChroLens_Mimic' -DestinationPath '%CURRENT_DIR%\dist\%ZIP_NAME%' -Force}"
-
-if %errorlevel% neq 0 (
-    echo WARNING: ZIP compression failed! (Error code: %errorlevel%)
-    echo Trying alternative method...
-    
-    REM 備用方案：使用 PowerShell 的另一種語法
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -LiteralPath '%CURRENT_DIR%\dist\ChroLens_Mimic' -DestinationPath '%CURRENT_DIR%\dist\%ZIP_NAME%' -Force"
-    
-    if !errorlevel! neq 0 (
-        echo ERROR: Both ZIP methods failed!
-        echo Please manually compress the dist\ChroLens_Mimic folder
-    ) else (
-        echo OK: ZIP created as dist\%ZIP_NAME% (using alternative method)
-    )
-) else (
-    echo OK: ZIP created as dist\%ZIP_NAME%
-)
-
-echo.
-echo 3. 最終清理驗證...
-REM 最後再次確認清除 build 資料夾
-if exist "build" (
-    echo Final cleanup: Removing build folder...
-    rmdir /s /q "build" 2>nul
-    timeout /t 1 /nobreak >nul
-    if exist "build" (
-        echo WARNING: build folder still exists after final cleanup!
-        echo This may be due to file locks. Please manually delete it.
-    ) else (
-        echo OK: Final cleanup successful
-    )
+    echo WARNING: build folder still exists after final cleanup!
 ) else (
     echo OK: No build artifacts remaining
 )
 
-
-REM ===================================================================
-REM Done
-REM ===================================================================
 color 0A
 echo.
 echo ===================================================================
@@ -303,7 +150,6 @@ echo    Package Complete! 🚀
 echo ===================================================================
 echo.
 echo Output Directory: dist\
-echo.
 echo [Files in dist]
 dir /b "dist"
 echo.

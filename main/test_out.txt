@@ -1,0 +1,25 @@
+{
+  "events": [
+    {
+      "type": "recognize_image",
+      "image": "p",
+      "image_file": "p.png",
+      "confidence": 0.7,
+      "time": 0.0,
+      "is_pure_recognize": true
+    }
+  ],
+  "settings": {
+    "speed": "100",
+    "repeat": "1",
+    "repeat_time": "00:00:00",
+    "repeat_interval": "00:00:00",
+    "random_interval": false,
+    "script_hotkey": "",
+    "script_actions": [],
+    "window_info": null
+  }
+}
+TEXT:
+>ฟ๋รั>p
+

@@ -1,0 +1,211 @@
+41: def get_icon_path():
+63: def set_window_icon(window):
+73: def font_tuple(size, weight=None, monospace=False):
+94: def filter_mouse_trajectory(events, threshold=5, time_threshold=0.1):
+206: def convert_old_format_to_new(text_script: str):
+307: def create_rounded_rect(canvas, x1, y1, x2, y2, radius=12, **kwargs):
+335: def __init__(self, nodes, scale=1.0):
+347: def _mark_nodes_as_blocked(self):
+362: def _snap(self, val):
+365: def _is_h_free(self, y, x1, x2, check_nodes=True, from_node_idx=None, to_node_idx=None):
+384: def _is_v_free(self, x, y1, y2, check_nodes=True, from_node_idx=None, to_node_idx=None):
+403: def _can_direct_connect(self, x1, y1, x2, y2, from_idx, to_idx):
+412: def _is_label_pos_free(self, x, y, w=30, h=16):
+424: def find_label_position(self, path):
+438: def _mark_used(self, path, line_id):
+451: def _find_h_channel(self, base_y, x1, x2, direction=1):
+458: def _find_v_channel(self, base_x, y1, y2, direction=1):
+465: def route(self, from_node, to_node, path_type, from_idx=None, to_idx=None):
+532: def __init__(self, parent=None, script_path=None):
+586: def _get_images_dir(self):
+593: def _get_modules_dir(self):
+600: def _get_next_pic_number(self):
+638: def _create_ui(self):
+1012: def _show_message(self, title, message, msg_type="info"):
+1054: def _show_confirm(self, title, message):
+1082: def on_yes():
+1086: def on_no():
+1107: def _on_editor_click(self, event):
+1130: def _select_all_text(self, event):
+1136: def _toggle_trajectory_fold(self, summary_line):
+1175: def _update_trajectory_summary_text(self, line_num, action_text):
+1198: def _toggle_label_fold(self, label_name):
+1237: def _update_status(self, text, status_type="info"):
+1249: def _toggle_trajectory_display(self):
+1256: def _toggle_workflow_mode(self):
+1266: def _switch_to_workflow_mode(self):
+1290: def _switch_to_text_mode_from_workflow(self):
+1299: def _toggle_canvas_mode(self):
+1308: def _switch_to_canvas_mode(self):
+1325: def _switch_to_text_mode(self):
+1338: def _draw_grid(self):
+1344: def _on_canvas_configure(self, event):
+1348: def _convert_text_to_canvas(self, text_content):
+1433: def _parse_marker_structure(self, lines):
+1490: def _create_branch_connections(self):
+1550: def _draw_marker_container(self, marker_item, x, y):
+1722: def _get_command_color(self, command):
+1770: def _get_command_display_text(self, command):
+1777: def _create_canvas_node(self, text, color, x, y, original_command=None):
+1982: def _create_rounded_rectangle(self, x1, y1, x2, y2, radius=10, **kwargs):
+2000: def _connect_nodes(self, idx1, idx2, label=None):
+2189: def _convert_canvas_to_text(self):
+2213: def _on_canvas_click(self, event):
+2258: def _on_canvas_drag(self, event):
+2334: def _on_canvas_release(self, event):
+2342: def _update_node_connections(self, node_idx):
+2430: def _on_canvas_zoom(self, event):
+2463: def _on_canvas_pan_start(self, event):
+2470: def _on_canvas_pan_move(self, event):
+2487: def _on_canvas_pan_end(self, event):
+2492: def _show_canvas_context_menu(self, event):
+2504: def _clear_canvas(self):
+2513: def _add_command_node(self, x, y):
+2523: def _add_marker_node(self, x, y):
+2540: def _edit_node(self, node_idx):
+2573: def _delete_node(self, node_idx):
+2608: def _add_action_to_marker(self, marker_idx):
+2650: def _reset_canvas_zoom(self):
+2679: def _auto_arrange_nodes(self):
+2696: def calculate_layout(idx, level=0, column=0):
+2792: def _auto_fold_all_trajectories(self):
+2805: def _simplify_trajectory_display(self, lines: list) -> list:
+2894: def _create_command_buttons_in_frame(self, parent_frame):
+3009: def _on_frame_configure(event=None):
+3012: def _on_canvas_configure(event):
+3020: def _on_mousewheel(event):
+3035: def _switch_category(self, category_name):
+3050: def _show_category_buttons(self, category_name):
+3103: def _insert_command_template(self, template):
+3128: def _insert_module_reference(self):
+3169: def insert():
+3194: def _show_command_reference(self):
+3240: def _on_mousewheel(event):
+3250: def _on_close():
+3264: def _configure_reference_tags(self, text_widget):
+3293: def _insert_command_grid_table(self, parent_frame):
+3375: def make_click_handler(frame, labels):
+3376: def on_click(event=None):
+3404: def _insert_command_with_syntax_highlight(self, text_widget, command):
+3448: def _on_combo_click(self, event):
+3452: def _refresh_script_list(self):
+3466: def _on_script_selected(self, event):
+3493: def _show_create_script_dialog(self):
+3510: def on_confirm():
+3537: def _create_custom_script(self, custom_name):
+3589: def _load_script(self):
+3715: def _json_to_text(self, data: Dict) -> str:
+3910: def _format_time(self, seconds: float) -> str:
+3923: def _parse_time(self, time_str: str) -> float:
+3945: def _expand_alias_commands(self, text_content):
+4063: def _text_to_json(self, text: str) -> Dict:
+4460: def _parse_image_command_to_json(self, command_line: str, next_lines: list, start_time: float) -> dict:
+4946: def _parse_branches(self, next_lines):
+4986: def _parse_condition_branches(self, next_lines: list) -> dict:
+5033: def _parse_simple_condition_branches(self, next_lines: list) -> dict:
+5125: def _parse_branch_action(self, action: str) -> dict:
+5151: def _parse_advanced_command_to_json(self, command_line: str, next_lines: list, start_time: float) -> dict:
+5673: state_def = stripped[4:].strip()
+5677: if ', 初始' in state_def or ',初始' in state_def:
+5679: state_def = state_def.replace(', 初始', '').replace(',初始', '').strip()
+5725: def _parse_combat_command_to_json(self, command_line: str, start_time: float) -> dict:
+5744: def _format_combat_event(self, event: dict) -> str:
+5817: def _format_branch_action(self, branch: dict) -> str:
+5847: def _save_script(self):
+5973: def _load_modules_inline(self):
+5986: def _on_module_selected_inline(self, event):
+6013: def _save_new_module_inline(self):
+6071: def _insert_module_inline(self):
+6096: def _delete_module_inline(self):
+6130: def _expand_module_references(self, text_content):
+6178: def _get_module_content(self, module_name):
+6192: def _on_text_modified(self, event=None):
+6204: def _apply_syntax_highlighting_to_widget(self, text_widget):
+6253: def _apply_syntax_highlighting(self):
+6408: def _show_context_menu(self, event):
+6455: def _save_selection_as_module(self):
+6504: def _insert_module_from_menu(self, module_name):
+6519: def _execute_script(self):
+6621: def _show_image_help(self):
+6716: def _capture_and_recognize(self):
+6788: def _do_capture(self):
+6798: def _restore_windows(self):
+6837: def _ensure_on_top(self):
+6845: def _on_capture_complete(self, image_region):
+6878: def _show_name_and_preview_dialog(self, screenshot):
+6952: def on_confirm():
+6960: def on_cancel():
+7008: def _save_and_insert_commands(self, screenshot, display_name):
+7034: def _capture_left_click_coordinate(self):
+7038: def _capture_right_click_coordinate(self):
+7042: def _capture_click_coordinate(self, button_type):
+7097: def _do_coordinate_capture(self, button_type):
+7107: def _on_coordinate_captured(self, coordinate, button_type):
+7139: def _capture_region_for_recognition(self):
+7166: def _do_region_selection(self):
+7176: def _on_region_selected(self, region):
+7206: def _capture_and_ocr(self):
+7236: def _do_ocr_capture(self):
+7245: def _on_ocr_capture_complete(self, image_region):
+7272: def _perform_ocr_and_show_result(self, screenshot):
+7359: def insert_if_text():
+7369: def insert_wait_text():
+7379: def insert_click_text():
+7389: def copy_to_clipboard():
+7468: def do_ocr():
+7502: def update_ui(text):
+7532: def _get_next_available_time(self):
+7555: def _open_custom_module(self):
+7562: def _parse_image_command(self, line: str) -> Dict[str, Any]:
+7660: def _find_pic_image_file(self, pic_name: str) -> str:
+7699: def _parse_and_draw_workflow(self, text_content):
+7886: state_def = line[4:].strip()
+7949: def assign_position(label, row, col):
+8151: def _draw_pcb_graph(self):
+8182: def _draw_pcb_node(self, idx, node):
+8276: def _get_pcb_node_style(self, name, node_type):
+8306: def _on_node_press(self, event, tag, node):
+8316: def _on_node_drag(self, event, tag, node):
+8342: def _on_node_release(self, event):
+8346: def _draw_pcb_connections(self):
+8417: def _draw_pcb_groups(self):
+8444: def _calculate_workflow_layout(self, labels):
+8467: def get_level(label, level=0):
+8505: def _draw_workflow_node(self, label, commands):
+8590: def _create_rounded_rectangle(self, x1, y1, x2, y2, radius=25, **kwargs):
+8616: def _draw_workflow_connections(self):
+8711: def _calculate_optimal_connection_points(self, x1, y1, r1, x2, y2, r2):
+8751: def _calculate_metro_path(self, x1, y1, x2, y2, offset, is_loop):
+8843: def _allocate_channel(self, from_node, to_node, occupied, positive=False):
+8888: # def _on_workflow_node_click(self, label):
+8892: def _on_workflow_canvas_click(self, event):
+8918: def _on_workflow_canvas_drag(self, event):
+8946: def _on_workflow_canvas_release(self, event):
+8951: def _show_node_tooltip(self, event, label, commands):
+8991: def _hide_node_tooltip(self):
+8997: def _on_workflow_click(self, event):
+9027: def _on_workflow_drag(self, event):
+9062: def _on_workflow_release(self, event):
+9068: def _on_workflow_zoom(self, event):
+9100: def _show_workflow_context_menu(self, event):
+9111: def _reset_workflow_zoom(self):
+9141: def _auto_arrange_workflow(self):
+9152: def __init__(self, parent, callback):
+9194: def _enable_capture(self):
+9199: def _on_press(self, event):
+9221: def _on_drag(self, event):
+9230: def _on_release(self, event):
+9247: def _cancel(self):
+9252: def _finish(self):
+9262: def __init__(self, parent, button_type, callback):
+9303: def _enable_capture(self):
+9309: def _on_click(self, event):
+9321: def _cancel(self):
+9326: def _finish(self):
+9336: def __init__(self, parent, callback):
+9378: def _enable_selection(self):
+9383: def _on_press(self, event):
+9404: def _on_drag(self, event):
+9413: def _on_release(self, event):
+9436: def _cancel(self):
+9441: def _finish(self):

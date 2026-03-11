@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 ChroLens 文字指令式腳本編輯器
 將JSON事件轉換為簡單的文字指令格式
@@ -4466,7 +4466,7 @@ class TextCommandEditor(tk.Toplevel):
         :return: JSON事件字典
         """
         # 辨識圖片指令（新格式：>辨識>pic01, 邊框, 範圍(x1,y1,x2,y2), T=0s100）
-        recognize_pattern = r'>辨識>([^,]+)(?:,\s*T=(\d+)s(\d+))?'
+        recognize_pattern = r'>辨識>(.+?)(?:,\s*T=(\d+)s(\d+))?'
         match = re.match(recognize_pattern, command_line)
         if match:
             # 分離圖片名稱和選項
@@ -4536,7 +4536,7 @@ class TextCommandEditor(tk.Toplevel):
             return result
 
         # 移動至圖片指令（>移動至>pic01, 邊框, 範圍(x1,y1,x2,y2), T=1s000）
-        move_pattern = r'>移動至>([^,]+)(?:,\s*T=(\d+)s(\d+))?'
+        move_pattern = r'>移動至>(.+?)(?:,\s*T=(\d+)s(\d+))?'
         match = re.match(move_pattern, command_line)
         if match:
             content = match.group(1).strip()

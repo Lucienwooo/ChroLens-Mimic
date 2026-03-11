@@ -2940,6 +2940,11 @@ class CoreRecorder:
         self.logger(f"[追蹤] 已停用 {image_name} 的追蹤模式")
     
     def find_image_on_screen(self, image_name_or_path, threshold=0.9, region=None, multi_scale=True, fast_mode=False, use_features_fallback=True, show_border=False, enable_tracking=False, strict_mode=True):
+        # 讀取單獨腳本指定的辨識容錯率
+        global_th = getattr(self, "image_threshold", 0)
+        if global_th > 0:
+            threshold = global_th
+            
         """在螢幕上尋找圖片（ 極速優化版 + 智能追蹤 + 精確比對）
         
         Args:

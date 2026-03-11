@@ -1,36 +1,16 @@
 import ttkbootstrap as tb
-from ttkbootstrap.constants import *  # <-- 確保 SECONDARY 等常數可用
+from ttkbootstrap.constants import *
 import tkinter as tk
 import os
-import sys
 
-def get_icon_path():
-    """取得圖示檔案路徑（打包後和開發環境通用）"""
-    try:
-        if getattr(sys, 'frozen', False):
-            # 打包後的環境
-            return os.path.join(sys._MEIPASS, "umi_奶茶色.ico")
-        else:
-            # 開發環境
-            # 檢查是否在 main 資料夾中
-            if os.path.exists("umi_奶茶色.ico"):
-                return "umi_奶茶色.ico"
-            # 檢查上層目錄
-            elif os.path.exists("../umi_奶茶色.ico"):
-                return "../umi_奶茶色.ico"
-            else:
-                return "umi_奶茶色.ico"
-    except:
-        return "umi_奶茶色.ico"
-
-def set_window_icon(window):
-    """為視窗設定圖示"""
-    try:
-        icon_path = get_icon_path()
-        if os.path.exists(icon_path):
-            window.iconbitmap(icon_path)
-    except Exception as e:
-        print(f"設定視窗圖示失敗: {e}")
+try:
+    from utils import get_icon_path, set_window_icon
+except ImportError:
+    # fallback（極端情況：utils.py 遺失）
+    def get_icon_path(): return "umi_奶茶色.ico"
+    def set_window_icon(w):
+        try: w.iconbitmap(get_icon_path())
+        except: pass
 
 def show_about(parent):
     about_win = tb.Toplevel(parent)

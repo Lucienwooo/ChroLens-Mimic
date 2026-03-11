@@ -11,9 +11,22 @@ AI_AGENT_NOTES.py
 更新日期: 2025-12-05
 """
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 【 ‼️ 絕對禁止修改的核心模組 ‼️ 】- AI Agent 必讀！
+# ═══════════════════════════════════════════════════════════════════════════
+DO_NOT_TOUCH_RULES = """
+[ 關於更新系統 (version_manager.py) ]
+1. 請「絕對不要」更動更新系統相關的程式碼 (包含 version_manager.py, version_info_dialog.py 等)！
+2. 之前 2.7.7 版本無法偵測與自動更新，是因為舊版更新機制(update_manager.py / BAT)存在缺陷。
+3. 目前 2.7.8 版本改用的 PowerShell 更新邏輯已經過驗證，能成功抓取 GitHub Releases 並完成自我覆蓋。
+4. 結論：只要更新系統能正常運作，就「不要」動到這個結構，以免再次破壞更新功能！
+"""
+
 # ═══════════════════════════════════════════════════════════════════════════
 # 【 版本更新完整檢查清單】- AI Agent 必讀！
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 VERSION_UPDATE_CHECKLIST = """
 ️ 每次更新版本號時，必須檢查並更新以下所有位置：
@@ -241,53 +254,55 @@ if os.path.exists(icon_path):
 """
 
 # ═══════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════
 # 【自動發布流程說明】
 # ═══════════════════════════════════════════════════════════════════════════
 
 RELEASE_WORKFLOW = """
  快速發布指令：
-   1. 更新版本號（ChroLens_Mimic.py 的 VERSION 變數）
-   2. 執行: python pack.py（打包）
-   3. 執行: 打包.bat（一鍵打包，如果存在）
+   1. 更新版本號（`ChroLens_Mimic.py` 的 `VERSION` 變數）
+   2. 進入 `main` 目錄，執行: `打包.bat` (將會自動完成建置與壓縮)
 
- 完整發布流程：
+ 完整發布與打包流程 (符合打包.bat)：
 
 1. 清理多餘檔案
-   - 刪除 build/、dist/、__pycache__/ 目錄
-   - 刪除所有 *.spec 檔案
-   - 刪除測試檔案（test_*.py, quick_*.py, *_test.py）
+   - 刪除 `build/` 目錄
+   - 刪除所有 `*.spec` 檔案
+   - 刪除測試或暫存檔案
 
-2. 讀取版本資訊
-   - 從 ChroLens_Mimic.py 讀取 VERSION 變數
-
-3. PyInstaller 打包
-   參數：
+2. PyInstaller 打包 (已內建於打包.bat)
+   重要參數：
      --name=ChroLens_Mimic
      --onedir
-     --noconsole  # 或 --windowed
-     --icon=../pic/umi_奶茶色.ico
+     --windowed
+     --icon=../umi_奶茶色.ico
      --add-data=TTF;TTF
      --add-data=images;images
-     --hidden-import=pynput.keyboard._win32
-     --hidden-import=pynput.mouse._win32
-     --hidden-import=PIL._tkinter_finder
+     --add-data=yolov8s.pt;.
+   必要隱藏模組與收集:
+     --hidden-import=... (包含 ttkbootstrap, mss, pystray, cv2, recorder, version_manager 等專案內模組庫)
+     --collect-all=ultralytics
+
+3. 執行 Smoke Test
+   - 打包後腳本將自動啟動 `dist\ChroLens_Mimic\ChroLens_Mimic.exe`
+   - 需要手動檢查功能正常，然後關閉程式以繼續打包流程。
 
 4. 創建 ZIP 壓縮檔
-   - 檔名格式：ChroLens_Mimic_{版本號}.zip
-   - 包含整個 dist/ChroLens_Mimic/ 目錄
+   - 檔名預設為：`ChroLens_Mimic_v{版本號}.zip`（位於 `dist/` 資料夾）
+   - BAT 腳本會從 `ChroLens_Mimic.py` 動態讀取版本號，並透過 PowerShell 的 `Compress-Archive` 自動壓縮。
 
-5. 清理建置檔案
-   - 刪除 build/ 目錄
-   - 刪除所有 *.spec 檔案
-   - 保留 dist/ 目錄和 ZIP 檔案
 
-6. 發布到 GitHub Release（可選）
-   使用 GitHub CLI (gh)：
-     gh release create v{版本號} \
-       ChroLens_Mimic_{版本號}.zip \
-       --title "ChroLens_Mimic v{版本號}" \
-       --notes "{更新說明}" \
-       --repo Lucienwooo/ChroLens_Mimic
+5. 最終清理建置檔案
+   - BAT 腳本會在結尾自動移除 `build/` 目錄與 `*.spec` 檔案。
+
+6. 發布到 GitHub Release（手動或透過 GitHub CLI）
+   範例使用 GitHub CLI (gh)：
+     gh release create v{版本號} \\
+       dist/ChroLens_Mimic_{版本號}.zip \\
+       --title "ChroLens_Mimic v{版本號}" \\
+       --notes "{更新說明}" \\
+       --repo Lucienwooo/ChroLens-Mimic
+
 
 ️ 前置需求：
 - PyInstaller: pip install pyinstaller
@@ -424,6 +439,24 @@ v2.6.7 新增功能：
 # ═══════════════════════════════════════════════════════════════════════════
 
 VERSION_HISTORY = """
+[2.7.8] - 2026-03-09
+  -  修復腳本延遲問題：解決 >延遲 指令在執行時被跳過的問題，確保腳本能正確執行定時等待。
+  -  視窗圖標統一：確保所有對話視窗與子視窗圖標與主程式一致，提升介面整體感。
+  -  在地化用語規範：正式引入台灣在地化用語指南，統一術語使用（如「滑鼠」、「資料夾」等）。
+  -  開發流程優化：引入報告檔案管理規範，減少重複文件產出。
+
+[2.7.7] - 2026-01-20
+  -  指令擴展：新增滑鼠滾輪指令支援。
+  -  編輯器優化：改進大規模腳本載入效能。
+
+[2.7.6] - 2026-01-10
+  -  OCR 整合優化：提升文字辨識穩定性。
+  -  UI 微調：優化深色模式下的對比度。
+
+[2.7.5] - 2026-01-05
+  -  錯誤修復：解決部分極端情況下的座標偏移問題。
+  -  安全性提升：強化自訂模組的路徑檢查。
+
 [2.7.4] - 2025-12-22
   -  穩定性提升：強化錯誤處理和 fallback 機制
   - ️ 圖形模式增強：軌跡和錄製腳本可視覺化呈現

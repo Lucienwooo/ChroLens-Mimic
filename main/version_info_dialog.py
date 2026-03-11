@@ -15,23 +15,10 @@ import threading
 import os
 import sys
 
-
-def get_icon_path():
-    """取得圖示檔案路徑（打包後和開發環境通用）"""
-    try:
-        if getattr(sys, 'frozen', False):
-            return os.path.join(sys._MEIPASS, "umi_奶茶色.ico")
-        else:
-            if os.path.exists("umi_奶茶色.ico"):
-                return "umi_奶茶色.ico"
-            elif os.path.exists("../pic/umi_奶茶色.ico"):
-                return "../pic/umi_奶茶色.ico"
-            elif os.path.exists("../umi_奶茶色.ico"):
-                return "../umi_奶茶色.ico"
-            else:
-                return "umi_奶茶色.ico"
-    except:
-        return "umi_奶茶色.ico"
+try:
+    from utils import get_icon_path
+except ImportError:
+    def get_icon_path(): return "umi_奶茶色.ico"
 
 
 class VersionInfoDialog(tb.Toplevel):

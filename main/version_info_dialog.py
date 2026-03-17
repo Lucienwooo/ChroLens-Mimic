@@ -16,9 +16,12 @@ import os
 import sys
 
 try:
-    from utils import get_icon_path
+    from utils import get_icon_path, set_window_icon
 except ImportError:
     def get_icon_path(): return "umi_奶茶色.ico"
+    def set_window_icon(w):
+        try: w.iconbitmap(get_icon_path())
+        except: pass
 
 
 class VersionInfoDialog(tb.Toplevel):
@@ -47,12 +50,7 @@ class VersionInfoDialog(tb.Toplevel):
         self.minsize(550, 650)
         
         # 設定圖示
-        try:
-            icon_path = get_icon_path()
-            if os.path.exists(icon_path):
-                self.iconbitmap(icon_path)
-        except:
-            pass
+        set_window_icon(self)
         
         # 置中顯示
         self.update_idletasks()

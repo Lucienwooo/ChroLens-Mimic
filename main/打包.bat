@@ -115,6 +115,7 @@ REM ===================================================================
 REM Step 6: Finalizing Package (Zip and Cleanup)
 REM ===================================================================
 echo.
+echo.
 echo [6/6] Finalizing Package (Zip and Cleanup)...
 echo -------------------------------------------------------------------
 echo 1. 建立 ZIP 壓縮檔...
@@ -122,15 +123,17 @@ echo 1. 建立 ZIP 壓縮檔...
 REM 使用獨立 PowerShell 腳本避免 CMD 變數衝突
 set PS_TEMP=%TEMP%\pack_zip_%RANDOM%.ps1
 echo $ErrorActionPreference = 'Stop' > "%PS_TEMP%"
-echo $verMatches = Select-String -Path '.\ChroLens_Mimic.py' -Pattern 'VERSION = "(.*?)"' >> "%PS_TEMP%"
-echo if ($verMatches) { $ver = $verMatches.Matches.Groups[1].Value } else { $ver = 'Unknown' } >> "%PS_TEMP%"
-echo $zipName = "ChroLens_Mimic_v${ver}.zip" >> "%PS_TEMP%"
-echo Write-Host "打包版本: v$ver" -ForegroundColor Cyan >> "%PS_TEMP%"
-echo $src = Join-Path (Get-Location).Path "dist\ChroLens_Mimic" >> "%PS_TEMP%"
-echo $dst = Join-Path (Get-Location).Path "dist\$zipName" >> "%PS_TEMP%"
-echo if (Test-Path $dst) { Remove-Item $dst -Force -ErrorAction SilentlyContinue } >> "%PS_TEMP%"
-echo Compress-Archive -Path $src -DestinationPath $dst -Force >> "%PS_TEMP%"
-echo if (Test-Path $dst) { Write-Host "OK: ZIP created at dist\$zipName" -ForegroundColor Green } else { Write-Host "ERROR: Compression Failed" -ForegroundColor Red } >> "%PS_TEMP%"
+echo $content = Get-Content '.\ChroLens_Mimic.py' -Raw >> "%PS_TEMP%"
+echo if ($content -match 'VERSION\s*=\s*"([^"]+)"') { $ver = $Matches[1] } else { $ver = 'Unknown' } >> "%PS_TEMP%"
+echo $zipName = 'ChroLens_Mimic_v' + $ver + '.zip' >> "%PS_TEMP%"
+echo Write-Host ('打包版本: v' + $ver) -ForegroundColor Cyan >> "%PS_TEMP%"
+echo $currentDir = Get-Location >> "%PS_TEMP%"
+echo $src = Join-Path $currentDir 'dist\ChroLens_Mimic' >> "%PS_TEMP%"
+echo $dst = Join-Path $currentDir ('dist\' + $zipName) >> "%PS_TEMP%"
+echo if (Test-Path $dst) { Remove-Item $dst -Force } >> "%PS_TEMP%"
+echo Write-Host ('正在壓縮 ' + $src + ' 到 ' + $dst + ' ...') >> "%PS_TEMP%"
+echo Compress-Archive -Path ($src + '\*') -DestinationPath $dst -Force >> "%PS_TEMP%"
+echo if (Test-Path $dst) { Write-Host ('OK: ZIP created at dist\' + $zipName) -ForegroundColor Green } else { Write-Error 'ZIP creation failed' } >> "%PS_TEMP%"
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_TEMP%"
 del "%PS_TEMP%" 2>nul

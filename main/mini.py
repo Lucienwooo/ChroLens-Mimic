@@ -1,6 +1,7 @@
 import os
 import ttkbootstrap as tb
 import tkinter as tk
+from utils import set_window_icon
 
 class MiniMode:
     """
@@ -23,15 +24,7 @@ class MiniMode:
         self.icon_name = icon_name
 
     def _set_icon(self, win):
-        try:
-            import sys
-            if getattr(sys, 'frozen', False):
-                icon_path = os.path.join(sys._MEIPASS, self.icon_name)
-            else:
-                icon_path = self.icon_name
-            win.iconbitmap(icon_path)
-        except Exception:
-            pass
+        set_window_icon(win)
 
     def show(self):
         if self.win and self.win.winfo_exists():

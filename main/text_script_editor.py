@@ -37,37 +37,8 @@ try:
         LINE_SEED_FONT_LOADED = False
 except:
     LINE_SEED_FONT_LOADED = False
+from utils import set_window_icon
 
-def get_icon_path():
-    """取得圖示檔案路徑（打包後和開發環境通用）"""
-    try:
-        if getattr(sys, 'frozen', False):
-            # PyInstaller 打包後的路徑
-            return os.path.join(sys._MEIPASS, "umi_奶茶色.ico")
-        else:
-            # 開發環境路徑
-            if os.path.exists("umi_奶茶色.ico"):
-                return "umi_奶茶色.ico"
-            elif os.path.exists("../pic/umi_奶茶色.ico"):
-                return "../pic/umi_奶茶色.ico"
-            elif os.path.exists("../umi_奶茶色.ico"):
-                return "../umi_奶茶色.ico"
-            # 嘗試在 main 目錄下找
-            elif os.path.exists(os.path.join(os.path.dirname(__file__), "umi_奶茶色.ico")):
-                return os.path.join(os.path.dirname(__file__), "umi_奶茶色.ico")
-            else:
-                return "umi_奶茶色.ico"
-    except:
-        return "umi_奶茶色.ico"
-
-def set_window_icon(window):
-    """為視窗設定圖示"""
-    try:
-        icon_path = get_icon_path()
-        if os.path.exists(icon_path):
-            window.iconbitmap(icon_path)
-    except Exception as e:
-        pass  # 圖標設定失敗不影響功能
 
 #  字體系統（獨立定義，避免迴圈匯入）
 def font_tuple(size, weight=None, monospace=False):
@@ -2915,8 +2886,7 @@ class TextCommandEditor(tk.Toplevel):
                 ("滑鼠滾輪", "#4CAF50", None, ">滾輪(1)"),
                 ("按下按鍵", "#8BC34A", None, ">按下a"),
                 ("放開按鍵", "#CDDC39", None, ">放開a"),
-                ("從座標拖曳", "#0288D1", None, ">從(x1,y1)拖曳至(x2,y2), 延遲500ms"),
-                ("拖曳至目標", "#0097A7", None, ">拖曳至(x2,y2), 延遲500ms"),
+                ("拖曳 (捕捉終點)", "#0288D1", self._capture_drag_coordinate, None),
             ],
             "流程控制": [
                 ("新增標籤", "#FFC107", None, "#標籤名稱"),
@@ -3732,10 +3702,19 @@ class TextCommandEditor(tk.Toplevel):
                 event_name = event.get("event")
                 current_time = event.get("time", 0)
                 
-                # 1. 處理與上一個事件之間的間隔延遲
-                gap_ms = round((current_time - last_event_time) * 1000)
-                if gap_ms > 0:
-                    lines.append(f">延遲{gap_ms}ms\n")
+                # --- 改良版整合式時間解析 ---
+                # 不再在此處插入 standalone >延遲，改由各指令內部判定
+                # gap_ms = round((current_time - last_event_time) * 1000)
+                # if gap_ms > 0:
+                #     lines.append(f">延遲{gap_ms}ms\n")
+                
+                # Heuristic: 如果當前時間與「上一個動作結束時間」一致，則顯示 T=0s000
+                is_relative_time = idx > 0 and abs(current_time - last_event_time) < 0.005
+                time_val_str = "T=0s000" if is_relative_time else f"T={self._format_time(current_time)}"
+                
+                # 預設此行延遲 (如果 JSON 中有儲存原始行延遲則優先使用)
+                line_delay_ms = event.get("_delay_after", 0)
+                time_suffix = f", 延遲{line_delay_ms}ms, {time_val_str}"
                 
                 # 2. 處理當前事件指令
                 if event_type == "label":
@@ -3759,77 +3738,90 @@ class TextCommandEditor(tk.Toplevel):
                     is_press = event.get("_is_press", False)
                     is_release = event.get("_is_release", False)
                     auto_pair = event.get("_auto_pair", False)
+                    time_suffix = f", 延遲0ms, T={self._format_time(current_time)}"
                     
                     if event_name == "down":
                         if is_press:
                             press_delay_ms = event.get("_press_delay", 0)
-                            lines.append(f">按下{key_name}\n")
-                            if press_delay_ms > 0: lines.append(f">延遲{press_delay_ms}ms\n")
+                            lines.append(f">按下{key_name}, 延遲{press_delay_ms}ms, {time_val_str}\n")
                             last_event_time = current_time + (press_delay_ms/1000.0)
                         elif auto_pair:
                             pressed_keys[key_name] = current_time
                         else:
                             pressed_keys[key_name] = current_time
+                            lines.append(f">按下{key_name}{time_suffix}\n")
+                            last_event_time = current_time + (line_delay_ms/1000.0)
                     elif event_name == "up":
                         if is_release:
-                            lines.append(f">放開{key_name}\n")
+                            lines.append(f">放開{key_name}{time_suffix}\n")
                             last_event_time = current_time
                         elif key_name in pressed_keys:
                             press_time = pressed_keys[key_name]
                             duration_ms = round((current_time - press_time) * 1000)
-                            lines.append(f">按{key_name}\n")
-                            if duration_ms > 0: lines.append(f">延遲{duration_ms}ms\n")
+                            lines.append(f">按{key_name}, 延遲{duration_ms}ms, T={self._format_time(press_time)}\n")
                             del pressed_keys[key_name]
                             last_event_time = current_time
                     continue
 
                 if event_type == "mouse":
                     x, y = event.get("x", 0), event.get("y", 0)
+                    time_suffix = f", 延遲0ms, T={self._format_time(current_time)}"
+                    
                     if event_name == "move":
-                        lines.append(f">移動至({x},{y})\n")
                         duration = event.get("duration", 0)
-                        if duration > 0:
-                            lines.append(f">延遲{int(duration*1000)}ms\n")
-                            last_event_time = current_time + duration
-                        else:
-                            last_event_time = current_time
+                        dur_ms = int(duration * 1000)
+                        lines.append(f">移動至({x},{y}), 延遲{dur_ms}ms, T={self._format_time(current_time)}\n")
+                        last_event_time = current_time + duration
                     elif event_name == "wheel":
-                        lines.append(f">滾輪({event.get('delta', 1)})\n")
+                        lines.append(f">滾輪({event.get('delta', 1)}){time_suffix}\n")
                         last_event_time = current_time
                     elif event_name == "down":
                         button = event.get("button", "left")
                         btn_name = "左鍵" if button == "left" else "右鍵" if button == "right" else "中鍵"
+                        
                         next_event = events[idx + 1] if idx + 1 < len(events) else None
+                        next_next_event = events[idx + 2] if idx + 2 < len(events) else None
+                        
+                        # --- 移除自動「收合」拖曳指令的邏輯，保持拆解狀態 ---
+                        # if (button == "left" and next_event and next_event.get("type") == "mouse" and 
+                        #     next_event.get("event") == "move" and next_next_event and 
+                        #     next_next_event.get("type") == "mouse" and next_next_event.get("event") == "up" and 
+                        #     next_next_event.get("button") == "left"):
+                        #     ...
+                        
+                        # 檢查是否為「點擊」序列 (Down -> Up)
                         if (next_event and next_event.get("type") == "mouse" and 
                             next_event.get("event") == "up" and next_event.get("button") == button):
+                            # 注意：這裡如果是點擊序列，延遲通常由 Up 事件貢獻
                             duration_ms = round((next_event["time"] - current_time) * 1000)
-                            lines.append(f">{btn_name}點擊({x},{y})\n")
-                            if duration_ms > 0: lines.append(f">延遲{duration_ms}ms\n")
+                            lines.append(f">{btn_name}點擊({x},{y}), 延遲{duration_ms}ms, {time_val_str}\n")
                             next_event["_skip_next"] = True
-                            last_event_time = next_event["time"]
+                            last_event_time = next_event["time"] + (next_event.get("_delay_after", 0)/1000.0)
                         else:
-                            lines.append(f">按下{btn_name}({x},{y})\n")
-                            last_event_time = current_time
+                            coord_str = f"({x},{y})" if x is not None else ""
+                            lines.append(f">按下{btn_name}{coord_str}{time_suffix}\n")
+                            last_event_time = current_time + (line_delay_ms/1000.0)
                     elif event_name == "up":
-                        btn_name = "放開" + ("左鍵" if event.get("button") == "left" else "右鍵" if event.get("button") == "right" else "中鍵")
-                        lines.append(f">{btn_name}({x},{y})\n")
-                        last_event_time = current_time
+                        btn_name = "左鍵" if event.get("button") == "left" else "右鍵" if event.get("button") == "right" else "中鍵"
+                        coord_str = f"({x},{y})" if x is not None else ""
+                        lines.append(f">放開{btn_name}{coord_str}{time_suffix}\n")
+                        last_event_time = current_time + (line_delay_ms/1000.0)
                     continue
 
                 if event_type == "click_image":
                     pic_name = event.get("image", "")
                     btn = "左鍵點擊" if event.get("button", "left") == "left" else "右鍵點擊"
-                    lines.append(f">{btn}>{pic_name}\n")
-                    last_event_time = current_time
+                    lines.append(f">{btn}>{pic_name}{time_suffix}\n")
+                    last_event_time = current_time + (line_delay_ms/1000.0)
                     continue
 
                 if event_type == "recognize_image":
-                    lines.append(f">辨識>{event.get('image', '')}\n")
-                    last_event_time = current_time
+                    lines.append(f">辨識>{event.get('image', '')}{time_suffix}\n")
+                    last_event_time = current_time + (line_delay_ms/1000.0)
                     continue
 
                 if event_type == "if_image_exists":
-                    lines.append(f">if>{event.get('image', '')}\n")
+                    lines.append(f">if>{event.get('image', '')}, T={self._format_time(current_time)}\n")
                     if event.get("on_success"): lines.append(f">>{self._format_branch_action(event['on_success'])}\n")
                     if event.get("on_failure"): lines.append(f">>>{self._format_branch_action(event['on_failure'])}\n")
                     last_event_time = current_time
@@ -3982,29 +3974,28 @@ class TextCommandEditor(tk.Toplevel):
                     
                     # 提取延遲 (耗時)
                     duration_match = re.search(r'延遲(\d+)ms', stripped)
-                    duration = int(duration_match.group(1)) if duration_match else 500
+                    duration = int(duration_match.group(1)) if duration_match else 1500
                     
                     # 提取時間 T=
                     time_match = re.search(r'T=([\w\d]+)', stripped)
                     first_time_str = f", T={time_match.group(1)}" if time_match else ", T=0s000"
-                    seq_time_str = ", T=0s000" # 後續動作使用累積時間
                     
                     # 展開為複合指令
                     if has_start:
                         # 1. 先移動到起點
                         expanded_lines.append(f">移動至({x1},{y1}), 延遲0ms{first_time_str}")
                         expanded_lines.append(f"  # --- 拖曳開始 ---")
-                        # 如果已有起點移動，後續按下的動作改用累加模式
-                        start_time_for_press = seq_time_str
+                        # 如果已有起點移動，後續動作不帶 T= 以便時間累積
+                        start_time_for_press = ""
                     else:
                         start_time_for_press = first_time_str
                     
                     # 2. 按下
                     expanded_lines.append(f">按下左鍵, 延遲50ms{start_time_for_press}")
-                    # 3. 移動到終點 (帶耗時)
-                    expanded_lines.append(f">移動至({x2},{y2}), 延遲{duration}ms{seq_time_str}")
+                    # 3. 移動到終點 (帶耗時)，移除 T= 防止時間重設為 0
+                    expanded_lines.append(f">移動至({x2},{y2}), 延遲{duration}ms, T=0s000")
                     # 4. 放開
-                    expanded_lines.append(f">放開左鍵, 延遲50ms{seq_time_str}")
+                    expanded_lines.append(f">放開左鍵, 延遲50ms, T=0s000")
                     
                     if has_start:
                         expanded_lines.append(f"  # --- 拖曳結束 ---")
@@ -4045,14 +4036,19 @@ class TextCommandEditor(tk.Toplevel):
                 expanded_lines.append(f"# 核心暫未支援: {line}")
                 continue
 
-            # >點擊圖片[pic01] -> >左鍵點擊>pic01
-            if stripped.startswith('>點擊圖片['):
-                match = re.search(r'\[(.*?)\]', stripped)
+            # 3. 使用者要求的格式: >按下左鍵, 拖曳至(x2,y2), 延遲1000ms
+            if '>按下左鍵' in stripped and '拖曳至' in stripped:
+                match = re.search(r'>按下左鍵,\s*拖曳至\s*\((-?\d+),\s*(-?\d+)\)', stripped)
                 if match:
-                    content = match.group(1)
-                    rest_match = re.search(r'(,\s*T=[\w\d]+)', stripped)
-                    rest = rest_match.group(1) if rest_match else ", T=0s000"
-                    expanded_lines.append(f">左鍵點擊>{content}{rest}")
+                    x2, y2 = match.group(1), match.group(2)
+                    duration_match = re.search(r'延遲(\d+)ms', stripped)
+                    duration = int(duration_match.group(1)) if duration_match else 1500
+                    time_match = re.search(r'T=([\w\d]+)', stripped)
+                    t_str = f", T={time_match.group(1)}" if time_match else ", T=0s000"
+                    
+                    expanded_lines.append(f">按下左鍵, 延遲50ms{t_str}")
+                    expanded_lines.append(f">移動至({x2},{y2}), 延遲{duration}ms, T=0s000")
+                    expanded_lines.append(f">放開左鍵, 延遲50ms, T=0s000")
                     continue
 
             # 沒匹配到別名，保留原行
@@ -4086,6 +4082,7 @@ class TextCommandEditor(tk.Toplevel):
         running_time = 0.0  # 新增：累積時間 (Running Clock)
         while i < len(lines):
             line = lines[i].strip()
+            line_stripped = line
             line_number = i  # 記錄當前行號
             
             # 處理備註（# 後有空格）
@@ -4276,9 +4273,8 @@ class TextCommandEditor(tk.Toplevel):
                         "等待圖片", "點擊圖片", "如果存在", 
                         "辨識>", "移動至>", "左鍵點擊>", "右鍵點擊>", 
                         "如果存在>", "辨識任一>", "if>",
-                        "if文字>", "等待文字>", "點擊文字>",  # OCR指令
-                        "延遲"  # 延遲指令
-                    ]):
+                        "if文字>", "等待文字>", "點擊文字>"  # OCR指令
+                    ]) or line.startswith(">延遲"):
                         # 圖片指令和OCR指令處理
                         event = self._parse_image_command_to_json(line, lines[i+1:i+6], running_time)
                         if event:
@@ -4344,7 +4340,7 @@ class TextCommandEditor(tk.Toplevel):
                     parts_raw = protected.split(",")
                     parts = [p.replace('§', ',') for p in parts_raw]
                     
-                    if len(parts) >= 2:
+                    if len(parts) >= 1:
                         action = parts[0].strip()
                         if len(parts) == 2 and "T=" in parts[1]:
                             delay_str = "0ms"
@@ -4376,7 +4372,7 @@ class TextCommandEditor(tk.Toplevel):
                         if ("左鍵點擊" in action or "右鍵點擊" in action or "中鍵點擊" in action) and not coords:
                             button = "right" if "右鍵" in action else "middle" if "中鍵" in action else "left"
                             events.append({"type": "mouse", "event": "down", "button": button, "x": None, "y": None, "time": abs_time, "in_target": True, "relative_to_window": True, "_line_number": line_number})
-                            events.append({"type": "mouse", "event": "up", "button": button, "x": None, "y": None, "time": abs_time + delay_s, "in_target": True, "relative_to_window": True, "_line_number": line_number})
+                            events.append({"type": "mouse", "event": "up", "button": button, "x": None, "y": None, "time": abs_time + (delay_ms/1000.0), "in_target": True, "relative_to_window": True, "_line_number": line_number, "_delay_after": delay_ms})
                         
                         elif coords:
                             x, y = int(coords.group(1)), int(coords.group(2))
@@ -4390,31 +4386,40 @@ class TextCommandEditor(tk.Toplevel):
                                     "in_target": True, 
                                     "relative_to_window": True,
                                     "duration": delay_s,  # 傳遞移動耗時
-                                    "_line_number": line_number
+                                    "_line_number": line_number,
+                                    "_delay_after": delay_ms
                                 })
                             elif "點擊" in action or "鍵" in action:
                                 button = "right" if "右鍵" in action else "middle" if "中鍵" in action else "left"
                                 if "點擊" in action:
                                     events.append({"type": "mouse", "event": "down", "button": button, "x": x, "y": y, "time": abs_time, "in_target": True, "relative_to_window": True, "_line_number": line_number})
-                                    events.append({"type": "mouse", "event": "up", "button": button, "x": x, "y": y, "time": abs_time + delay_s, "in_target": True, "relative_to_window": True, "_line_number": line_number})
+                                    events.append({"type": "mouse", "event": "up", "button": button, "x": x, "y": y, "time": abs_time + (delay_ms/1000.0), "in_target": True, "relative_to_window": True, "_line_number": line_number, "_delay_after": delay_ms})
                                 elif "按下" in action:
-                                    events.append({"type": "mouse", "event": "down", "button": button, "x": x, "y": y, "time": abs_time, "in_target": True, "relative_to_window": True, "_line_number": line_number})
+                                    events.append({"type": "mouse", "event": "down", "button": button, "x": x, "y": y, "time": abs_time, "in_target": True, "relative_to_window": True, "_line_number": line_number, "_delay_after": delay_ms})
                                 elif "放開" in action:
-                                    events.append({"type": "mouse", "event": "up", "button": button, "x": x, "y": y, "time": abs_time, "in_target": True, "relative_to_window": True, "_line_number": line_number})
+                                    events.append({"type": "mouse", "event": "up", "button": button, "x": x, "y": y, "time": abs_time, "in_target": True, "relative_to_window": True, "_line_number": line_number, "_delay_after": delay_ms})
                         
                         elif "滾輪" in action:
                             wheel_match = re.search(r'滾輪\(([+-]?\d+)\)', action)
                             if wheel_match:
                                 delta = int(wheel_match.group(1))
-                                events.append({"type": "mouse", "event": "wheel", "delta": delta, "x": 0, "y": 0, "time": abs_time, "in_target": True, "relative_to_window": True, "_line_number": line_number})
+                                events.append({"type": "mouse", "event": "wheel", "delta": delta, "x": 0, "y": 0, "time": abs_time, "in_target": True, "relative_to_window": True, "_line_number": line_number, "_delay_after": delay_ms})
                         
                         elif "按下" in action:
                             key = action.replace("按下", "").strip()
-                            events.append({"type": "keyboard", "event": "down", "name": key, "time": abs_time, "_line_number": line_number, "_is_press": True, "_press_delay": delay_ms})
+                            if key in ["左鍵", "右鍵", "中鍵"]:
+                                button = "left" if key == "左鍵" else "right" if key == "右鍵" else "middle"
+                                events.append({"type": "mouse", "event": "down", "button": button, "x": None, "y": None, "time": abs_time, "in_target": True, "relative_to_window": True, "_line_number": line_number, "_delay_after": delay_ms})
+                            else:
+                                events.append({"type": "keyboard", "event": "down", "name": key, "time": abs_time, "_line_number": line_number, "_is_press": True, "_press_delay": delay_ms, "_delay_after": delay_ms})
                         
                         elif "放開" in action:
                             key = action.replace("放開", "").strip()
-                            events.append({"type": "keyboard", "event": "up", "name": key, "time": abs_time, "_line_number": line_number, "_is_release": True})
+                            if key in ["左鍵", "右鍵", "中鍵"]:
+                                button = "left" if key == "左鍵" else "right" if key == "右鍵" else "middle"
+                                events.append({"type": "mouse", "event": "up", "button": button, "x": None, "y": None, "time": abs_time, "in_target": True, "relative_to_window": True, "_line_number": line_number, "_delay_after": delay_ms})
+                            else:
+                                events.append({"type": "keyboard", "event": "up", "name": key, "time": abs_time, "_line_number": line_number, "_is_release": True, "_delay_after": delay_ms})
                         
                         elif action.startswith("按") and "按下" not in action and "按鍵" not in action:
                             key = action.replace("按", "").strip()
@@ -7038,6 +7043,10 @@ class TextCommandEditor(tk.Toplevel):
     def _capture_right_click_coordinate(self):
         """捕捉右鍵點擊座標"""
         self._capture_click_coordinate("right")
+
+    def _capture_drag_coordinate(self):
+        """捕捉拖曳終點座標"""
+        self._capture_click_coordinate("drag")
     
     def _capture_click_coordinate(self, button_type):
         """捕捉滑鼠點擊座標的通用函數"""
@@ -7114,12 +7123,20 @@ class TextCommandEditor(tk.Toplevel):
         
         try:
             x, y = coordinate
+            current_time = self._get_next_available_time()
             
-            # 生成點擊指令
+            # 生成點擊或拖曳指令
             if button_type == "left":
-                command = f">左鍵點擊({x},{y}), 延遲50ms, T=0s000\n"
-            else:  # right
-                command = f">右鍵點擊({x},{y}), 延遲50ms, T=0s000\n"
+                command = f">左鍵點擊({x},{y}), 延遲50ms, T={current_time}\n"
+            elif button_type == "right":
+                command = f">右鍵點擊({x},{y}), 延遲50ms, T={current_time}\n"
+            elif button_type == "drag":
+                # 改為產生拆解後的 3 個動作，符合目前的寫法生態
+                command = (
+                    f">按下左鍵, 延遲50ms, T={current_time}\n"
+                    f">移動至({x},{y}), 延遲1500ms, T=0s000\n"
+                    f">放開左鍵, 延遲50ms, T=0s000\n"
+                )
             
             #  確保編輯器在最上層再插入文字
             self.lift()
@@ -7130,8 +7147,8 @@ class TextCommandEditor(tk.Toplevel):
             self.text_editor.focus_set()
             
             # 更新狀態列
-            button_name = "左鍵" if button_type == "left" else "右鍵"
-            self._update_status(f"{button_name}點擊座標已插入：({x}, {y})", "success")
+            button_name = "左鍵" if button_type == "left" else "右鍵" if button_type == "right" else "拖曳終點"
+            self._update_status(f"{button_name}座標已插入：({x}, {y})", "success")
             
         except Exception as e:
             self._show_message("錯誤", f"插入點擊指令失敗：{e}", "error")
@@ -9278,7 +9295,7 @@ class CoordinateSelector(tk.Toplevel):
         self.canvas.pack(fill="both", expand=True)
         
         # 說明文字
-        button_name = "左鍵" if button_type == "left" else "右鍵"
+        button_name = "左鍵" if button_type == "left" else "右鍵" if button_type == "right" else "拖曳終點"
         self.text_id = self.canvas.create_text(
             self.winfo_screenwidth() // 2,
             50,
@@ -9288,7 +9305,7 @@ class CoordinateSelector(tk.Toplevel):
         )
         
         # 綁定事件 - 根據按鈕類型綁定不同的滑鼠事件
-        if button_type == "left":
+        if button_type == "left" or button_type == "drag":
             self.canvas.bind("<ButtonPress-1>", self._on_click)
         else:  # right
             self.canvas.bind("<ButtonPress-3>", self._on_click)
@@ -9303,7 +9320,7 @@ class CoordinateSelector(tk.Toplevel):
     def _enable_capture(self):
         """啟用座標捕捉功能"""
         self.ready = True
-        button_name = "左鍵" if self.button_type == "left" else "右鍵"
+        button_name = "左鍵" if self.button_type == "left" else "右鍵" if self.button_type == "right" else "拖曳終點"
         self.canvas.itemconfig(self.text_id, text=f"請點擊{button_name}以捕捉座標 (ESC取消)")
     
     def _on_click(self, event):

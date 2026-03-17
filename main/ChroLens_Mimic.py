@@ -25,6 +25,7 @@ import pywintypes
 import random  # 新增
 import tkinter.font as tkfont
 import sys
+from utils import set_window_icon, get_icon_path
 
 # 🔧 快捷鍵修復：使用 pynput 替代 keyboard 模組（解決需要長按才能觸發的問題）
 try:
@@ -189,37 +190,6 @@ def font_tuple(size, weight=None, monospace=False):
         return (fam, size, weight)
     return (fam, size)
 
-def get_icon_path():
-    """取得圖示檔案路徑（打包後和開發環境通用）"""
-    try:
-        import sys
-        if getattr(sys, 'frozen', False):
-            # 打包後的環境
-            return os.path.join(sys._MEIPASS, "umi_奶茶色.ico")
-        else:
-            # 開發環境
-            # 檢查是否在 main 資料夾中
-            if os.path.exists("umi_奶茶色.ico"):
-                return "umi_奶茶色.ico"
-            # 檢查上層 pic 目錄
-            elif os.path.exists("../pic/umi_奶茶色.ico"):
-                return "../pic/umi_奶茶色.ico"
-            # 檢查上層目錄（向下兼容）
-            elif os.path.exists("../umi_奶茶色.ico"):
-                return "../umi_奶茶色.ico"
-            else:
-                return "umi_奶茶色.ico"
-    except:
-        return "umi_奶茶色.ico"
-
-def set_window_icon(window):
-    """為視窗設定圖示"""
-    try:
-        icon_path = get_icon_path()
-        if os.path.exists(icon_path):
-            window.iconbitmap(icon_path)
-    except Exception as e:
-        print(f"設定視窗圖示失敗: {e}")
 
 def show_error_window(window_name):
     ctypes.windll.user32.MessageBoxW(
@@ -557,14 +527,8 @@ class RecorderApp(tb.Window):
         self.style.configure("miniBold.TButton", font=font_tuple(9, "bold"))
 
         self.title(f"ChroLens_Mimic_{VERSION}")
-        # 設定視窗圖示
-        try:
-            icon_path = get_icon_path()
-            if os.path.exists(icon_path):
-                # 使用 wm_iconbitmap 方法 (更相容 ttkbootstrap)
-                self.wm_iconbitmap(icon_path)
-        except Exception as e:
-            print(f"設定視窗圖示失敗: {e}")
+        # 設定視窗圖示 (使用統一工具)
+        set_window_icon(self)
         # 關閉視窗時使用強制關閉清理函式
         try:
             self.protocol("WM_DELETE_WINDOW", self.force_quit)
@@ -2337,7 +2301,7 @@ class RecorderApp(tb.Window):
             event_copy = event.copy()
             
             # 處理滑鼠事件的座標
-            if event.get('type') == 'mouse' and 'x' in event and 'y' in event:
+            if event.get('type') == 'mouse' and event.get('x') is not None and event.get('y') is not None:
                 # 檢查是否為視窗相對座標
                 if event.get('relative_to_window', False):
                     # 取得相對座標
@@ -4581,8 +4545,8 @@ class RecorderApp(tb.Window):
         script_name = self.script_var.get()
         hotkey = self.hotkey_capture_var.get().strip().lower()
         
-        if not script_name or not hotkey or hotkey == "輸入按鍵":
-            self.log("請先選擇腳本並輸入有效的快捷鍵。")
+        if not script_name or hotkey == "輸入按鍵":
+            self.log("請先選擇腳本並輸入有效的快捷鍵。(輸入空白可清除)")
             return
             
         # 安全性檢查

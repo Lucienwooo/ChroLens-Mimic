@@ -1,6 +1,6 @@
 import React from 'react';
 import styles from './page.module.css';
-import VideoPreview from '../components/VideoPreview';
+import VideoPreview from '@/components/VideoPreview';
 
 interface FeatureCard {
   title: string;
@@ -96,7 +96,7 @@ export default function Home() {
             <span className="material-symbols-outlined">menu_book</span>
             教學
           </a>
-          <a href="https://github.com/Lucienwooo/ChroLens-Mimic" target="_blank" className={styles.navLink}>
+          <a href="https://github.com/Lucienwooo/ChroLens-Mimic" target="_blank" rel="noopener noreferrer" className={styles.navLink}>
             <span className="material-symbols-outlined">code</span>
             GitHub
           </a>
@@ -146,7 +146,7 @@ export default function Home() {
               {featureCards.map((card, index) => (
                 <div 
                   key={index} 
-                  className={`${styles.bentoCard} ${styles[card.size || 'small']}`}
+                  className={`${styles.bentoCard} ${styles[(card.size || 'small') as keyof typeof styles]}`}
                 >
                   <div className={styles.cardHeader}>
                     <span className={`material-symbols-outlined ${styles.cardIcon}`}>{card.icon}</span>

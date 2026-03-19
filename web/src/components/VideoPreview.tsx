@@ -99,6 +99,7 @@ export default function VideoPreview({
                     aria-label={hasVideo ? `播放${title}` : title}
                 >
                     {thumbnailUrl ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img
                             src={thumbnailUrl}
                             alt={title}

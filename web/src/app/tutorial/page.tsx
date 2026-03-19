@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import styles from './page.module.css';
 
 // YouTube 嵌入元件
@@ -267,10 +268,10 @@ export default function TutorialPage() {
       </div>
 
       <nav className={styles.nav}>
-        <a href="/">← 返回首頁</a>
-        <a href="/tutorial/basic">基礎教學</a>
-        <a href="/tutorial/advanced">進階教學</a>
-        <a href="/tutorial/examples">範例腳本</a>
+        <Link href="/">← 返回首頁</Link>
+        <Link href="/tutorial/basic">基礎教學</Link>
+        <Link href="/tutorial/advanced">進階教學</Link>
+        <Link href="/tutorial/examples">範例腳本</Link>
       </nav>
 
       <section className={styles.tutorialList}>
@@ -291,14 +292,14 @@ export default function TutorialPage() {
       <section className={styles.nextSteps}>
         <h2>🚀 下一步</h2>
         <div className={styles.nextGrid}>
-          <a href="/tutorial/advanced" className={styles.nextCard}>
+          <Link href="/tutorial/advanced" className={styles.nextCard}>
             <h3>進階功能</h3>
             <p>圖片辨識、OCR、條件判斷</p>
-          </a>
-          <a href="/tutorial/examples" className={styles.nextCard}>
+          </Link>
+          <Link href="/tutorial/examples" className={styles.nextCard}>
             <h3>範例腳本</h3>
             <p>實用的自動化腳本範例</p>
-          </a>
+          </Link>
           <a href="https://discord.gg/72Kbs4WPPn" target="_blank" rel="noopener noreferrer" className={styles.nextCard}>
             <h3>Discord 社群</h3>
             <p>加入社群討論問題</p>

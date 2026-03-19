@@ -78,38 +78,6 @@ const featureCards: FeatureCard[] = [
 
 export default function Home() {
   return (
-    <div className={styles.layout}>
-      {/* --- Sidebar --- */}
-      <aside className={styles.sidebar}>
-        <div className={styles.sidebarHeader}>
-          <h1 className={styles.logo}>
-            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>terminal</span>
-            Mimic
-          </h1>
-        </div>
-        <nav className={styles.nav}>
-          <a href="#" className={`${styles.navLink} ${styles.active}`}>
-            <span className="material-symbols-outlined">dashboard</span>
-            總覽
-          </a>
-          <a href="/tutorial" className={styles.navLink}>
-            <span className="material-symbols-outlined">menu_book</span>
-            教學
-          </a>
-          <a href="https://github.com/Lucienwooo/ChroLens-Mimic" target="_blank" rel="noopener noreferrer" className={styles.navLink}>
-            <span className="material-symbols-outlined">code</span>
-            GitHub
-          </a>
-        </nav>
-        <div className={styles.sidebarFooter}>
-          <div className={styles.statusBadge}>
-            <div className={styles.pulse}></div>
-            v2.7.8 Online
-          </div>
-        </div>
-      </aside>
-
-      {/* --- Main Content --- */}
       <main className={styles.main}>
         {/* Glow Effects */}
         <div className={styles.glowTop}></div>
@@ -163,7 +131,7 @@ export default function Home() {
                   {card.size === 'large' && (
                      <div className={styles.cardDecoration}>
                         <svg viewBox="0 0 400 200" className={styles.svgDecoration}>
-                           <path d="M0 50H400 M0 100H400 M0 150H400 M50 0V200 M100 0V200 M150 0V200 M200 0V200 M250 0V200 M300 0V200 M350 0V200" stroke="rgba(255,255,255,0.05)" strokeDasharray="4 4" />
+                           <path d="M0 50H400 M0 100H400 M0 150H400 M50 0V200 M100 0V200 M150 0V200 M200 0V200 M250 0V200 M300 0V200 M350 0V200" stroke="rgba(255,255,255,0.05)" strokeDasharray="4 4" fill="none" />
                            <path d="M50 150 C 100 150, 150 50, 200 80 S 300 180, 350 50" fill="none" stroke="#00F0FF" strokeWidth="2" strokeLinecap="round" />
                            <circle cx="50" cy="150" r="4" fill="#0A0A0A" stroke="#00F0FF" strokeWidth="2" />
                            <circle cx="350" cy="50" r="4" fill="#00F0FF" />
@@ -199,13 +167,10 @@ export default function Home() {
              </div>
           </section>
 
+          <footer className={styles.footer}>
+            <p>© 2026 ChroLens Mimic - Designed for Efficiency</p>
+          </footer>
         </div>
       </main>
-      
-      {/* --- Footer --- */}
-      <footer className={styles.footer}>
-         <p>© 2026 ChroLens Mimic - Designed for Efficiency</p>
-      </footer>
-    </div>
   );
 }

@@ -32,8 +32,56 @@
   --radius-card:        8px;
 }
 
+/* --- Theme Mapping (Cyber Dark as Default) --- */
+:root, [data-theme='dark'] {
+  --sidebar-bg:         var(--surface);
+  --sidebar-border:     var(--border-color);
+  --sidebar-text:       var(--text-main);
+  --sidebar-muted:      var(--text-muted);
+  --sidebar-active-bg:  #1A1A1A;
+  --sidebar-active-bar: var(--primary);
+  --sidebar-hover-bg:   #1A1A1A;
+
+  --content-bg:         var(--background-dark);
+  --content-surface:    var(--surface);
+  --content-border:     var(--border-color);
+
+  --text-primary:       var(--text-main);
+  --text-secondary:     var(--text-muted);
+  --text-muted:         #6e7681;
+
+  --accent-blue:        var(--primary);
+  --accent-teal:        var(--primary);
+  --accent-green:       #3fb950;
+  --accent-orange:      #d29922;
+  --accent-red:         #f85149;
+  --accent-purple:      var(--accent);
+
+  --tip-bg:             rgba(0, 240, 255, 0.05);
+  --tip-border:         rgba(0, 240, 255, 0.2);
+  --warning-bg:         rgba(210, 153, 34, 0.1);
+  --warning-border:     rgba(210, 153, 34, 0.3);
+  --danger-bg:          rgba(248, 81, 73, 0.1);
+  --danger-border:      rgba(248, 81, 73, 0.3);
+
+  --badge-bg:           rgba(0, 240, 255, 0.1);
+  --badge-color:        var(--primary);
+
+  --code-bg:            rgba(255, 255, 255, 0.03);
+  --code-inline-bg:     rgba(255, 255, 255, 0.05);
+  --code-border:        var(--border-color);
+
+  --table-even:         rgba(255, 255, 255, 0.02);
+  --table-hover:        rgba(255, 255, 255, 0.04);
+
+  --btn-primary-bg:     var(--surface);
+  --btn-primary-hover:  var(--surface-hover);
+  --btn-secondary-bg:   var(--surface);
+  --btn-secondary-hover:var(--surface-hover);
+}
+
 /* Base Styles Overrides */
-html.dark {
+[data-theme='dark'] {
   background-color: var(--background-dark);
 }
 

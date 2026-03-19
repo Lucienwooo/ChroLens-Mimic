@@ -1,2 +1,0 @@
-8262: self.workflow_canvas.tag_bind(tag, "<Enter>",
-8585: self.workflow_canvas.tag_bind(item_id, "<Enter>",

@@ -39,7 +39,7 @@ REM Step 2: Check Required Files
 REM ===================================================================
 echo [2/6] Checking required files...
 set FILE_MISSING=0
-for %%f in (ChroLens_Mimic.py recorder.py text_script_editor.py lang.py) do (
+for %%f in (ChroLens_Mimic.py modules\recorder.py modules\text_script_editor.py modules\lang.py) do (
     if not exist "%%f" (
         echo MISSING: %%f
         set FILE_MISSING=1
@@ -77,7 +77,7 @@ REM Step 4: Run PyInstaller
 REM ===================================================================
 echo [4/6] Running PyInstaller...
 echo -------------------------------------------------------------------
-set PYINSTALLER_CMD=pyinstaller --onedir --windowed --name "ChroLens_Mimic" --add-data "images;images" --add-data "TTF;TTF" --add-data "yolov8s.pt;." --hidden-import "ttkbootstrap" --hidden-import "keyboard" --hidden-import "mouse" --hidden-import "mss" --hidden-import "PIL" --hidden-import "cv2" --hidden-import "numpy" --hidden-import "pystray" --hidden-import "bezier_mouse" --hidden-import "yolo_detector" --hidden-import "recorder" --hidden-import "text_script_editor" --hidden-import "lang" --hidden-import "script_io" --hidden-import "about" --hidden-import "mini" --hidden-import "window_selector" --hidden-import "version_manager" --hidden-import "version_info_dialog" --collect-all "ttkbootstrap" --collect-all "ultralytics" --noconfirm %ICON_PARAM% "ChroLens_Mimic.py"
+set PYINSTALLER_CMD=pyinstaller --onedir --windowed --name "ChroLens_Mimic" --add-data "images;images" --add-data "TTF;TTF" --add-data "models;models" --add-data "data;data" --hidden-import "ttkbootstrap" --hidden-import "keyboard" --hidden-import "mouse" --hidden-import "mss" --hidden-import "PIL" --hidden-import "cv2" --hidden-import "numpy" --hidden-import "pystray" --hidden-import "bezier_mouse" --hidden-import "yolo_detector" --hidden-import "recorder" --hidden-import "text_script_editor" --hidden-import "lang" --hidden-import "script_io" --hidden-import "about" --hidden-import "mini" --hidden-import "pynput_hotkey" --hidden-import "window_selector" --hidden-import "version_manager" --hidden-import "version_info_dialog" --collect-all "ttkbootstrap" --collect-all "ultralytics" --noconfirm %ICON_PARAM% "ChroLens_Mimic.py"
 
 %PYINSTALLER_CMD%
 

@@ -45,8 +45,12 @@ class YOLODetector:
         pos = detector.find_object("button")
     """
     
-    # 預設模型路徑
-    DEFAULT_MODEL = "yolov8s.pt"
+    # 預設模型路徑 (v2.7.8 Reorganization)
+    DEFAULT_MODEL = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "yolov8s.pt")
+    
+    # 兼容舊路徑（根目錄）
+    if not os.path.exists(DEFAULT_MODEL):
+        DEFAULT_MODEL = "yolov8s.pt"
     
     # COCO 類別名稱（YOLOv8 預設）
     COCO_CLASSES = [

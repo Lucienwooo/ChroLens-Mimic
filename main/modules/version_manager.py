@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 版本管理器 - ChroLens_Mimic
 負責檢查更新和版本資訊顯示
@@ -44,7 +44,12 @@ class VersionManager:
         if getattr(sys, 'frozen', False):
             self.app_dir = os.path.dirname(sys.executable)
         else:
-            self.app_dir = os.path.dirname(os.path.abspath(__file__))
+            # 取得目前的檔案目錄並往上一層 (v2.7.8 Reorganization)
+            current_file_dir = os.path.dirname(os.path.abspath(__file__))
+            if os.path.basename(current_file_dir) == 'modules':
+                self.app_dir = os.path.dirname(current_file_dir)
+            else:
+                self.app_dir = current_file_dir
     
     def log(self, msg: str):
         """記錄日誌"""

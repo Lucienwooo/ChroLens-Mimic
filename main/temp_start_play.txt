@@ -1,5 +1,0 @@
-2432: success = self.core_recorder.play(
-2486: self.core_recorder.stop_play()
-2545: self.core_recorder.stop_play()
-3332: update_merge_list_display()
-3345: def update_merge_list_display():

@@ -8,220 +8,204 @@ interface FeatureCard {
   videoSrc?: string;
   thumbnail?: string;
   features: string[];
+  icon: string;
+  size?: 'small' | 'medium' | 'large';
 }
 
 const featureCards: FeatureCard[] = [
   {
     title: '🎮 錄製與回放',
     youtubeId: 'waHPYnjPwbM',
+    icon: 'gesture',
+    size: 'large',
     features: [
       '錄製滑鼠和鍵盤操作',
       '支援暫停/繼續功能',
       '多種回放速度設定（1x–10x）',
       '智能視窗定位',
-      '滑鼠模式與視窗模式切換',
     ],
   },
   {
     title: '📝 腳本編輯器',
+    icon: 'code_blocks',
+    size: 'medium',
     features: [
       '文字指令式編輯器',
-      '圖片辨識功能（支援 pic 命名）',
+      '圖片辨識功能',
       'OCR 文字辨識',
       '條件判斷與迴圈',
-      '變數系統（v2.7.1+）',
-      '語法高亮與自動完成',
     ],
   },
   {
-    title: '⚙️ 進階功能',
-    features: [
-      '多腳本管理',
-      '快捷鍵設定',
-      '排程執行',
-      'MiniMode 簡化介面',
-      '腳本合併功能',
-      '自動備份機制',
-    ],
-  },
-  {
-    title: '🌍 國際化支援',
-    features: [
-      '繁體中文（預設）',
-      'English（v2.7.3+ 完整支援）',
-      '日本語（語言套件）',
-      '可擴展語言系統',
-    ],
-  },
-  {
-    title: '🖼️ 圖片辨識（v2.6.7+）',
+    title: '🖼️ 圖片辨識',
+    icon: 'image_search',
+    size: 'small',
     features: [
       '支援任意 pic 開頭命名',
-      '辨識時顯示邊框',
       '範圍辨識（限定搜尋區域）',
       '組合參數使用',
     ],
   },
   {
-    title: '📋 剪貼簿操作（v2.7.3+）',
+    title: '⚙️ 進階功能',
+    icon: 'settings',
+    size: 'small',
+    features: [
+      '多腳本管理',
+      '快捷鍵設定',
+      '排程執行',
+    ],
+  },
+  {
+    title: '📋 剪貼簿操作',
+    icon: 'content_paste',
+    size: 'small',
     features: [
       '複製到剪貼簿',
       '從剪貼簿讀取',
-      '清空剪貼簿',
-      '支援文字和圖片',
     ],
   },
   {
-    title: '🖥️ 視窗操作（v2.7.3+）',
+    title: '🖥️ 視窗操作',
+    icon: 'window',
+    size: 'small',
     features: [
-      '取得視窗標題',
       '設定視窗大小',
-      '最小化/最大化/還原',
       '切換視窗',
-      '取得視窗位置',
-    ],
-  },
-  {
-    title: '📸 螢幕擷取（v2.7.3+）',
-    features: [
-      '截圖全螢幕',
-      '截圖指定區域',
-      '截圖指定視窗',
-      '支援自動儲存',
     ],
   },
 ];
 
 export default function Home() {
   return (
-    <main className={styles.main}>
-
-      {/* ── Hero ── */}
-      <div className={styles.hero}>
-        <h1>ChroLens Mimic</h1>
-        <p className={styles.heroSubtitle}>
-          輕量級 Windows 巨集錄製與回放工具 — 透過文字腳本實現強大的自動化
-        </p>
-        <div className={styles.heroBadges}>
-          <span className="badge">v2.7.5</span>
-          <span className="badge badge-green">Windows 10/11</span>
-          <span className="badge">免費開源</span>
+    <div className={styles.layout}>
+      {/* --- Sidebar --- */}
+      <aside className={styles.sidebar}>
+        <div className={styles.sidebarHeader}>
+          <h1 className={styles.logo}>
+            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>terminal</span>
+            Mimic
+          </h1>
         </div>
-        <div className={styles.heroActions}>
-          <a
-            href="https://github.com/Lucienwooo/ChroLens-Mimic/releases"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.btnPrimary}
-          >
-            📥 下載最新版本
+        <nav className={styles.nav}>
+          <a href="#" className={`${styles.navLink} ${styles.active}`}>
+            <span className="material-symbols-outlined">dashboard</span>
+            總覽
           </a>
-          <a href="/tutorial" className={styles.btnSecondary}>
-            📚 快速上手指南
+          <a href="/tutorial" className={styles.navLink}>
+            <span className="material-symbols-outlined">menu_book</span>
+            教學
           </a>
+          <a href="https://github.com/Lucienwooo/ChroLens-Mimic" target="_blank" className={styles.navLink}>
+            <span className="material-symbols-outlined">code</span>
+            GitHub
+          </a>
+        </nav>
+        <div className={styles.sidebarFooter}>
+          <div className={styles.statusBadge}>
+            <div className={styles.pulse}></div>
+            v2.7.8 Online
+          </div>
         </div>
-      </div>
+      </aside>
 
-      {/* ── Core Features ── */}
-      <section className={styles.section}>
-        <h2>核心功能</h2>
-        <div className={styles.featureGrid}>
-          {featureCards.map((card, index) => (
-            <div key={index} className={styles.featureCard}>
-              {(card.youtubeId || card.videoSrc || card.thumbnail) && (
-                <VideoPreview
-                  youtubeId={card.youtubeId}
-                  videoSrc={card.videoSrc}
-                  thumbnail={card.thumbnail}
-                  title={card.title}
-                />
-              )}
-              <h3>{card.title}</h3>
-              <ul>
-                {card.features.map((feature, i) => (
-                  <li key={i}>{feature}</li>
-                ))}
-              </ul>
+      {/* --- Main Content --- */}
+      <main className={styles.main}>
+        {/* Glow Effects */}
+        <div className={styles.glowTop}></div>
+
+        <div className={styles.container}>
+          {/* Hero */}
+          <section className={styles.hero}>
+            <div className={styles.heroContent}>
+              <h2 className={styles.heroTitle}>
+                Automate the <br />
+                <span className={styles.gradientText}>Unautomatable.</span>
+              </h2>
+              <p className={styles.heroSubtitle}>
+                輕量級 Windows 巨集錄製與回放工具 — 透過文字腳本實現強大的自動化。
+                錄製滑鼠和鍵盤操作，並以亞毫秒級的精度重現。
+              </p>
+              <div className={styles.heroActions}>
+                <a
+                  href="https://github.com/Lucienwooo/ChroLens-Mimic/releases"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.btnPrimary}
+                >
+                  <span className="material-symbols-outlined">download</span>
+                  下載最新版本
+                </a>
+              </div>
             </div>
-          ))}
+          </section>
+
+          {/* Bento Grid */}
+          <section className={styles.bentoSection}>
+            <div className={styles.bentoGrid}>
+              {featureCards.map((card, index) => (
+                <div 
+                  key={index} 
+                  className={`${styles.bentoCard} ${styles[card.size || 'small']}`}
+                >
+                  <div className={styles.cardHeader}>
+                    <span className={`material-symbols-outlined ${styles.cardIcon}`}>{card.icon}</span>
+                    <h3>{card.title}</h3>
+                  </div>
+                  <ul className={styles.cardFeatures}>
+                    {card.features.map((f, i) => <li key={i}>{f}</li>)}
+                  </ul>
+                  {card.youtubeId && (
+                    <div className={styles.cardVideo}>
+                      <VideoPreview youtubeId={card.youtubeId} title={card.title} />
+                    </div>
+                  )}
+                  {card.size === 'large' && (
+                     <div className={styles.cardDecoration}>
+                        <svg viewBox="0 0 400 200" className={styles.svgDecoration}>
+                           <path d="M0 50H400 M0 100H400 M0 150H400 M50 0V200 M100 0V200 M150 0V200 M200 0V200 M250 0V200 M300 0V200 M350 0V200" stroke="rgba(255,255,255,0.05)" strokeDasharray="4 4" />
+                           <path d="M50 150 C 100 150, 150 50, 200 80 S 300 180, 350 50" fill="none" stroke="#00F0FF" strokeWidth="2" strokeLinecap="round" />
+                           <circle cx="50" cy="150" r="4" fill="#0A0A0A" stroke="#00F0FF" strokeWidth="2" />
+                           <circle cx="350" cy="50" r="4" fill="#00F0FF" />
+                        </svg>
+                     </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Quick Start Card */}
+          <section className={styles.fullWidthSection}>
+             <div className={styles.bentoCard}>
+                <div className={styles.cardHeader}>
+                   <span className="material-symbols-outlined">bolt</span>
+                   <h3>快速開始</h3>
+                </div>
+                <div className={styles.quickStartGrid}>
+                   <div className={styles.step}>
+                      <span className={styles.stepNum}>1</span>
+                      <p>下載並解壓縮 <code>ChroLens_Mimic</code></p>
+                   </div>
+                   <div className={styles.step}>
+                      <span className={styles.stepNum}>2</span>
+                      <p>執行 <code>ChroLens_Mimic.exe</code></p>
+                   </div>
+                   <div className={styles.step}>
+                      <span className={styles.stepNum}>3</span>
+                      <p>按 <kbd>F10</kbd> 錄製，按 <kbd>F12</kbd> 執行</p>
+                   </div>
+                </div>
+             </div>
+          </section>
+
         </div>
-      </section>
-
-      {/* ── Quick Start ── */}
-      <section className={`${styles.section} ${styles.quickStart}`}>
-        <h2>⚡ 快速開始</h2>
-        <ol>
-          <li>從 GitHub Releases 下載並解壓縮 <code>ChroLens_Mimic</code></li>
-          <li>執行 <code>ChroLens_Mimic.exe</code>（建議以系統管理員身份執行）</li>
-          <li>按 <kbd>F10</kbd> 開始錄製滑鼠 &amp; 鍵盤操作</li>
-          <li>按 <kbd>F9</kbd> 停止錄製</li>
-          <li>按 <kbd>F12</kbd> 回放錄製的動作</li>
-        </ol>
-      </section>
-
-      {/* ── Use Cases ── */}
-      <section className={styles.section}>
-        <h2>使用情境</h2>
-        <div className={styles.caseGrid}>
-          <div className={styles.caseCard}>
-            <h3>💼 辦公自動化</h3>
-            <p>Excel 表格批次複製貼上、重複性表單填寫、檔案批次處理</p>
-          </div>
-          <div className={styles.caseCard}>
-            <h3>🎮 遊戲輔助</h3>
-            <p>定點採集、重複技能施放、自動尋路、簡單戰鬥輔助</p>
-          </div>
-          <div className={styles.caseCard}>
-            <h3>🔧 系統維護</h3>
-            <p>防止電腦進入待機、定時任務執行、自動備份</p>
-          </div>
-          <div className={styles.caseCard}>
-            <h3>🧪 軟體測試</h3>
-            <p>重複測試流程、UI 自動化測試、迴歸測試</p>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Download & Links ── */}
-      <section className={`${styles.section} ${styles.download}`}>
-        <h2>下載與社群</h2>
-        <ul className={styles.linkList}>
-          <li>
-            <a href="https://github.com/Lucienwooo/ChroLens-Mimic/releases" target="_blank" rel="noopener noreferrer">
-              <span>📥</span> GitHub Releases — 下載最新版本
-            </a>
-          </li>
-          <li>
-            <a href="https://discord.gg/72Kbs4WPPn" target="_blank" rel="noopener noreferrer">
-              <span>💬</span> Discord 社群 — 問題討論與建議
-            </a>
-          </li>
-          <li>
-            <a href="https://ko-fi.com/B0B51FBVA8" target="_blank" rel="noopener noreferrer">
-              <span>☕</span> Ko-fi — 支持作者開發
-            </a>
-          </li>
-          <li>
-            <a href="/tutorial">
-              <span>📚</span> 使用教學 — 從零開始學習 ChroLens Mimic
-            </a>
-          </li>
-        </ul>
-      </section>
-
-      {/* ── Latest Version ── */}
-      <section className={`${styles.section} ${styles.version}`}>
-        <h2>最新版本</h2>
-        <h3>v2.7.5 — 按鍵系統全面增強</h3>
-        <ul>
-          <li>⌨️ 完美支援所有按鍵類型（Alt、Ctrl、Shift 等修飾鍵）</li>
-          <li>🎮 遊戲按鍵完全支援（Alt 跳躍/攻擊、組合技等）</li>
-          <li>🔧 按鍵名稱自動標準化，處理不同鍵盤庫差異</li>
-          <li>🛡️ 防卡鍵機制，執行結束自動釋放所有按鍵</li>
-          <li>📝 術語優化：「回放」改為「執行」（更直觀）</li>
-        </ul>
-      </section>
-
-    </main>
+      </main>
+      
+      {/* --- Footer --- */}
+      <footer className={styles.footer}>
+         <p>© 2026 ChroLens Mimic - Designed for Efficiency</p>
+      </footer>
+    </div>
   );
 }

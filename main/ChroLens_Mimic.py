@@ -25,6 +25,15 @@ import pywintypes
 import random  # 新增
 import tkinter.font as tkfont
 import sys
+import os
+
+# 🔧 加入模組路徑 (v2.7.8 Reorganization)
+_dir = os.path.dirname(os.path.abspath(__file__))
+_modules_dir = os.path.join(_dir, 'modules')
+if os.path.exists(_modules_dir) and _modules_dir not in sys.path:
+    sys.path.insert(0, _modules_dir)
+# ----------------------------------------
+
 from utils import set_window_icon, get_icon_path
 
 # 🔧 快捷鍵修復：使用 pynput 替代 keyboard 模組（解決需要長按才能觸發的問題）

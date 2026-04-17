@@ -4080,6 +4080,8 @@ class TextCommandEditor(tk.Toplevel):
         pending_label = None  # 暫存標籤,等待下一個事件的時間
         line_number = 0  # 記錄原始行號，用於保持順序
         running_time = 0.0  # 新增：累積時間 (Running Clock)
+        cumulative_offset = 0.0  # 新增：用於拼接腳本時的基準偏移
+        last_real_T = 0.0  # 新增：上次解析到的真實 T= 值
         while i < len(lines):
             line = lines[i].strip()
             line_stripped = line
@@ -4252,11 +4254,21 @@ class TextCommandEditor(tk.Toplevel):
                 try:
                     if any(keyword in line for keyword in ["啟動自動戰鬥", "尋找並攻擊", "迴圈攻擊", "智能戰鬥", "設定戰鬥區域", "暫停戰鬥", "恢復戰鬥", "停止戰鬥"]):
                         # 戰鬥指令處理 (暫不累積戰鬥指令時間指標)
-                        event = self._parse_combat_command_to_json(line, running_time)
+                        event = self._parse_combat_command_to_json(line, cumulative_offset)
                         if event:
                             event["_line_number"] = line_number
-                            if event.get("time", 0) > running_time:
-                                running_time = event["time"]
+                            #  偵測 T= 值回溯並更新偏移
+                            local_T = event.get("_raw_T", 0) # 假設我們在 sub-parser 加入了這個
+                            if local_T == 0 and "T=" in line:
+                                local_T = self._parse_time(line.split(",")[-1])
+                            
+                            if local_T < last_real_T - 0.5:
+                                cumulative_offset = running_time
+                                event["time"] = cumulative_offset + local_T
+                            
+                            last_real_T = local_T
+                            running_time = max(running_time, event.get("time", running_time))
+                            
                             if pending_label:
                                 events.append({
                                     "type": "label",
@@ -4276,13 +4288,19 @@ class TextCommandEditor(tk.Toplevel):
                         "if文字>", "等待文字>", "點擊文字>"  # OCR指令
                     ]) or line.startswith(">延遲"):
                         # 圖片指令和OCR指令處理
-                        event = self._parse_image_command_to_json(line, lines[i+1:i+6], running_time)
+                        #  v2.8.2+: 使用 cumulative_offset 作為基準，偵測 T 回溯
+                        time_str = line.split(",")[-1].strip() if "," in line and "T=" in line else "T=0s000"
+                        local_T = self._parse_time(time_str)
+                        if local_T < last_real_T - 0.5:
+                            cumulative_offset = running_time
+                        last_real_T = local_T
+                        
+                        event = self._parse_image_command_to_json(line, lines[i+1:i+6], cumulative_offset)
                         if event:
                             if event.get("time", 0) == 0:
-                                event["time"] = running_time
-                            else:
-                                running_time = event["time"]
+                                event["time"] = cumulative_offset + local_T
                             
+                            running_time = max(running_time, event["time"])
                             if event.get("type") == "delay":
                                 running_time += event.get("duration", 0)
                             
@@ -4314,12 +4332,18 @@ class TextCommandEditor(tk.Toplevel):
                         "狀態機>", "狀態機結束",
                         "狀態>", "切換>"
                     ]):
-                        event = self._parse_advanced_command_to_json(line, lines[i+1:], running_time)
+                        time_str = line.split(",")[-1].strip() if "," in line and "T=" in line else "T=0s000"
+                        local_T = self._parse_time(time_str)
+                        if local_T < last_real_T - 0.5:
+                            cumulative_offset = running_time
+                        last_real_T = local_T
+                        
+                        event = self._parse_advanced_command_to_json(line, lines[i+1:], cumulative_offset)
                         if event:
                             if event.get("time", 0) == 0:
-                                event["time"] = running_time
-                            else:
-                                running_time = event["time"]
+                                event["time"] = cumulative_offset + local_T
+                            
+                            running_time = max(running_time, event["time"])
                             
                             event["_line_number"] = line_number
                             if pending_label:
@@ -4350,9 +4374,12 @@ class TextCommandEditor(tk.Toplevel):
                             time_str = parts[2].strip() if len(parts) > 2 else "T=0s000"
                         
                         parsed_T = self._parse_time(time_str)
-                        if parsed_T > 0:
-                            running_time = parsed_T
+                        #  v2.8.2+: 智慧型拼接偵測
+                        if parsed_T < last_real_T - 0.5:
+                            cumulative_offset = running_time
                         
+                        last_real_T = parsed_T
+                        running_time = cumulative_offset + parsed_T
                         abs_time = running_time
                         
                         if pending_label:
@@ -4471,7 +4498,8 @@ class TextCommandEditor(tk.Toplevel):
         :return: JSON事件字典
         """
         # 辨識圖片指令（新格式：>辨識>pic01, 邊框, 範圍(x1,y1,x2,y2), T=0s100）
-        recognize_pattern = r'>辨識>([^,]+)(?:,\s*T=(\d+)s(\d+))?'
+        # 圖片辨識指令（>辨識>pic01, 邊框, 範圍(x1,y1,x2,y2), T=0s000）
+        recognize_pattern = r'>辨識>(.+?)(?:,\s*T=(\d+)s(\d+))?$'
         match = re.match(recognize_pattern, command_line)
         if match:
             # 分離圖片名稱和選項
@@ -4498,8 +4526,33 @@ class TextCommandEditor(tk.Toplevel):
                 pic_name = pic_name.replace('邊框', '').strip()
             if region_match:
                 pic_name = pic_name.replace(region_match.group(0), '').strip()
-            #  強力清理：移除所有逗點和多餘空白
-            pic_name = re.sub(r'[,\s]+', '', pic_name).strip()
+            # 強降：只取第一個逗點前的部分作為圖片名稱
+            pic_name = pic_name.split(',')[0].strip()
+            # 強力清理：移除多餘空白
+            pic_name = re.sub(r'\s+', '', pic_name).strip()
+            
+            #  v2.8.2+: 支援 AI 標註 (AI:name)
+            is_ai = pic_name.startswith('AI:')
+            if is_ai:
+                class_name = pic_name[3:]
+                # 解析門檻 (從 content 中找，如果沒有則用預設 0.5)
+                confidence = 0.5
+                conf_match = re.search(r'門檻\(([\d.]+)\)', content)
+                if conf_match:
+                    confidence = float(conf_match.group(1))
+                
+                # 解析成功/失敗分支
+                branches = self._parse_simple_condition_branches(next_lines)
+                
+                return {
+                    "type": "yolo_detect",
+                    "class_name": class_name,
+                    "confidence": confidence,
+                    "region": region,
+                    "on_success": branches.get('success'),
+                    "on_failure": branches.get('failure'),
+                    "time": abs_time
+                }
             
             # 查找對應的圖片檔案
             image_file = self._find_pic_image_file(pic_name)
@@ -4541,7 +4594,7 @@ class TextCommandEditor(tk.Toplevel):
             return result
 
         # 移動至圖片指令（>移動至>pic01, 邊框, 範圍(x1,y1,x2,y2), T=1s000）
-        move_pattern = r'>移動至>([^,]+)(?:,\s*T=(\d+)s(\d+))?'
+        move_pattern = r'>移動至>(.+?)(?:,\s*T=(\d+)s(\d+))?$'
         match = re.match(move_pattern, command_line)
         if match:
             content = match.group(1).strip()
@@ -4567,6 +4620,8 @@ class TextCommandEditor(tk.Toplevel):
                 pic_name = pic_name.replace('邊框', '').strip()
             if region_match:
                 pic_name = pic_name.replace(region_match.group(0), '').strip()
+            # 強降：取第一個逗點前的內容，確保檔名乾淨
+            pic_name = pic_name.split(',')[0].strip()
             pic_name = pic_name.rstrip(',').strip()
             
             # 查找對應的圖片檔案
@@ -4586,7 +4641,7 @@ class TextCommandEditor(tk.Toplevel):
             return result
         
         # 點擊圖片指令（>左鍵點擊>pic01, 邊框, 範圍(x1,y1,x2,y2), 半徑(60), 隨機, T=1s200）
-        click_pattern = r'>(左鍵|右鍵)點擊>(.+?)(?:,\s*T=(\d+)s(\d+))?'
+        click_pattern = r'>(左鍵|右鍵)點擊>(.+?)(?:,\s*T=(\d+)s(\d+))?$'
         match = re.match(click_pattern, command_line)
         if match:
             button = "left" if match.group(1) == "左鍵" else "right"
@@ -4876,7 +4931,7 @@ class TextCommandEditor(tk.Toplevel):
             }
         
         # 新增：辨識任一圖片（多圖同時辨識）>辨識任一>pic01|pic02|pic03, T=0s100
-        recognize_any_pattern = r'>辨識任一>([^,]+),\s*T=(\d+)s(\d+)'
+        recognize_any_pattern = r'>辨識任一>(.+?),\s*T=(\d+)s(\d+)'
         match = re.match(recognize_any_pattern, command_line)
         if match:
             pic_names = match.group(1).strip().split('|')
@@ -5259,7 +5314,7 @@ class TextCommandEditor(tk.Toplevel):
         # ==================== 迴圈控制 ====================
         
         # 重複N次：>重複>10次, T=0s000
-        pattern = r'>重複>(\d+)次(?:,\s*T=(\d+)s(\d+))?'
+        pattern = r'>重複>\s*(\d+)次(?:,\s*T=(\d+)s(\d+))?'
         match = re.match(pattern, command_line)
         if match:
             count = int(match.group(1))
@@ -5363,8 +5418,8 @@ class TextCommandEditor(tk.Toplevel):
         
         # ==================== 隨機功能 ====================
         
-        # 隨機延遲：>隨機延遲>100ms,500ms, T=0s000
-        pattern = r'>隨機延遲>(\d+)ms,(\d+)ms(?:,\s*T=(\d+)s(\d+))?'
+        # 隨機延遲：>隨機延遲>100ms, 500ms, T=0s000
+        pattern = r'>隨機延遲>(\d+)ms,\s*(\d+)ms(?:,\s*T=(\d+)s(\d+))?'
         match = re.match(pattern, command_line)
         if match:
             min_ms = int(match.group(1))
@@ -5402,6 +5457,85 @@ class TextCommandEditor(tk.Toplevel):
                 "on_failure": branches.get('failure'),
                 "time": abs_time
             }
+        
+        # 隨機跳轉：>隨機跳轉>#標籤1, #標籤2, #標籤3, T=0s000
+        pattern = r'>隨機跳轉>(.+?)(?:,\s*T=(\d+)s(\d+))?'
+        match = re.match(pattern, command_line)
+        if match:
+            labels_str = match.group(1).strip()
+            # 支援帶 # 或不帶 # 的標籤名，自動過濾掉 #
+            labels = [l.strip().replace('#', '') for l in labels_str.split(',')]
+            seconds = int(match.group(2)) if match.group(2) else 0
+            millis = int(match.group(3)) if match.group(3) else 0
+            abs_time = start_time + seconds + millis / 1000.0
+            
+            return {
+                "type": "random_jump",
+                "labels": labels,
+                "time": abs_time
+            }
+        
+        # YOLO 偵測：>YOLO偵測>enemy, 門檻(0.6), 範圍(0,0,100,100), T=0s000
+        pattern = r'>YOLO偵測>(.+?)(?:,\s*T=(\d+)s(\d+))?$'
+        match = re.match(pattern, command_line)
+        if match:
+            content = match.group(1).strip()
+            seconds = int(match.group(2)) if match.group(2) else 0
+            millis = int(match.group(3)) if match.group(3) else 0
+            abs_time = start_time + seconds + millis / 1000.0
+            
+            # 解析門檻（信心度）
+            confidence = 0.5
+            conf_match = re.search(r'門檻\(([\d.]+)\)', content)
+            if conf_match:
+                confidence = float(conf_match.group(1))
+            
+            # 解析範圍
+            region = None
+            region_match = re.search(r'範圍\((\d+),(\d+),(\d+),(\d+)\)', content)
+            if region_match:
+                region = (
+                    int(region_match.group(1)),
+                    int(region_match.group(2)),
+                    int(region_match.group(3)),
+                    int(region_match.group(4))
+                )
+            
+            # 提取物件名稱
+            class_name = content
+            if conf_match:
+                class_name = class_name.replace(conf_match.group(0), '').strip()
+            if region_match:
+                class_name = class_name.replace(region_match.group(0), '').strip()
+            class_name = class_name.split(',')[0].strip()
+            
+            # 解析成功/失敗分支
+            branches = self._parse_simple_condition_branches(next_lines)
+            
+            return {
+                "type": "yolo_detect",
+                "class_name": class_name,
+                "confidence": confidence,
+                "region": region,
+                "on_success": branches.get('success'),
+                "on_failure": branches.get('failure'),
+                "time": abs_time
+            }
+        
+        # 擬真滑鼠開關：>擬真滑鼠>開啟 
+        if '>擬真滑鼠>' in command_line:
+            enabled = '開啟' in command_line
+            # 解析時間
+            time_str = command_line.split(",")[-1].strip() if "," in command_line and "T=" in command_line else "T=0s000"
+            abs_time = start_time + self._parse_time(time_str)
+            
+            return {
+                "type": "set_bezier",
+                "enabled": enabled,
+                "time": abs_time
+            }
+        
+        # 貝茲曲線移動：>貝茲移動... (如果有其他語法)
         
         # ==================== 計數器與計時器 ====================
         
@@ -5511,8 +5645,8 @@ class TextCommandEditor(tk.Toplevel):
         
         # ==================== 觸發器系統 (Trigger System) ====================
         
-        # 定時觸發器開始：>每隔>30秒
-        pattern = r'>每隔>(\d+)(秒|分鐘|ms)'
+        # 定時觸發器開始：>每隔>30秒 或 >定時觸發>30秒
+        pattern = r'>(?:每隔|定時觸發)>(\d+)(秒|分鐘|ms)'
         match = re.match(pattern, command_line)
         if match:
             interval_value = int(match.group(1))
@@ -5526,13 +5660,13 @@ class TextCommandEditor(tk.Toplevel):
             else:  # ms
                 interval_ms = interval_value
             
-            # 收集觸發器內的動作（直到 >每隔結束）
+            # 收集觸發器內的動作（直到 >每隔結束 或 >定時結束）
             trigger_actions = []
             lines_consumed = 0
             for next_line in next_lines:
                 stripped = next_line.strip()
                 lines_consumed += 1
-                if stripped == '>每隔結束':
+                if stripped == '>每隔結束' or stripped == '>定時結束':
                     break
                 if stripped and not stripped.startswith('#'):
                     trigger_actions.append(stripped)
@@ -5545,8 +5679,8 @@ class TextCommandEditor(tk.Toplevel):
                 "time": start_time
             }
         
-        # 條件觸發器：>當偵測到>圖片名稱, 冷卻N秒
-        pattern = r'>當偵測到>(.+?)(?:,\s*冷卻(\d+)(秒|ms))?$'
+        # 條件觸發器：>當偵測到>圖片名稱 或 >條件觸發>圖片名稱, 冷卻N秒
+        pattern = r'>(?:當偵測到|條件觸發)>(.+?)(?:,\s*冷卻(\d+)(秒|ms))?$'
         match = re.match(pattern, command_line)
         if match:
             target = match.group(1).strip()
@@ -5559,13 +5693,13 @@ class TextCommandEditor(tk.Toplevel):
             else:
                 cooldown_ms = cooldown_value
             
-            # 收集觸發器內的動作（直到 >當偵測結束）
+            # 收集觸發器內的動作（直到 >當偵測結束 或 >條件結束）
             trigger_actions = []
             lines_consumed = 0
             for next_line in next_lines:
                 stripped = next_line.strip()
                 lines_consumed += 1
-                if stripped == '>當偵測結束':
+                if stripped == '>當偵測結束' or stripped == '>條件結束':
                     break
                 if stripped and not stripped.startswith('#'):
                     trigger_actions.append(stripped)

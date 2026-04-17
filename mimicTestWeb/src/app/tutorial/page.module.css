@@ -1,0 +1,343 @@
+/* ============================================================
+   Tutorial page — RMT wiki-doc style
+   ============================================================ */
+
+.main {
+  max-width: var(--content-max-width, 860px);
+  margin: 0 auto;
+  padding: 40px 40px 80px;
+}
+
+/* ── Page header ── */
+.header {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--content-border);
+}
+
+.header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.header p {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+/* ── Progress indicator ── */
+.progressContainer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 0.75rem;
+}
+
+.progressBar {
+  flex: 1;
+  height: 6px;
+  background: var(--content-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-blue), var(--accent-teal));
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.progressText {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Inline nav ── */
+.nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.nav a {
+  display: inline-block;
+  padding: 6px 14px;
+  background: var(--content-surface);
+  border: 1px solid var(--content-border);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: var(--text-secondary) !important;
+  text-decoration: none !important;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.nav a:hover {
+  background: var(--btn-secondary-hover);
+  border-color: var(--accent-blue);
+  color: var(--text-primary) !important;
+}
+
+/* ── Step cards ── */
+.tutorialList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stepCard {
+  background: var(--content-surface);
+  border: 1px solid var(--content-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color var(--transition);
+}
+
+.stepCard.expanded {
+  border-color: var(--accent-blue);
+}
+
+.stepHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition);
+}
+
+.stepHeader:hover {
+  background: var(--table-hover);
+}
+
+.stepNumber {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.stepCard.expanded .stepNumber {
+  background: var(--accent-teal);
+}
+
+.stepInfo {
+  flex: 1;
+}
+
+.stepInfo h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 2px;
+  color: var(--text-primary);
+}
+
+.stepInfo p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.expandIcon {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.stepContent {
+  padding: 0 20px 20px;
+  border-top: 1px solid var(--content-border);
+}
+
+.stepContent h4 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 1.25rem 0 0.5rem;
+}
+
+.stepContent ol,
+.stepContent ul {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.stepContent li {
+  margin-bottom: 0.4rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  font-size: 0.9375rem;
+}
+
+.stepContent a {
+  color: var(--accent-blue);
+}
+
+/* ── Tip / Warning boxes ── */
+.tipBox {
+  background: var(--tip-bg);
+  border: 1px solid var(--tip-border);
+  border-left: 4px solid var(--tip-border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 1rem 0;
+}
+
+.warningBox {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-left: 4px solid var(--warning-border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 1rem 0;
+}
+
+/* ── Code block inside steps ── */
+.codeBlock {
+  margin: 0.75rem 0;
+}
+
+.codeBlock pre {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+/* ── Hotkey table ── */
+.hotkeyTable {
+  font-size: 0.9rem;
+}
+
+/* ── Video placeholder ── */
+.videoPlaceholder {
+  background: var(--content-bg);
+  border: 2px dashed var(--content-border);
+  border-radius: var(--radius-md);
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+/* ── Video embed ── */
+.videoContainer {
+  position: relative;
+  padding-bottom: 56.25%;
+  height: 0;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  margin: 1rem 0;
+  background: var(--content-bg);
+}
+
+.videoContainer iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* ── Complete button ── */
+.completeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 1.25rem;
+  padding: 8px 16px;
+  background: var(--btn-primary-bg);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), transform 0.1s;
+  font-family: inherit;
+}
+
+.completeBtn:hover {
+  background: var(--btn-primary-hover);
+  transform: translateY(-1px);
+}
+
+/* ── Next steps section ── */
+.nextSteps {
+  margin-top: 3rem;
+}
+
+.nextSteps h2 {
+  font-size: 1.5rem;
+}
+
+.nextGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  margin-top: 1rem;
+}
+
+.nextCard {
+  display: block;
+  background: var(--content-surface);
+  border: 1px solid var(--content-border);
+  border-radius: var(--radius-md);
+  padding: 1.125rem;
+  text-decoration: none !important;
+  transition: border-color var(--transition), transform 0.15s;
+}
+
+.nextCard:hover {
+  border-color: var(--accent-blue);
+  transform: translateY(-2px);
+}
+
+.nextCard h3 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--accent-blue) !important;
+  margin: 0 0 4px;
+}
+
+.nextCard p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .main {
+    padding: 24px 20px 60px;
+  }
+
+  .stepHeader {
+    padding: 12px 14px;
+  }
+
+  .stepContent {
+    padding: 0 14px 14px;
+  }
+
+  .nextGrid {
+    grid-template-columns: 1fr;
+  }
+}

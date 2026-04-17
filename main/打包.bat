@@ -77,7 +77,18 @@ REM Step 4: Run PyInstaller
 REM ===================================================================
 echo [4/6] Running PyInstaller...
 echo -------------------------------------------------------------------
-set PYINSTALLER_CMD=pyinstaller --onedir --windowed --name "ChroLens_Mimic" --add-data "images;images" --add-data "TTF;TTF" --add-data "models;models" --add-data "data;data" --hidden-import "ttkbootstrap" --hidden-import "keyboard" --hidden-import "mouse" --hidden-import "mss" --hidden-import "PIL" --hidden-import "cv2" --hidden-import "numpy" --hidden-import "pystray" --hidden-import "bezier_mouse" --hidden-import "yolo_detector" --hidden-import "recorder" --hidden-import "text_script_editor" --hidden-import "lang" --hidden-import "script_io" --hidden-import "about" --hidden-import "mini" --hidden-import "pynput_hotkey" --hidden-import "window_selector" --hidden-import "version_manager" --hidden-import "version_info_dialog" --collect-all "ttkbootstrap" --collect-all "ultralytics" --noconfirm %ICON_PARAM% "ChroLens_Mimic.py"
+
+set PYST_OPTS=--onedir --windowed --name "ChroLens_Mimic"
+set DATA_OPTS=--add-data "images;images" --add-data "TTF;TTF" --add-data "models;models" --add-data "data;data"
+set PATH_OPTS=--paths "." --paths "modules"
+
+set HIDDEN_MODULES=--hidden-import "ttkbootstrap" --hidden-import "ttkbootstrap.constants" --hidden-import "ttkbootstrap.themes"
+set HIDDEN_LIBS=--hidden-import "keyboard" --hidden-import "mouse" --hidden-import "mss" --hidden-import "PIL" --hidden-import "cv2" --hidden-import "numpy" --hidden-import "pystray" --hidden-import "pynput" --hidden-import "pynput.keyboard._win32" --hidden-import "pynput.mouse._win32"
+set HIDDEN_APP=--hidden-import "bezier_mouse" --hidden-import "yolo_detector" --hidden-import "recorder" --hidden-import "text_script_editor" --hidden-import "lang" --hidden-import "script_io" --hidden-import "about" --hidden-import "mini" --hidden-import "pynput_hotkey" --hidden-import "window_selector" --hidden-import "version_manager" --hidden-import "version_info_dialog"
+
+set COLLECT_OPTS=--collect-all "ttkbootstrap" --collect-all "ultralytics" --collect-submodules "pynput"
+
+set PYINSTALLER_CMD=pyinstaller %PYST_OPTS% %DATA_OPTS% %PATH_OPTS% %HIDDEN_MODULES% %HIDDEN_LIBS% %HIDDEN_APP% %COLLECT_OPTS% --noconfirm %ICON_PARAM% "ChroLens_Mimic.py"
 
 %PYINSTALLER_CMD%
 

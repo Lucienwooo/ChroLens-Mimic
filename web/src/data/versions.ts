@@ -6,6 +6,17 @@ export interface Version {
 
 export const versionData: Version[] = [
     {
+        version: "v2.7.8",
+        date: "2026-04-17",
+        changes: [
+            "🚀 智慧型腳本拼接__自動偵測並修正腳本合併時的時間偏移，支援靈活組合片段",
+            "⏱️ 延遲補償機制__修復主動延遲導致的執行追趕問題，確保隨機延遲後的節奏穩定",
+            "🤖 AI 指令擴展__支援 AI: 前綴，可在條件判斷中直接整合 YOLO 偵測",
+            "🖱️ 擬真滑鼠控制__新增文字指令支援，執行中可隨時開啟或關閉貝茲曲線移動",
+            "🔄 執行路徑統一__統一 Trigger/Parallel/StateMachine 核心邏輯，確保進階指令行為一致"
+        ]
+    },
+    {
         version: "v2.7.7",
         date: "2026-02-12",
         changes: [

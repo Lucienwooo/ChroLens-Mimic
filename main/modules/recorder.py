@@ -186,30 +186,80 @@ class TriggerManager:
             time.sleep(0.3)  # 優先觸發偵測間隔
     
     def _execute_action_text(self, action_text):
-        """執行單行動作文字"""
+        """執行單行動作文字（統一邏輯版）"""
         try:
-            # 解析簡單動作
-            if action_text.startswith('>按'):
-                # 按鍵動作：>按F1, 延遲100ms
-                import re
-                match = re.match(r'>按(\w+)', action_text)
-                if match:
-                    key = match.group(1)
-                    import keyboard
-                    keyboard.press_and_release(key)
-            elif action_text.startswith('>跳到#'):
-                # 跳轉：目前在觸發器中的跳轉需要特殊處理
-                label = action_text.replace('>跳到#', '').strip()
-                self.recorder._pending_jump = label
+            # 1. 鍵盤動作
+            if action_text.startswith('>按下'):
+                key = action_text[3:].strip()
+                import keyboard
+                keyboard.press(key)
+                return 'success'
+            elif action_text.startswith('>放開'):
+                key = action_text[3:].strip()
+                import keyboard
+                keyboard.release(key)
+                return 'success'
+            elif action_text.startswith('>按'):
+                key_part = action_text[2:].strip()
+                key = key_part.split(',')[0].strip()
+                import keyboard
+                keyboard.press_and_release(key)
+                return 'success'
+                
+            # 2. 延遲動作
             elif action_text.startswith('>延遲'):
-                match = re.match(r'>延遲(\d+)(ms|秒)', action_text)
+                import re
+                match = re.match(r'>延遲(\d+)\s*(ms|秒)', action_text)
                 if match:
                     value = int(match.group(1))
                     unit = match.group(2)
                     delay = value / 1000.0 if unit == 'ms' else value
                     time.sleep(delay)
+                return 'success'
+            elif action_text.startswith('>隨機延遲'):
+                import re, random
+                match = re.match(r'>隨機延遲>(\d+)ms,\s*(\d+)ms', action_text)
+                if match:
+                    v1, v2 = int(match.group(1)), int(match.group(2))
+                    delay = random.randint(min(v1, v2), max(v1, v2)) / 1000.0
+                    time.sleep(delay)
+                return 'success'
+                
+            # 3. 座標滑鼠動作
+            elif any(cmd in action_text for cmd in ['>左鍵點擊', '>右鍵點擊', '>移動至']):
+                import re
+                match = re.match(r'>(左鍵點擊|右鍵點擊|移動至)\((\d+),(\d+)\)', action_text)
+                if match:
+                    cmd, x, y = match.group(1), int(match.group(2)), int(match.group(3))
+                    import mouse
+                    mouse.move(x, y)
+                    if '點擊' in cmd:
+                        mouse.click('left' if '左鍵' in cmd else 'right')
+                    return 'success'
+            
+            # 4. 圖片偵測邏輯
+            elif action_text.startswith('>if>'):
+                target = action_text[4:].split(',')[0].strip()
+                if self.recorder._images_dir:
+                    found = self.recorder._find_image_on_screen(target)
+                    return 'success' if found else 'failure'
+                return 'failure'
+                
+            # 5. YOLO偵測邏輯
+            elif action_text.startswith('>YOLO偵測'):
+                import re
+                match = re.match(r'>YOLO偵測>(.+)', action_text)
+                if match:
+                    content = match.group(1).strip()
+                    # 獲取類別名（簡單解析）
+                    class_name = content.split(',')[0].strip()
+                    pos = self.recorder.find_object_yolo(class_name)
+                    if pos:
+                        return 'success'
+                    return 'failure'
         except Exception as e:
             self.logger(f"[觸發器] 執行動作失敗: {e}")
+        return None
 
 
 # ==================== 並行執行器 (v2.8.0+) ====================
@@ -271,33 +321,8 @@ class ParallelExecutor:
                     self.logger(f"[並行-{thread_name}] 動作執行失敗: {e}")
     
     def _execute_action_text(self, action_text):
-        """執行單行動作文字（與 TriggerManager 共用邏輯）"""
-        try:
-            if action_text.startswith('>按'):
-                import re
-                match = re.match(r'>按(\w+)', action_text)
-                if match:
-                    key = match.group(1)
-                    import keyboard
-                    keyboard.press_and_release(key)
-            elif action_text.startswith('>延遲'):
-                import re
-                match = re.match(r'>延遲(\d+)(ms|秒)', action_text)
-                if match:
-                    value = int(match.group(1))
-                    unit = match.group(2)
-                    delay = value / 1000.0 if unit == 'ms' else value
-                    time.sleep(delay)
-            elif action_text.startswith('>左鍵點擊'):
-                import re
-                match = re.match(r'>左鍵點擊\((\d+),(\d+)\)', action_text)
-                if match:
-                    x, y = int(match.group(1)), int(match.group(2))
-                    import mouse
-                    mouse.move(x, y)
-                    mouse.click('left')
-        except Exception as e:
-            self.logger(f"[並行] 動作執行失敗: {e}")
+        """執行單行動作文字（統一邏輯版）"""
+        return self.recorder._trigger_manager._execute_action_text(action_text)
     
     def stop(self):
         """停止所有執行緒"""
@@ -378,35 +403,8 @@ class StateMachine:
                 self._running = False
     
     def _execute_action_text(self, action_text):
-        """執行單行動作，返回結果 ('success', 'failure', None)"""
-        try:
-            if action_text.startswith('>按'):
-                import re
-                match = re.match(r'>按(\w+)', action_text)
-                if match:
-                    key = match.group(1)
-                    import keyboard
-                    keyboard.press_and_release(key)
-                return 'success'
-            elif action_text.startswith('>延遲'):
-                import re
-                match = re.match(r'>延遲(\d+)(ms|秒)', action_text)
-                if match:
-                    value = int(match.group(1))
-                    unit = match.group(2)
-                    delay = value / 1000.0 if unit == 'ms' else value
-                    time.sleep(delay)
-                return None
-            elif action_text.startswith('>if>'):
-                # 條件檢查：簡化版本
-                target = action_text[4:].split(',')[0].strip()
-                if self.recorder._images_dir:
-                    found = self.recorder._find_image_on_screen(target)
-                    return 'success' if found else 'failure'
-                return 'failure'
-        except Exception as e:
-            self.logger(f"[狀態機] 動作執行失敗: {e}")
-        return None
+        """執行單行動作文字（統一邏輯版）"""
+        return self.recorder._trigger_manager._execute_action_text(action_text)
     
     def stop(self):
         """停止狀態機"""
@@ -482,17 +480,24 @@ class CoreRecorder:
         self._current_try_success = None  # 當前嘗試成功的分支
         self._current_try_failure = None  # 當前嘗試失敗的分支
         
-        #  v2.8.0+ 新增：觸發器管理器
+        #  v2.8.0+ 新增：管理器系統
         self._trigger_manager = TriggerManager(self, logger)
+        self._parallel_executor = ParallelExecutor(self, logger)
+        self._state_machine = StateMachine(self, logger)
         self._pending_jump = None  # 觸發器請求的跳轉目標
         
         #  v2.8.2+ 新增：YOLO 物件偵測器
         self._yolo_detector = None
         self._yolo_enabled = False
         if YOLO_AVAILABLE:
+            from yolo_detector import get_detector
             self._yolo_detector = get_detector(logger=lambda m: self._log(m, "info"))
             self._log("[YOLO] YOLOv8s 偵測模組已就緒", "info")
-    
+            
+        # 貝茲曲線滑鼠移動器
+        self._bezier_mover = BezierMouseMover() if BEZIER_AVAILABLE else None
+        self._use_bezier = False  # 預設關閉（保持向下相容）
+        
     def _log(self, msg: str, level: str = "info"):
         """統一日誌輸出（相容新舊格式）
         
@@ -1006,6 +1011,14 @@ class CoreRecorder:
                     pass
             except:
                 pass
+
+            #  v2.8.0+: 停止所有輔助管理器
+            try:
+                self._trigger_manager.stop()
+                self._parallel_executor.stop()
+                self._state_machine.stop()
+            except:
+                pass
         
         # 釋放所有被按下但未 release 的鍵
         try:
@@ -1138,6 +1151,15 @@ class CoreRecorder:
         label_repeat_tracker = {}
 
         while self._current_play_index < len(self.events):
+            # 檢查是否有來自觸發器的跳轉請求
+            if self._pending_jump:
+                target_label = self._pending_jump
+                self._pending_jump = None
+                if target_label in label_map:
+                    self.logger(f"[觸發器跳轉] 響應跳轉至 #{target_label}")
+                    self._current_play_index = label_map[target_label]
+                    continue
+
             # 檢查 playing 狀態（不受外部事件影響）
             if not self.playing:
                 break
@@ -1213,8 +1235,51 @@ class CoreRecorder:
                         should_execute = False
                 
                 if should_execute:
+                    # 記錄執行前的精確時間
+                    exec_start = time.time()
+                    
                     # 根據後台模式選擇執行方法
                     result = self._execute_event_with_mode(event)
+                    
+                    #  v2.8.2+: 處理主動延遲造成的偏移
+                    # 如果是主動等待類指令，執行時間應計入暫停偏移，避免後續指令為了「趕進度」而跳過延遲
+                    if event.get('type') in ['random_delay', 'delayed_start', 'delayed_end', 'delay']:
+                        exec_duration = time.time() - exec_start
+                        total_pause_time += exec_duration
+                    
+                    #  v2.8.2+: 處理 try_action 成果監測 (保留前次修改)
+                    if self._current_try_action:
+                        action_id = self._current_try_action
+                        
+                        #判定結果：如果回傳是 None 或 ('continue',) 且不是 'failure' 則為成功
+                        # 圖片辨識指令通常返回 None 表示成功執行，或在條件模式下返回('continue',)
+                        # 我們假設只要沒拋出異常且沒明確返回 'failure' 就算成功
+                        is_success = True
+                        if result == 'failure' or (isinstance(result, tuple) and result[0] == 'failure'):
+                            is_success = False
+                            
+                        if is_success:
+                            self.logger(f"[試圖執行] {action_id} 執行成功")
+                            on_success = self._current_try_success
+                            self._current_try_action = None # 清除監視狀態
+                            self._reset_action_retry(action_id)
+                            if on_success:
+                                result = self._handle_branch_action(on_success)
+                        else:
+                            current_retry = self._increment_action_retry(action_id)
+                            if current_retry < self._current_try_max:
+                                self.logger(f"[試圖執行] {action_id} 失敗，準備重試 ({current_retry}/{self._current_try_max})")
+                                # 跳轉回 try_action 指令的前一個位置，以便下次迴圈重新進入 try_action
+                                # 減 2 是因為迴圈末尾會加 1
+                                self._current_play_index -= 2
+                                continue 
+                            else:
+                                self.logger(f"[試圖執行] {action_id} 達到最大重試次數，執行失敗分支")
+                                on_failure = self._current_try_failure
+                                self._current_try_action = None
+                                self._reset_action_retry(action_id)
+                                if on_failure:
+                                    result = self._handle_branch_action(on_failure)
                     
                     #  處理分支跳轉
                     if result:
@@ -2376,6 +2441,18 @@ class CoreRecorder:
             elif not success and on_failure:
                 return self._handle_branch_action(on_failure)
         
+        # 隨機跳轉：>隨機跳轉>#A, #B, #C
+        elif event['type'] == 'random_jump':
+            import random
+            labels = event.get('labels', [])
+            if labels:
+                # 從標籤清單中隨機選取一個並返回跳轉元組
+                target_label = random.choice(labels)
+                self.logger(f"[隨機跳轉] 擲骰成功！選中標籤: #{target_label}")
+                return ('jump', target_label, 999999) # 999999 為預設無限跳轉計數
+            else:
+                self.logger("[隨機跳轉] 警告：無效的標籤列表")
+        
         # 嘗試執行（帶重試）
         elif event['type'] == 'try_action':
             action_id = event.get('action_id', 'default')
@@ -2473,7 +2550,51 @@ class CoreRecorder:
             
             self.logger(f"[結束] 時間到，停止執行")
             self.playing = False
-            return 'stop'
+        #  新增：觸發器註冊
+        elif event['type'] in ['interval_trigger', 'condition_trigger', 'priority_trigger']:
+            self._trigger_manager.add_trigger(event)
+            if not self._trigger_manager._running:
+                self._trigger_manager.start()
+            self.logger(f"[觸發器] 已註冊類型: {event['type']}")
+            
+        #  新增：並行區塊執行
+        elif event['type'] == 'parallel_block':
+            self.logger("[並行] 開始執行並行區塊")
+            self._parallel_executor.execute_parallel_block(event)
+            
+        #  新增：狀態機執行
+        elif event['type'] == 'state_machine':
+            self.logger(f"[狀態機] 啟動狀態機: {event.get('name', '未命名')}")
+            self._state_machine.load(event)
+            self._state_machine.run()
+            
+        #  新增：YOLO 物件偵測
+        elif event['type'] == 'yolo_detect':
+            class_name = event.get('class_name', '')
+            confidence = event.get('confidence', 0.5)
+            region = event.get('region')
+            on_success = event.get('on_success')
+            on_failure = event.get('on_failure')
+            
+            self.logger(f"[YOLO] 偵測目標: {class_name}")
+            pos = self.find_object_yolo(class_name, confidence, region)
+            
+            if pos:
+                self.logger(f"[YOLO]  找到目標於 ({pos[0]}, {pos[1]})")
+                if on_success:
+                    return self._handle_branch_action(on_success)
+            else:
+                self.logger(f"[YOLO]  未找到目標: {class_name}")
+                if on_failure:
+                    return self._handle_branch_action(on_failure)
+
+        #  新增：設置擬真滑鼠
+        elif event['type'] == 'set_bezier':
+            enabled = event.get('enabled', False)
+            self.set_bezier_enabled(enabled)
+            self.logger(f"[設置] 擬真滑鼠已{'開啟' if enabled else '關閉'}")
+            
+        return 'stop' if event['type'] == 'delayed_end' else None
 
     def _handle_branch_action(self, action_config):
         """處理分支動作（繼續/停止/跳轉）

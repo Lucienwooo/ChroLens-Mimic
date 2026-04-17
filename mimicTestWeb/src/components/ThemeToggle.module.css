@@ -1,0 +1,35 @@
+.themeToggle {
+    width: 100%;
+}
+
+.toggleBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 8px;
+    background: none;
+    border: 1px solid var(--sidebar-border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    color: var(--sidebar-muted);
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    text-align: left;
+    font-family: inherit;
+}
+
+.toggleBtn:hover {
+    background: var(--sidebar-hover-bg);
+    color: var(--sidebar-text);
+    border-color: var(--content-border);
+}
+
+.icon {
+    font-size: 0.875rem;
+    flex-shrink: 0;
+}
+
+.label {
+    flex: 1;
+}

@@ -1,0 +1,231 @@
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+  color: var(--text-main);
+}
+
+.title {
+  text-align: center;
+  color: var(--primary);
+  margin-bottom: 3rem;
+  font-size: 2.5rem;
+  font-weight: 700;
+  text-shadow: 0 0 20px var(--primary-glow);
+}
+
+.section {
+  background-color: var(--surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-card);
+  padding: 2rem;
+  margin-bottom: 2rem;
+  transition: all var(--transition);
+}
+
+.section:hover {
+  border-color: var(--primary);
+  box-shadow: 0 0 15px var(--primary-glow);
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 1.5rem 0;
+  font-size: 1.5rem;
+  color: var(--text-main);
+}
+
+.banner {
+  background: linear-gradient(135deg, rgba(138, 43, 226, 0.2), rgba(0, 240, 255, 0.1));
+  border: 1px solid var(--primary);
+  padding: 2rem;
+  border-radius: var(--radius-card);
+  margin-bottom: 3rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.banner::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle at 100% 0%, var(--primary-glow), transparent 70%);
+  opacity: 0.5;
+}
+
+.banner h2 {
+  margin: 0 0 1rem 0;
+  color: var(--primary);
+}
+
+.banner ol {
+  margin: 0;
+  padding-left: 1.5rem;
+  line-height: 1.8;
+  color: var(--text-muted);
+}
+
+.banner li strong {
+  color: var(--text-main);
+}
+
+.details {
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  background-color: rgba(255, 255, 255, 0.03);
+  transition: background 0.2s;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.summary:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.summary::before {
+  content: "▶";
+  font-size: 0.7rem;
+  transition: transform 0.2s;
+  color: var(--primary);
+}
+
+.details[open] .summary::before {
+  transform: rotate(90deg);
+}
+
+.codeBlock {
+  background-color: var(--background-dark);
+  padding: 1.25rem;
+  margin: 0;
+  border-top: 1px solid var(--border-color);
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--primary);
+  overflow-x: auto;
+}
+
+.tipBox {
+  background-color: rgba(0, 240, 255, 0.03);
+  border-left: 3px solid var(--primary);
+  padding: 1rem;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: 1.5rem;
+}
+
+.tipBox code {
+  color: var(--accent);
+}
+
+/* Tables */
+.tableWrapper {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-card);
+  margin-bottom: 2rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  background-color: rgba(255, 255, 255, 0.05);
+  text-align: left;
+  padding: 1rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.9rem;
+  color: var(--text-main);
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table code {
+  background: rgba(0, 240, 255, 0.1);
+  color: var(--primary);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  background-color: rgba(255, 193, 7, 0.1);
+  color: #FFC107;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-right: 0.5rem;
+}
+
+.footerBanner {
+  background: linear-gradient(135deg, var(--surface) 0%, var(--background-dark) 100%);
+  border: 1px solid var(--border-color);
+  padding: 3rem;
+  border-radius: var(--radius-card);
+  text-align: center;
+  margin-top: 4rem;
+}
+
+.footerBanner h3 {
+  color: var(--primary);
+  margin-bottom: 1rem;
+}
+
+.faq {
+  background-color: rgba(255, 255, 255, 0.02);
+  padding: 2rem;
+  border-radius: var(--radius-card);
+  margin-top: 4rem;
+}
+
+.faq h2 {
+  color: var(--accent);
+  margin-bottom: 1.5rem;
+}
+
+.faq details {
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.faq summary {
+  background: none;
+  padding: 1rem 0;
+}
+
+.faq p {
+  padding: 0 1rem 1rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}

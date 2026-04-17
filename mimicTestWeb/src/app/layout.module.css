@@ -1,0 +1,12 @@
+.container {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.mainContent {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--content-bg);
+    /* No padding here - pages manage their own layout */
+}

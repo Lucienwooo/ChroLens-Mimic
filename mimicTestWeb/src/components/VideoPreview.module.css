@@ -1,0 +1,136 @@
+.container {
+  position: relative;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+/* 展開時的容器樣式 - 高度自動擴展 */
+.container.expanded {
+  z-index: 10;
+}
+
+.preview {
+  position: relative;
+  width: 100%;
+  height: 120px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+.preview.clickable {
+  cursor: pointer;
+}
+
+.preview.clickable:hover .playButton {
+  background: rgba(102, 126, 234, 0.95);
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+}
+
+.playButton {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 48px;
+  height: 48px;
+  background: rgba(102, 126, 234, 0.85);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.playButton svg {
+  width: 24px;
+  height: 24px;
+  margin-left: 3px;
+}
+
+/* 影片包裹容器（原地展開） */
+.videoWrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* 收起按鈕 */
+.collapseButton {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  color: white;
+  font-size: 0.875rem;
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  z-index: 10;
+  transition: background 0.2s;
+}
+
+.collapseButton:hover {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.video {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* 載入中提示 */
+.loading {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  font-size: 1rem;
+  min-height: 200px;
+}
+
+/* 響應式 */
+@media (max-width: 768px) {
+  .preview {
+    height: 100px;
+  }
+  
+  .playButton {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .playButton svg {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .collapseButton {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+  }
+}

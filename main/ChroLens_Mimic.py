@@ -474,6 +474,12 @@ class RecorderApp(tb.Window):
         self.playing = False
         self.paused = False
         self.events = []
+        
+        # 群組播放佇列狀態
+        self.playlist_data = []
+        self._current_pl_index = -1
+        self._is_playlist_playing = False
+        self._drag_start_index = None
 
         self.user_config = load_user_config()
         skin = self.user_config.get("skin", "darkly")
@@ -707,23 +713,8 @@ class RecorderApp(tb.Window):
         self.select_target_btn = tb.Button(frm_script, text=lang_map["選擇視窗"], command=self.select_target_window, bootstyle=INFO, width=14, style="My.TButton")
         self.select_target_btn.grid(row=0, column=4, padx=4)
 
-        # ====== 滑鼠模式勾選框（預設打勾）======
-        self.mouse_mode_var = tk.BooleanVar(value=self.user_config.get("mouse_mode", True))  # 改為 True
-        self.mouse_mode_check = tb.Checkbutton(
-            frm_script, text=lang_map["滑鼠模式"], variable=self.mouse_mode_var, style="My.TCheckbutton"
-        )
-        self.mouse_mode_check.grid(row=0, column=5, padx=4)
-        Tooltip(self.mouse_mode_check, lang_map["勾選時以控制真實滑鼠的模式執行"])
-        
-        # 添加滑鼠模式變更監聽 - 取消勾選時顯示警告
-        def on_mouse_mode_change(*args):
-            if not self.mouse_mode_var.get():
-                # 取消勾選時顯示警告
-                current_lang = self.language_var.get()
-                lang_m = LANG_MAP.get(current_lang, LANG_MAP["繁體中文"])
-                warning_msg = lang_m.get("滑鼠模式警告", "️ 注意！\n\n取消勾選滑鼠模式將使用後台操作。\n遊戲可能會偵測外掛，請謹慎使用，後果自負！")
-                messagebox.showwarning("警告", warning_msg)
-        self.mouse_mode_var.trace_add("write", on_mouse_mode_change)
+        # ====== 滑鼠模式（預設開啟，隱藏勾選框不讓使用者更改）======
+        self.mouse_mode_var = tk.BooleanVar(value=True)  # 強制為 True
 
         self.script_combo.bind("<<ComboboxSelected>>", self.on_script_selected)
         # 綁定點擊事件，在展開下拉選單前自動重新整理列表
@@ -825,7 +816,8 @@ class RecorderApp(tb.Window):
         self.page_menu.bind("<<ListboxSelect>>", self.on_page_selected)
 
         # 右側內容區（隨視窗大小調整）
-        self.page_content_frame = tb.Frame(frm_page)
+        # 設定 padding 與左側選單對齊 (左5, 上10, 右10, 下10)
+        self.page_content_frame = tb.Frame(frm_page, padding=(5, 10, 10, 10))
         self.page_content_frame.grid(row=0, column=1, sticky="nsew")
         self.page_content_frame.grid_rowconfigure(0, weight=1)
         self.page_content_frame.grid_columnconfigure(0, weight=1)
@@ -833,16 +825,17 @@ class RecorderApp(tb.Window):
         # ====== 日誌分頁容器 ======
         self.log_page_frame = tb.Frame(self.page_content_frame)
         self.log_page_frame.grid_rowconfigure(0, weight=1)
-        self.log_page_frame.grid_columnconfigure(0, weight=6) # 左側日誌區
-        self.log_page_frame.grid_columnconfigure(1, weight=4) # 右側群組播放區
+        # 調整權重 (日誌 32, 佇列 68)
+        self.log_page_frame.grid_columnconfigure(0, weight=32) # 左側日誌區
+        self.log_page_frame.grid_columnconfigure(1, weight=68) # 右側群組播放區
 
         # --- 左側日誌區 ---
         log_inner_frame = tb.Frame(self.log_page_frame)
-        log_inner_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        log_inner_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         log_inner_frame.grid_rowconfigure(0, weight=1)
         log_inner_frame.grid_columnconfigure(0, weight=1)
         
-        self.log_text = tb.Text(log_inner_frame, state="disabled", font=font_tuple(9))
+        self.log_text = tb.Text(log_inner_frame, state="disabled", font=font_tuple(9), width=45)
         self.log_text.grid(row=0, column=0, sticky="nsew")
         log_scroll = tb.Scrollbar(log_inner_frame, command=self.log_text.yview)
         log_scroll.grid(row=0, column=1, sticky="ns")
@@ -869,11 +862,7 @@ class RecorderApp(tb.Window):
         self.pl_save_btn = tb.Button(pl_btn_frame, text="儲存組合", bootstyle="success-outline", style="My.TButton", command=self.pl_save)
         self.pl_save_btn.pack(side="left", padx=2)
         
-        self.pl_down_btn = tb.Button(pl_btn_frame, text="▼", bootstyle="secondary", width=3, command=self.pl_move_down)
-        self.pl_down_btn.pack(side="right", padx=2)
-        
-        self.pl_up_btn = tb.Button(pl_btn_frame, text="▲", bootstyle="secondary", width=3, command=self.pl_move_up)
-        self.pl_up_btn.pack(side="right", padx=2)
+        # (已移除上下移動按鈕，因清單支援直接拖曳)
         
         # 模式與提示
         pl_info_frame = tb.Frame(self.playlist_frame)
@@ -897,9 +886,9 @@ class RecorderApp(tb.Window):
         self.script_setting_frame.grid_columnconfigure(0, weight=1)  # 列表區自適應
         self.script_setting_frame.grid_columnconfigure(1, weight=0)  # 右側控制固定
 
-        # 左側腳本列表區（使用 Text 顯示檔名和快捷鍵）
+        # 左側腳本列表區
         list_frame = tb.Frame(self.script_setting_frame)
-        list_frame.grid(row=0, column=0, sticky="nsew", padx=(8,0), pady=8)
+        list_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         list_frame.grid_rowconfigure(0, weight=1)
         list_frame.grid_columnconfigure(0, weight=1)
         
@@ -933,9 +922,9 @@ class RecorderApp(tb.Window):
         # 儲存當前選中的腳本
         self.selected_script_line = None
 
-        # 右側控制區（垂直排列，填滿剩餘空間）
-        self.script_right_frame = tb.Frame(self.script_setting_frame, padding=6)
-        self.script_right_frame.grid(row=0, column=1, sticky="nsew", padx=(6,8), pady=8)
+        # 右側控制區
+        self.script_right_frame = tb.Frame(self.script_setting_frame, padding=0)
+        self.script_right_frame.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
 
         # 快捷鍵捕捉（可捕捉任意按鍵或組合鍵）
         self.hotkey_capture_var = tk.StringVar(value="")
@@ -1972,6 +1961,11 @@ class RecorderApp(tb.Window):
         if self.recording:
             return
         
+        # 當群組播放正在執行時，阻擋錄製操作
+        if getattr(self, '_is_playlist_playing', False):
+            self.log("群組播放中，無法進行錄製。")
+            return
+        
         # 自動切換到 MiniMode（如果勾選）
         if self.auto_mini_var.get() and not self.mini_mode_on:
             self.toggle_mini_mode()
@@ -2123,6 +2117,12 @@ class RecorderApp(tb.Window):
             self._current_pl_index = -1
             self._update_playlist_ui()
             
+            # 啟用開始錄製按鈕
+            try:
+                self.btn_start.config(state="normal")
+            except Exception:
+                pass
+            
             # 停止時的 UI 重置
             self.update_time_label(0)
             self.update_countdown_label(0)
@@ -2135,7 +2135,7 @@ class RecorderApp(tb.Window):
         
         path = self.playlist_data[found_idx]['path']
         try:
-            from script_io import sio_load_script
+            # 使用全域已定義的 sio_load_script (包含相容性處理)
             data = sio_load_script(path)
             self.events = data.get("events", [])
             self.log(f"[{format_time(time.time())}] 佇列執行: {os.path.basename(path)}")
@@ -2157,6 +2157,12 @@ class RecorderApp(tb.Window):
             self._is_playlist_playing = True
             self._current_pl_index = -1
             self.log(f"[{format_time(time.time())}] 開始執行群組播放佇列。")
+            
+            # 停用開始錄製按鈕，避免誤觸
+            try:
+                self.btn_start.config(state="disabled")
+            except Exception:
+                pass
             
             if self.auto_mini_var.get() and not self.mini_mode_on:
                 self.toggle_mini_mode()
@@ -2543,6 +2549,13 @@ class RecorderApp(tb.Window):
         
         if self.playing:
             self.playing = False
+            # 重置群組播放狀態，並恢復開始錄製按鈕
+            if getattr(self, '_is_playlist_playing', False):
+                self._is_playlist_playing = False
+                try:
+                    self.btn_start.config(state="normal")
+                except Exception:
+                    pass
             stopped = True
             self.log(f"[{format_time(time.time())}] 停止執行。")
             
@@ -2951,6 +2964,18 @@ class RecorderApp(tb.Window):
         if not script or not script.strip():
             return
             
+        # 根據是否選取群組相關選項來切換開始錄製按鈕狀態
+        if "[ 群組播放佇列 ]" in script or "群組" in script:
+            try:
+                self.btn_start.config(state="disabled")
+            except Exception:
+                pass
+        else:
+            try:
+                self.btn_start.config(state="normal")
+            except Exception:
+                pass
+                
         if script == "[ 群組播放佇列 ]":
             self.show_page(0)
             return
@@ -5233,8 +5258,19 @@ class RecorderApp(tb.Window):
         
         if len(self.playlist_data) > 0:
             self.pl_mode_label.config(text="狀態: 群組播放待命", foreground="#00ff00")
+            # 有群組播放佇列時，禁用開始錄製按鈕避免誤觸
+            try:
+                self.btn_start.config(state="disabled")
+            except Exception:
+                pass
         else:
             self.pl_mode_label.config(text="模式: 單一載入", foreground="#888888")
+            # 佇列清空且未播放時，恢復開始錄製按鈕
+            try:
+                if not getattr(self, '_is_playlist_playing', False):
+                    self.btn_start.config(state="normal")
+            except Exception:
+                pass
 
     def pl_load_scripts(self):
         """開啟自訂的加入群組播放清單視窗"""
@@ -5249,7 +5285,7 @@ class RecorderApp(tb.Window):
             
             # 開啟視窗
             dialog = tk.Toplevel(self)
-            dialog.title("加入群組播放清單")
+            dialog.title("腳本列表")
             dialog.geometry("400x600")
             dialog.grab_set()
             dialog.transient(self)

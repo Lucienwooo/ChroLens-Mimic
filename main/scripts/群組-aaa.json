@@ -1,0 +1,20 @@
+{
+  "is_group": true,
+  "playlist": [
+    {
+      "path": "C:\\Users\\Lucien\\Documents\\GitHub\\ChroLens-Mimic\\main\\scripts\\2026_0422_1647_34.json",
+      "name": "2026_0422_1647_34.json",
+      "enabled": true
+    },
+    {
+      "path": "C:\\Users\\Lucien\\Documents\\GitHub\\ChroLens-Mimic\\main\\scripts\\2026_0422_1647_37.json",
+      "name": "2026_0422_1647_37.json",
+      "enabled": true
+    },
+    {
+      "path": "C:\\Users\\Lucien\\Documents\\GitHub\\ChroLens-Mimic\\main\\scripts\\2026_0422_1647_41.json",
+      "name": "2026_0422_1647_41.json",
+      "enabled": true
+    }
+  ]
+}

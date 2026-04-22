@@ -1,0 +1,20 @@
+{
+  "is_group": true,
+  "playlist": [
+    {
+      "path": "C:\\Users\\Lucien\\Documents\\GitHub\\ChroLens-Mimic\\main\\scripts\\00m登入.json",
+      "name": "00m登入.json",
+      "enabled": true
+    },
+    {
+      "path": "C:\\Users\\Lucien\\Documents\\GitHub\\ChroLens-Mimic\\main\\scripts\\01怪物獵手.json",
+      "name": "01怪物獵手.json",
+      "enabled": true
+    },
+    {
+      "path": "C:\\Users\\Lucien\\Documents\\GitHub\\ChroLens-Mimic\\main\\scripts\\ai_generator_v2.json",
+      "name": "ai_generator_v2.json",
+      "enabled": true
+    }
+  ]
+}

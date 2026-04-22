@@ -830,12 +830,66 @@ class RecorderApp(tb.Window):
         self.page_content_frame.grid_rowconfigure(0, weight=1)
         self.page_content_frame.grid_columnconfigure(0, weight=1)
 
-        # 日誌顯示區（彈性調整）
-        self.log_text = tb.Text(self.page_content_frame, state="disabled", font=font_tuple(9))
+        # ====== 日誌分頁容器 ======
+        self.log_page_frame = tb.Frame(self.page_content_frame)
+        self.log_page_frame.grid_rowconfigure(0, weight=1)
+        self.log_page_frame.grid_columnconfigure(0, weight=6) # 左側日誌區
+        self.log_page_frame.grid_columnconfigure(1, weight=4) # 右側群組播放區
+
+        # --- 左側日誌區 ---
+        log_inner_frame = tb.Frame(self.log_page_frame)
+        log_inner_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        log_inner_frame.grid_rowconfigure(0, weight=1)
+        log_inner_frame.grid_columnconfigure(0, weight=1)
+        
+        self.log_text = tb.Text(log_inner_frame, state="disabled", font=font_tuple(9))
         self.log_text.grid(row=0, column=0, sticky="nsew")
-        log_scroll = tb.Scrollbar(self.page_content_frame, command=self.log_text.yview)
+        log_scroll = tb.Scrollbar(log_inner_frame, command=self.log_text.yview)
         log_scroll.grid(row=0, column=1, sticky="ns")
         self.log_text.config(yscrollcommand=log_scroll.set)
+
+        # --- 右側群組播放佇列 ---
+        self.playlist_frame = tb.LabelFrame(self.log_page_frame, text=" [ 群組播放佇列 ] ")
+        self.playlist_frame.grid(row=0, column=1, sticky="nsew")
+        
+        # 播放佇列按鈕區
+        pl_btn_frame = tb.Frame(self.playlist_frame)
+        pl_btn_frame.pack(fill="x", padx=5, pady=5)
+        
+        # Buttons: "讀取腳本", "清除", "取消/恢復", "儲存組合", "▲", "▼"
+        self.pl_load_btn = tb.Button(pl_btn_frame, text="讀取腳本", bootstyle="info-outline", style="My.TButton", command=self.pl_load_scripts)
+        self.pl_load_btn.pack(side="left", padx=2)
+        
+        self.pl_clear_btn = tb.Button(pl_btn_frame, text="清除", bootstyle="danger-outline", style="My.TButton", command=self.pl_clear)
+        self.pl_clear_btn.pack(side="left", padx=2)
+        
+        self.pl_toggle_btn = tb.Button(pl_btn_frame, text="取消/恢復", bootstyle="warning-outline", style="My.TButton", command=self.pl_toggle)
+        self.pl_toggle_btn.pack(side="left", padx=2)
+        
+        self.pl_save_btn = tb.Button(pl_btn_frame, text="儲存組合", bootstyle="success-outline", style="My.TButton", command=self.pl_save)
+        self.pl_save_btn.pack(side="left", padx=2)
+        
+        self.pl_down_btn = tb.Button(pl_btn_frame, text="▼", bootstyle="secondary", width=3, command=self.pl_move_down)
+        self.pl_down_btn.pack(side="right", padx=2)
+        
+        self.pl_up_btn = tb.Button(pl_btn_frame, text="▲", bootstyle="secondary", width=3, command=self.pl_move_up)
+        self.pl_up_btn.pack(side="right", padx=2)
+        
+        # 模式與提示
+        pl_info_frame = tb.Frame(self.playlist_frame)
+        pl_info_frame.pack(fill="x", padx=5, pady=(0, 2))
+        self.pl_mode_label = tb.Label(pl_info_frame, text="模式: 單一載入", font=font_tuple(8), foreground="#888888")
+        self.pl_mode_label.pack(side="left")
+        tb.Label(pl_info_frame, text="[ 可直接拖曳調整順序 ]", font=font_tuple(8), foreground="#888888").pack(side="right")
+        
+        # 佇列 Listbox
+        self.playlist_listbox = tk.Listbox(self.playlist_frame, font=font_tuple(10), selectmode="extended", activestyle="none", bg="#1a1a1a", fg="#e0e0e0")
+        self.playlist_listbox.pack(fill="both", expand=True, padx=5, pady=(0, 5))
+        
+        # 綁定拖曳事件
+        self.playlist_listbox.bind("<Button-1>", self.pl_drag_start)
+        self.playlist_listbox.bind("<B1-Motion>", self.pl_drag_motion)
+        self.playlist_listbox.bind("<ButtonRelease-1>", self.pl_drag_end)
 
         # 腳本設定區（彈性調整）
         self.script_setting_frame = tb.Frame(self.page_content_frame)
@@ -1762,15 +1816,19 @@ class RecorderApp(tb.Window):
             # 檢查 core_recorder 是否仍在播放
             if not getattr(self.core_recorder, 'playing', False):
                 # 執行已結束，同步狀態
-                self.playing = False
-                self.log(f"[{format_time(time.time())}] 執行完成")
-                
-                # 釋放所有可能卡住的修飾鍵
-                self._release_all_modifiers()
-                
-                self.update_time_label(0)
-                self.update_countdown_label(0)
-                self.update_total_time_label(0)
+                if self._is_playlist_playing:
+                    self._play_next_in_playlist()
+                    return
+                else:
+                    self.playing = False
+                    self.log(f"[{format_time(time.time())}] 執行完成")
+                    
+                    # 釋放所有可能卡住的修飾鍵
+                    self._release_all_modifiers()
+                    
+                    self.update_time_label(0)
+                    self.update_countdown_label(0)
+                    self.update_total_time_label(0)
                 # MiniMode倒數歸零
                 if hasattr(self, 'mini_window') and self.mini_window and self.mini_window.winfo_exists():
                     if hasattr(self, "mini_countdown_label"):
@@ -2048,10 +2106,67 @@ class RecorderApp(tb.Window):
                 except Exception as e:
                     self.log(f"[警告] 繼續錄製時啟動keyboard失敗: {e}")
 
+    
+    def _play_next_in_playlist(self):
+        """播放佇列中的下一個啟用的腳本"""
+        start_idx = self._current_pl_index + 1
+        found_idx = -1
+        for i in range(start_idx, len(self.playlist_data)):
+            if self.playlist_data[i].get('enabled', True):
+                found_idx = i
+                break
+        
+        if found_idx == -1:
+            self.log(f"[{format_time(time.time())}] 群組播放佇列已全數執行完畢。")
+            self._is_playlist_playing = False
+            self.playing = False
+            self._current_pl_index = -1
+            self._update_playlist_ui()
+            
+            # 停止時的 UI 重置
+            self.update_time_label(0)
+            self.update_countdown_label(0)
+            self.update_total_time_label(0)
+            self._release_all_modifiers()
+            return False
+            
+        self._current_pl_index = found_idx
+        self._update_playlist_ui()
+        
+        path = self.playlist_data[found_idx]['path']
+        try:
+            from script_io import sio_load_script
+            data = sio_load_script(path)
+            self.events = data.get("events", [])
+            self.log(f"[{format_time(time.time())}] 佇列執行: {os.path.basename(path)}")
+            # 開始執行
+            self._continue_play_record()
+            return True
+        except Exception as e:
+            self.log(f"佇列腳本載入失敗: {e}，跳過此腳本。")
+            return self._play_next_in_playlist()
+
     def play_record(self):
         """開始執行"""
         if self.playing:
             return
+            
+        has_enabled_pl = any(item.get('enabled', True) for item in self.playlist_data)
+        if has_enabled_pl:
+            self.playing = True
+            self._is_playlist_playing = True
+            self._current_pl_index = -1
+            self.log(f"[{format_time(time.time())}] 開始執行群組播放佇列。")
+            
+            if self.auto_mini_var.get() and not self.mini_mode_on:
+                self.toggle_mini_mode()
+                
+            self.playback_offset_x = 0
+            self.playback_offset_y = 0
+            
+            self._play_next_in_playlist()
+            return
+            
         if not self.events:
             self.log("沒有可執行的事件，請先錄製或載入腳本。")
             return
@@ -2831,16 +2946,13 @@ class RecorderApp(tb.Window):
 
     # --- 讀取腳本設定 ---
     def on_script_selected(self, event=None):
-        """載入選中的腳本及其設定
-        
-        增強穩定性:
-        - 完整的檔案驗證
-        - 自動格式轉換 (視覺化編輯器 → events)
-        - 詳細的錯誤報告
-        - 智能視窗資訊處理
-        """
+        """載入選中的腳本及其設定"""
         script = self.script_var.get()
         if not script or not script.strip():
+            return
+            
+        if script == "[ 群組播放佇列 ]":
+            self.show_page(0)
             return
         
         # 如果沒有副檔名，加上 .json
@@ -2875,6 +2987,14 @@ class RecorderApp(tb.Window):
             # 載入腳本資料
             data = sio_load_script(path)
             
+            if data.get("is_group", False):
+                self.log(f"[{format_time(time.time())}] 載入群組播放佇列：{script_file}")
+                self.playlist_data = data.get("playlist", [])
+                self._update_playlist_ui()
+                self.events = []
+                self.show_page(0)
+                return
+                
             #  檢查資料完整性
             if not isinstance(data, dict):
                 raise ValueError("腳本格式錯誤: 不是有效的 JSON 物件")
@@ -4152,11 +4272,13 @@ class RecorderApp(tb.Window):
             os.makedirs(self.script_dir)
         scripts = [f for f in os.listdir(self.script_dir) if f.endswith('.json')]
         # 顯示時去除副檔名，但實際儲存時仍使用完整檔名
-        display_scripts = [os.path.splitext(f)[0] for f in scripts]
+        display_scripts = ["[ 群組播放佇列 ]"] + [os.path.splitext(f)[0] for f in scripts]
         self.script_combo['values'] = display_scripts
         
         # 若目前選擇的腳本不存在，則清空
         current = self.script_var.get()
+        if current == "[ 群組播放佇列 ]":
+            return
         if current.endswith('.json'):
             current_display = os.path.splitext(current)[0]
         else:
@@ -4237,10 +4359,7 @@ class RecorderApp(tb.Window):
             widget.place_forget()
         if idx == 0:
             # 日誌顯示
-            self.log_text.grid(row=0, column=0, sticky="nsew")
-            for child in self.page_content_frame.winfo_children():
-                if isinstance(child, tb.Scrollbar):
-                    child.grid(row=0, column=1, sticky="ns")
+            self.log_page_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
         elif idx == 1:
             # 腳本設定
             self.script_setting_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
@@ -5095,6 +5214,218 @@ class RecorderApp(tb.Window):
             finally:
                 self._highlight_win = None
 
+    # ==========================================
+    # 群組播放佇列 (Playlist) 相關邏輯
+    # ==========================================
+    def _update_playlist_ui(self):
+        self.playlist_listbox.delete(0, "end")
+        for idx, item in enumerate(self.playlist_data):
+            prefix = "" if item.get('enabled', True) else "[已停用] "
+            pointer = "▶ " if self._is_playlist_playing and idx == self._current_pl_index else "  "
+            # Format: 1 01-公會.json
+            display_text = f"{pointer}{idx+1:2d} {prefix}{item['name']}"
+            self.playlist_listbox.insert("end", display_text)
+            
+            if not item.get('enabled', True):
+                self.playlist_listbox.itemconfig(idx, {'fg': '#555555'})
+            elif self._is_playlist_playing and idx == self._current_pl_index:
+                self.playlist_listbox.itemconfig(idx, {'fg': '#00ff00', 'bg': '#2a4d2a'})
+        
+        if len(self.playlist_data) > 0:
+            self.pl_mode_label.config(text="狀態: 群組播放待命", foreground="#00ff00")
+        else:
+            self.pl_mode_label.config(text="模式: 單一載入", foreground="#888888")
+
+    def pl_load_scripts(self):
+        """開啟自訂的加入群組播放清單視窗"""
+        try:
+            # 確保腳本目錄存在且為絕對路徑
+            script_path = os.path.abspath(self.script_dir)
+            if not os.path.exists(script_path):
+                os.makedirs(script_path)
+            
+            # 獲取腳本列表
+            scripts = sorted([f for f in os.listdir(script_path) if f.endswith('.json') and not f.startswith('群組-')])
+            
+            # 開啟視窗
+            dialog = tk.Toplevel(self)
+            dialog.title("加入群組播放清單")
+            dialog.geometry("400x600")
+            dialog.grab_set()
+            dialog.transient(self)
+            set_window_icon(dialog)
+            
+            # 居中
+            dialog.update_idletasks()
+            x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
+            y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
+            dialog.geometry(f"+{x}+{y}")
+            
+            main_frame = tb.Frame(dialog, padding=15)
+            main_frame.pack(fill="both", expand=True)
+            
+            # 標題
+            tb.Label(main_frame, text="請選擇要加入的腳本 (可多選)", font=("Microsoft JhengHei", 10, "bold")).pack(anchor="w", pady=(0, 10))
+            
+            # 搜尋框
+            search_frame = tb.Frame(main_frame)
+            search_frame.pack(fill="x", pady=(0, 10))
+            tb.Label(search_frame, text="搜尋：", font=("Microsoft JhengHei", 10)).pack(side="left")
+            search_var = tk.StringVar()
+            search_entry = tb.Entry(search_frame, textvariable=search_var, font=("Microsoft JhengHei", 10))
+            search_entry.pack(side="left", fill="x", expand=True)
+            
+            # 列表區域 (使用 Frame 包裹以確保佈局穩定)
+            list_container = tb.Frame(main_frame)
+            list_container.pack(fill="both", expand=True)
+            
+            listbox = tk.Listbox(
+                list_container, 
+                font=("Microsoft JhengHei", 11), 
+                selectmode="extended", 
+                bg="#1e1e1e", 
+                fg="#ffffff",
+                selectbackground="#007acc",
+                borderwidth=0,
+                highlightthickness=1,
+                highlightbackground="#333333"
+            )
+            listbox.pack(side="left", fill="both", expand=True)
+            
+            scrollbar = tb.Scrollbar(list_container, command=listbox.yview)
+            scrollbar.pack(side="right", fill="y")
+            listbox.config(yscrollcommand=scrollbar.set)
+            
+            def update_list(*args):
+                term = search_var.get().lower()
+                listbox.delete(0, tk.END)
+                for s in scripts:
+                    if term in s.lower():
+                        listbox.insert(tk.END, s)
+            
+            # 監聽搜尋
+            search_var.trace_add("write", update_list)
+            update_list()
+            
+            # 按鈕區
+            btn_frame = tb.Frame(main_frame)
+            btn_frame.pack(fill="x", pady=(15, 0))
+            
+            def on_confirm():
+                selections = listbox.curselection()
+                if not selections:
+                    dialog.destroy()
+                    return
+                
+                added_count = 0
+                for idx in selections:
+                    script_name = listbox.get(idx)
+                    full_path = os.path.join(script_path, script_name)
+                    self.playlist_data.append({
+                        'path': full_path,
+                        'name': script_name,
+                        'enabled': True
+                    })
+                    added_count += 1
+                
+                self._update_playlist_ui()
+                self.log(f"已成功加入 {added_count} 個腳本至佇列")
+                dialog.destroy()
+            
+            # 確認與取消按鈕
+            tb.Button(btn_frame, text=" 確認新增 ", bootstyle="success", command=on_confirm).pack(side="right", padx=(5, 0))
+            tb.Button(btn_frame, text=" 取消 ", bootstyle="secondary-outline", command=dialog.destroy).pack(side="right")
+            
+            # 點擊 Enter 也可以確認
+            dialog.bind("<Return>", lambda e: on_confirm())
+            dialog.bind("<Escape>", lambda e: dialog.destroy())
+            
+        except Exception as e:
+            self.log(f"開啟腳本選擇視窗失敗: {e}")
+            if 'dialog' in locals():
+                dialog.destroy()
+            messagebox.showerror("錯誤", f"無法開啟腳本選擇視窗:\n{e}")
+
+
+
+    def pl_clear(self):
+        self.playlist_data.clear()
+        self._update_playlist_ui()
+
+    def pl_toggle(self):
+        selections = self.playlist_listbox.curselection()
+        for idx in selections:
+            self.playlist_data[idx]['enabled'] = not self.playlist_data[idx].get('enabled', True)
+        self._update_playlist_ui()
+        # 重新選取
+        for idx in selections:
+            self.playlist_listbox.selection_set(idx)
+    def pl_save(self):
+        if not self.playlist_data:
+            self.log("播放佇列為空，無法儲存。")
+            return
+        # 使用自訂對話框輸入名稱
+        import tkinter.simpledialog as simpledialog
+        name = simpledialog.askstring("儲存群組", "請輸入群組名稱（將自動加上 '群組-' 前綴）：", parent=self)
+        if not name or not name.strip():
+            return
+            
+        if not name.startswith("群組-"):
+            name = f"群組-{name}"
+        if not name.endswith(".json"):
+            name += ".json"
+            
+        path = os.path.join(self.script_dir, name)
+        
+        import json
+        try:
+            # 儲存為一個特殊的群組格式
+            group_data = {
+                "is_group": True,
+                "playlist": self.playlist_data
+            }
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(group_data, f, ensure_ascii=False, indent=2)
+            self.log(f"群組播放佇列已儲存: {name}")
+            self.refresh_script_list()
+        except Exception as e:
+            self.log(f"儲存失敗: {e}")
+
+    def pl_move_up(self):
+        selections = self.playlist_listbox.curselection()
+        if not selections or selections[0] == 0:
+            return
+        idx = selections[0]
+        self.playlist_data[idx - 1], self.playlist_data[idx] = self.playlist_data[idx], self.playlist_data[idx - 1]
+        self._update_playlist_ui()
+        self.playlist_listbox.selection_set(idx - 1)
+
+    def pl_move_down(self):
+        selections = self.playlist_listbox.curselection()
+        if not selections or selections[0] == len(self.playlist_data) - 1:
+            return
+        idx = selections[0]
+        self.playlist_data[idx + 1], self.playlist_data[idx] = self.playlist_data[idx], self.playlist_data[idx + 1]
+        self._update_playlist_ui()
+        self.playlist_listbox.selection_set(idx + 1)
+
+    def pl_drag_start(self, event):
+        self._drag_start_index = self.playlist_listbox.nearest(event.y)
+
+    def pl_drag_motion(self, event):
+        if not hasattr(self, '_drag_start_index') or self._drag_start_index is None:
+            return
+        current_idx = self.playlist_listbox.nearest(event.y)
+        if current_idx != self._drag_start_index and 0 <= current_idx < len(self.playlist_data):
+            item = self.playlist_data.pop(self._drag_start_index)
+            self.playlist_data.insert(current_idx, item)
+            self._update_playlist_ui()
+            self._drag_start_index = current_idx
+            self.playlist_listbox.selection_clear(0, "end")
+            self.playlist_listbox.selection_set(current_idx)
+
+    def pl_drag_end(self, event):
+        self._drag_start_index = None
 # ====== 設定檔讀寫 ======
 CONFIG_FILE = "user_config.json"
 
@@ -5126,6 +5457,10 @@ def save_user_config(config):
 def format_time(ts):
     """將 timestamp 轉為 HH:MM:SS 字串"""
     return datetime.datetime.fromtimestamp(ts).strftime("%H:%M:%S")
+
+
+
+
 
 if __name__ == "__main__":
     # 正常啟動主程式

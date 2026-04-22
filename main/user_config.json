@@ -1,9 +1,20 @@
 {
   "skin": "darkly",
-  "last_script": "",
+  "last_script": "00m每日平日0122.json",
   "repeat": "1",
   "speed": "100",
   "script_dir": "scripts",
   "language": "繁體中文",
-  "first_run": false
+  "first_run": false,
+  "repeat_time": "00:00:00",
+  "hotkey_map": {
+    "start": "F10",
+    "pause": "F11",
+    "stop": "F9",
+    "play": "F12",
+    "mini": "alt+`",
+    "force_quit": "ctrl+alt+z"
+  },
+  "auto_mini_mode": false,
+  "mouse_mode": true
 }

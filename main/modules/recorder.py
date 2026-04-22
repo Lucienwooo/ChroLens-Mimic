@@ -494,6 +494,10 @@ class CoreRecorder:
             self._yolo_detector = get_detector(logger=lambda m: self._log(m, "info"))
             self._log("[YOLO] YOLOv8s 偵測模組已就緒", "info")
             
+        #  v2.8.3+ 新增：防偵測參數
+        self._jitter_mode = False  # 時間抖動 (±10%)
+        self._random_pos = False   # 座標隨機 (±2~4px)
+        
         # 貝茲曲線滑鼠移動器
         self._bezier_mover = BezierMouseMover() if BEZIER_AVAILABLE else None
         self._use_bezier = False  # 預設關閉（保持向下相容）
@@ -946,7 +950,7 @@ class CoreRecorder:
             import traceback
             self.logger(f"詳細錯誤: {traceback.format_exc()}")
 
-    def play(self, speed=1.0, repeat=1, repeat_time_limit=None, repeat_interval=0, on_event=None):
+    def play(self, speed=1.0, repeat=1, repeat_time_limit=None, repeat_interval=0, on_event=None, jitter_mode=False, random_pos=False):
         """開始執行錄製的事件
         
         Args:
@@ -955,9 +959,15 @@ class CoreRecorder:
             repeat_time_limit: 總運作時間限制（秒），優先於 repeat
             repeat_interval: 每次重複之間的間隔（秒）
             on_event: 事件回調函數
+            jitter_mode: 是否開啟時間抖動
+            random_pos: 是否開啟座標隨機
         """
         if self.playing or not self.events:
             return False
+        
+        # 設定防偵測模式
+        self._jitter_mode = jitter_mode
+        self._random_pos = random_pos
         
         #  修復：確保所有錄製相關的監聽器都已關閉
         self._ensure_recording_stopped()
@@ -1186,8 +1196,15 @@ class CoreRecorder:
 
             event = self.events[self._current_play_index]
             event_offset = (event['time'] - base_time) / speed
-            # 考慮暫停時間的目標時間
+            # 考慮暫停時間與抖動的目標時間
             target_time = play_start + event_offset + total_pause_time
+            
+            #  v2.8.3: 導入時間抖動 (Timing Jitter)
+            if self._jitter_mode and event_offset > 0:
+                import random
+                # 產生 ±10% 的隨機抖動
+                jitter = (random.random() * 0.2 - 0.1) * event_offset
+                target_time += jitter
 
             #  優化：檢查是否為圖片快速執行事件（跳過時間等待）
             is_fast_image_event = event.get('type') in [
@@ -1200,7 +1217,7 @@ class CoreRecorder:
                 # 極速模式：只等待1ms讓出CPU
                 time.sleep(0.001)
             else:
-                # 等待到目標時間（強化版 - 確保時間計算不受干擾）
+                # 等待到目標時間 (考慮抖動後的 target_time)
                 while time.time() < target_time:
                     if not self.playing:
                         break
@@ -1825,6 +1842,16 @@ class CoreRecorder:
                 # 將座標限制在虛擬螢幕範圍內（支援負數座標）
                 x = max(virtual_left, min(virtual_right - 1, int(x)))
                 y = max(virtual_top, min(virtual_bottom - 1, int(y)))
+                
+                #  v2.8.3: 導入座標微隨機 (Coordinate Randomization)
+                if self._random_pos and event['event'] in ('move', 'down', 'up', 'wheel'):
+                    import random
+                    # 使用 User 要求的 ±2 ~ ±4 範圍
+                    # 使用 random.choice 確保不會落在 ±1 以內，增加反偵測效果
+                    off_x = random.choice([-4, -3, -2, 2, 3, 4])
+                    off_y = random.choice([-4, -3, -2, 2, 3, 4])
+                    x += off_x
+                    y += off_y
                 
                 if event['event'] == 'move':
                     # 滑鼠移動

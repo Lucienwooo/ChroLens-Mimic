@@ -25,6 +25,9 @@ import pywintypes
 import random  # 新增
 import tkinter.font as tkfont
 import sys
+import traceback
+import re
+import ast
 import os
 
 # 🔧 加入模組路徑 (v2.7.8 Reorganization)
@@ -305,10 +308,6 @@ class ScheduleManager:
             del self.schedules[schedule_id]
             print(f"[OK] 已移除排程: {schedule_id}")
     
-    def get_all_schedules(self):
-        """取得所有排程"""
-        return self.schedules.copy()
-    
     def _check_loop(self):
         """背景執行緒 - 每 5 秒檢查一次排程時間（確保準時觸發）"""
         while self.running:
@@ -365,12 +364,6 @@ class ScheduleManager:
             if hasattr(self.app, 'log'):
                 self.app.log(f" 觸發排程失敗: {e}")
     
-    def stop(self):
-        """停止排程管理器"""
-        self.running = False
-        print("排程管理器已停止")
-
-
 # ====== RecorderApp 類別與其餘程式碼 ======
 SCRIPTS_DIR = "scripts"
 LAST_SCRIPT_FILE = "last_script.txt"
@@ -679,7 +672,6 @@ class RecorderApp(tb.Window):
 
         # ====== 時間輸入驗證 ======
         def validate_time_input(P):
-            import re
             return re.fullmatch(r"[\d:]*", P) is not None
         vcmd = (self.register(validate_time_input), "%P")
         entry_repeat_time.config(validate="key", validatecommand=vcmd)
@@ -816,14 +808,20 @@ class RecorderApp(tb.Window):
         frm_page.grid_columnconfigure(0, weight=0)  # 左側選單固定寬度
         frm_page.grid_columnconfigure(1, weight=1)  # 右側內容區彈性擴展
 
-        # 左側選單
+        # 左側欄 (選單 + 底部固定按鈕)
+        self.left_column_frame = tb.Frame(frm_page)
+        self.left_column_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8), pady=4)
+        self.left_column_frame.grid_rowconfigure(0, weight=1)
+        self.left_column_frame.grid_rowconfigure(1, weight=0)
+        self.left_column_frame.grid_columnconfigure(0, weight=1)
+
+        # 左側選單（只有3項，移除整體設定）
         lang_map = LANG_MAP.get(saved_lang, LANG_MAP["繁體中文"])
-        self.page_menu = tk.Listbox(frm_page, width=18, font=("Microsoft JhengHei", 11), height=5)
+        self.page_menu = tk.Listbox(self.left_column_frame, width=15, font=("Microsoft JhengHei", 11), height=10)
         self.page_menu.insert(0, lang_map["1.日誌顯示"])
-        self.page_menu.insert(1, lang_map["2.腳本編輯器"])
-        self.page_menu.insert(2, lang_map["3.腳本設定"])
-        self.page_menu.insert(3, lang_map["4.整體設定"])
-        self.page_menu.grid(row=0, column=0, sticky="ns", padx=(0, 8), pady=4)
+        self.page_menu.insert(1, lang_map["2.腳本設定"])
+        self.page_menu.insert(2, lang_map["3.指令編輯器beta"])
+        self.page_menu.grid(row=0, column=0, sticky="nsew")
         self.page_menu.bind("<<ListboxSelect>>", self.on_page_selected)
 
         # 右側內容區（隨視窗大小調整）
@@ -888,9 +886,9 @@ class RecorderApp(tb.Window):
         # 快捷鍵捕捉（可捕捉任意按鍵或組合鍵）
         self.hotkey_capture_var = tk.StringVar(value="")
         self.hotkey_capture_label = tb.Label(self.script_right_frame, text="捕捉快捷鍵：", style="My.TLabel")
-        self.hotkey_capture_label.pack(anchor="w", pady=(2,2))
+        self.hotkey_capture_label.pack(anchor="w", pady=(2,1))
         hotkey_entry = tb.Entry(self.script_right_frame, textvariable=self.hotkey_capture_var, font=font_tuple(10, monospace=True), width=16)
-        hotkey_entry.pack(anchor="w", pady=(0,8))
+        hotkey_entry.pack(anchor="w", pady=(0,2))
         # 改用 KeyPress 事件以正確捕捉組合鍵
         hotkey_entry.bind("<KeyPress>", self.on_hotkey_entry_key)
         hotkey_entry.bind("<FocusIn>", lambda e: self.hotkey_capture_var.set("輸入按鍵"))
@@ -898,7 +896,7 @@ class RecorderApp(tb.Window):
 
         # ====== 圖片辨識強度 ======
         self.img_threshold_label = tb.Label(self.script_right_frame, text="容錯率：", style="My.TLabel")
-        self.img_threshold_label.pack(anchor="w", pady=(10,2))
+        self.img_threshold_label.pack(anchor="w", pady=(4,1))
         
         self.img_threshold_var = tk.StringVar()
         thresholds = [
@@ -909,7 +907,7 @@ class RecorderApp(tb.Window):
             self.script_right_frame, textvariable=self.img_threshold_var, values=thresholds, 
             width=14, state="readonly", style="My.TCombobox"
         )
-        self.img_threshold_combo.pack(anchor="w", pady=(0,8))
+        self.img_threshold_combo.pack(anchor="w", pady=(0,4))
         
         self._is_updating_threshold = False
         def on_threshold_change(*args):
@@ -954,48 +952,47 @@ class RecorderApp(tb.Window):
         self.img_threshold_var.trace_add("write", on_threshold_change)
 
         # a) 設定快捷鍵按鈕：將捕捉到的快捷鍵寫入選定腳本並註冊
-        self.set_hotkey_btn = tb.Button(self.script_right_frame, text="設定快捷鍵", width=16, bootstyle=SUCCESS, command=self.set_script_hotkey)
-        self.set_hotkey_btn.pack(anchor="w", pady=4)
+        self.set_hotkey_btn = tb.Button(self.script_right_frame, text="設定快捷鍵", width=16, bootstyle=SUCCESS, style="My.TButton", command=self.set_script_hotkey)
+        self.set_hotkey_btn.pack(anchor="w", pady=2)
 
         # b) 直接開啟腳本資料夾（輔助功能）
-        self.open_dir_btn = tb.Button(self.script_right_frame, text="開啟資料夾", width=16, bootstyle=SECONDARY, command=self.open_scripts_dir)
-        self.open_dir_btn.pack(anchor="w", pady=4)
+        self.open_dir_btn = tb.Button(self.script_right_frame, text="開啟資料夾", width=16, bootstyle=SECONDARY, style="My.TButton", command=self.open_scripts_dir)
+        self.open_dir_btn.pack(anchor="w", pady=2)
 
         # c) 刪除按鈕：直接刪除檔案並取消註冊其快捷鍵（若有）
-        self.del_script_btn = tb.Button(self.script_right_frame, text="刪除腳本", width=16, bootstyle=DANGER, command=self.delete_selected_script)
-        self.del_script_btn.pack(anchor="w", pady=4)
+        self.del_script_btn = tb.Button(self.script_right_frame, text="刪除腳本", width=16, bootstyle=DANGER, style="My.TButton", command=self.delete_selected_script)
+        self.del_script_btn.pack(anchor="w", pady=2)
         
         # d) 排程按鈕：設定腳本定時執行
-        self.schedule_btn = tb.Button(self.script_right_frame, text="排程", width=16, bootstyle=INFO, command=self.open_schedule_settings)
-        self.schedule_btn.pack(anchor="w", pady=4)
+        self.schedule_btn = tb.Button(self.script_right_frame, text="排程", width=16, bootstyle=INFO, style="My.TButton", command=self.open_schedule_settings)
+        self.schedule_btn.pack(anchor="w", pady=2)
         
         # e) 合併腳本按鈕：將多個腳本合併為一個
-        self.merge_btn = tb.Button(self.script_right_frame, text=lang_map["合併腳本"], width=16, bootstyle=SUCCESS, command=self.merge_scripts)
-        self.merge_btn.pack(anchor="w", pady=4)
+        self.merge_btn = tb.Button(self.script_right_frame, text=lang_map["合併腳本"], width=16, bootstyle=SUCCESS, style="My.TButton", command=self.merge_scripts)
+        self.merge_btn.pack(anchor="w", pady=2)
 
         # 初始化清單
         self.refresh_script_listbox()
 
-        # ====== 整體設定頁面 ======
-        self.global_setting_frame = tb.Frame(self.page_content_frame)
+        # ====== 整體設定區（固定在左側選單下方）======
+        self.global_setting_frame = tb.Frame(self.left_column_frame)
+        self.global_setting_frame.grid(row=1, column=0, sticky="sew", pady=(4, 0))
         
-        self.btn_hotkey = tb.Button(self.global_setting_frame, text="快捷鍵", command=self.open_hotkey_settings, bootstyle=SECONDARY, width=15, style="My.TButton")
-        self.btn_hotkey.pack(anchor="w", pady=4, padx=8)
+        self.btn_hotkey = tb.Button(self.global_setting_frame, text="快捷鍵", command=self.open_hotkey_settings, bootstyle=SECONDARY, style="My.TButton")
+        self.btn_hotkey.pack(fill="x", pady=2, padx=0)
         
-        self.about_btn = tb.Button(self.global_setting_frame, text="關於", width=15, style="My.TButton", command=self.show_about_dialog, bootstyle=SECONDARY)
-        self.about_btn.pack(anchor="w", pady=4, padx=8)
+        self.about_btn = tb.Button(self.global_setting_frame, text="關於", style="My.TButton", command=self.show_about_dialog, bootstyle=SECONDARY)
+        self.about_btn.pack(fill="x", pady=2, padx=0)
         
         # 版本資訊按鈕
         self.version_info_btn = tb.Button(
             self.global_setting_frame,
-            text="版本資訊",
-            width=15,
+            text="版本",
             style="My.TButton",
             command=self.show_version_info,
             bootstyle=INFO
         )
-        self.version_info_btn.pack(anchor="w", pady=4, padx=8)
-        
+        self.version_info_btn.pack(fill="x", pady=2, padx=0)
         
         self.actual_language = saved_lang
         self.language_display_var = tk.StringVar(self, value="Language")
@@ -1008,7 +1005,7 @@ class RecorderApp(tb.Window):
             width=12,
             style="My.TCombobox"
         )
-        lang_combo_global.pack(anchor="w", pady=4, padx=8)
+        lang_combo_global.pack(fill="x", pady=2, padx=0)
         lang_combo_global.bind("<<ComboboxSelected>>", self.change_language)
         self.language_combo = lang_combo_global
 
@@ -1025,7 +1022,6 @@ class RecorderApp(tb.Window):
     def _show_admin_warning(self):
         """顯示管理員權限警告"""
         try:
-            import tkinter.messagebox as messagebox
             result = messagebox.askquestion(
                 "管理員權限警告",
                 "️ 檢測到程式未以管理員身份執行！\n\n"
@@ -1045,7 +1041,6 @@ class RecorderApp(tb.Window):
     def _restart_as_admin(self):
         """以管理員身份重新啟動程式"""
         try:
-            import sys
             if getattr(sys, 'frozen', False):
                 # 打包後的 exe
                 script = sys.executable
@@ -1302,7 +1297,6 @@ class RecorderApp(tb.Window):
                             except json.JSONDecodeError:
                                 # 如果 json.loads 失敗,嘗試 ast.literal_eval
                                 try:
-                                    import ast
                                     trajectory = ast.literal_eval(params_str)
                                 except Exception as ast_err:
                                     self.log(f"[錯誤] 第 {idx+1} 個動作: 無法解析軌跡資料 - {ast_err}")
@@ -1375,7 +1369,6 @@ class RecorderApp(tb.Window):
                                     })
                                 except:
                                     try:
-                                        import ast
                                         trajectory = ast.literal_eval(parts[2])
                                         events.append({
                                             "type": "mouse",
@@ -1405,7 +1398,6 @@ class RecorderApp(tb.Window):
                                 })
                     except Exception as e:
                         self.log(f"[錯誤] 第 {idx+1} 個動作({command}): 處理失敗 - {e}")
-                        import traceback
                         self.log(f"詳細: {traceback.format_exc()}")
                         skipped_count += 1
                         continue
@@ -1584,7 +1576,6 @@ class RecorderApp(tb.Window):
         
         except Exception as e:
             self.log(f"[轉換錯誤] 全局異常: {e}")
-            import traceback
             self.log(f"詳細: {traceback.format_exc()}")
         
         # 轉換完成統計
@@ -1625,7 +1616,6 @@ class RecorderApp(tb.Window):
             
         except Exception as e:
             self.log(f"顯示版本資訊失敗: {e}")
-            import traceback
             traceback.print_exc()
             messagebox.showerror("錯誤", f"無法顯示版本資訊：\n{e}")
     
@@ -1689,12 +1679,12 @@ class RecorderApp(tb.Window):
             self.random_interval_check.config(text=lang_map["隨機"])
         if hasattr(self, 'main_auto_mini_check'):
             self.main_auto_mini_check.config(text=lang_map["自動切換"])
-        # 更新左側選單
+        # 更新左側選單（只有3項）
         if hasattr(self, 'page_menu'):
             self.page_menu.delete(0, tk.END)
             self.page_menu.insert(0, lang_map["1.日誌顯示"])
             self.page_menu.insert(1, lang_map["2.腳本設定"])
-            self.page_menu.insert(2, lang_map["3.整體設定"])
+            self.page_menu.insert(2, lang_map["3.指令編輯器beta"])
         self.user_config["language"] = lang
         self.save_config()
         self.update_idletasks()
@@ -2041,7 +2031,6 @@ class RecorderApp(tb.Window):
             #  2.5 風格：暫停時停止 keyboard 錄製，暫存事件
             if self.paused and self.recording:
                 try:
-                    import keyboard
                     if hasattr(self.core_recorder, "_keyboard_recording") and self.core_recorder._keyboard_recording:
                         k_events = keyboard.stop_recording()
                         if not hasattr(self.core_recorder, "_paused_k_events"):
@@ -2053,26 +2042,11 @@ class RecorderApp(tb.Window):
             elif self.recording:
                 # 繼續時重新開始 keyboard 錄製
                 try:
-                    import keyboard
                     keyboard.start_recording()
                     if hasattr(self.core_recorder, "_keyboard_recording"):
                         self.core_recorder._keyboard_recording = True
                 except Exception as e:
                     self.log(f"[警告] 繼續錄製時啟動keyboard失敗: {e}")
-
-    def stop_record(self):
-        """停止錄製（簡化版 - v2.1 風格）"""
-        if not self.recording:
-            return
-        
-        # 告訴 core_recorder 停止錄製
-        self.recording = False
-        self.core_recorder.stop_record()
-        self.log(f"[{format_time(time.time())}] 停止錄製（等待寫入事件...）。")
-        
-        # 等待 core_recorder 的錄製執行緒結束
-        self._wait_record_thread_finish()
-        
 
     def play_record(self):
         """開始執行"""
@@ -2093,7 +2067,6 @@ class RecorderApp(tb.Window):
         # 檢查視窗狀態（大小、位置、DPI、解析度）
         if self.target_hwnd:
             try:
-                from tkinter import messagebox
                 
                 # 獲取當前視窗資訊
                 current_info = get_window_info(self.target_hwnd)
@@ -2263,7 +2236,6 @@ class RecorderApp(tb.Window):
                             self.log(f"縮放比例 - X: {self._scale_ratio['x']:.3f}, Y: {self._scale_ratio['y']:.3f}, DPI: {self._scale_ratio['dpi']:.3f}")
             except Exception as e:
                 self.log(f"檢查視窗狀態時發生錯誤: {e}")
-                import traceback
                 self.log(f"錯誤詳情: {traceback.format_exc()}")
         
         # 直接開始執行
@@ -2293,7 +2265,6 @@ class RecorderApp(tb.Window):
         current_window_y = 0
         if self.target_hwnd:
             try:
-                import win32gui
                 rect = win32gui.GetWindowRect(self.target_hwnd)
                 current_window_x, current_window_y = rect[0], rect[1]
             except Exception as e:
@@ -2539,7 +2510,6 @@ class RecorderApp(tb.Window):
 
         #  步驟3：精確清理本程式的快捷鍵（不影響其他程式）
         try:
-            import keyboard
             
             # 移除系統快捷鍵
             for handler in self._hotkey_handlers.values():
@@ -2570,7 +2540,6 @@ class RecorderApp(tb.Window):
             pass
         try:
             # 直接使用 os._exit 以確保立即終止
-            import os, sys
             try:
                 self.quit()
             except:
@@ -2584,7 +2553,6 @@ class RecorderApp(tb.Window):
                 sys.exit(0)
         except Exception:
             try:
-                import sys
                 sys.exit(0)
             except:
                 pass
@@ -2592,7 +2560,6 @@ class RecorderApp(tb.Window):
     def _release_all_modifiers(self):
         """釋放所有修飾鍵以防止卡住（v2.6.5 修復版 - 不移除快捷鍵）"""
         try:
-            import keyboard
             # 釋放常見的修飾鍵與常用按鍵，盡量避免卡鍵
             keys_to_release = ['ctrl', 'shift', 'alt', 'win']
             # 加入功能鍵與字母數字
@@ -2608,7 +2575,6 @@ class RecorderApp(tb.Window):
 
             #  v2.7.6 強制透過 Windows API 釋放核心修飾鍵 (防止 keyboard 模組失效)
             try:
-                import win32api, win32con
                 vk_map = {
                     'ctrl': [win32con.VK_CONTROL, win32con.VK_LCONTROL, win32con.VK_RCONTROL],
                     'shift': [win32con.VK_SHIFT, win32con.VK_LSHIFT, win32con.VK_RSHIFT],
@@ -2852,7 +2818,6 @@ class RecorderApp(tb.Window):
             error_msg = str(ex)
             self.log(f"儲存腳本設定失敗: {error_msg}")
             
-            import traceback
             detailed_error = traceback.format_exc()
             self.log(f"錯誤詳情:\n{detailed_error}")
             
@@ -2861,7 +2826,6 @@ class RecorderApp(tb.Window):
     
     def _validate_time_format(self, time_str):
         """驗證時間格式 HH:MM:SS"""
-        import re
         pattern = r'^\d{1,2}:\d{2}:\d{2}$'
         return re.match(pattern, time_str) is not None
 
@@ -3026,7 +2990,6 @@ class RecorderApp(tb.Window):
                                f"腳本檔案格式損壞:\n\n{e}\n\n請使用文字編輯器檢查檔案內容")
         except Exception as ex:
             self.log(f"載入腳本失敗: {ex}")
-            import traceback
             detailed_error = traceback.format_exc()
             self.log(f"錯誤詳情:\n{detailed_error}")
             messagebox.showerror("載入失敗", 
@@ -3034,28 +2997,6 @@ class RecorderApp(tb.Window):
         
         # 儲存設定
         self.save_config()
-
-    def load_script(self):
-        from tkinter import filedialog
-        path = filedialog.askopenfilename(filetypes=[("JSON files", "*.json")], initialdir=self.script_dir)
-        if path:
-            try:
-                data = sio_load_script(path)
-                self.events = data.get("events", [])
-                settings = data.get("settings", {})
-                self.speed_var.set(settings.get("speed", "100"))
-                self.repeat_var.set(settings.get("repeat", "1"))
-                self.repeat_time_var.set(settings.get("repeat_time", "00:00:00"))
-                self.repeat_interval_var.set(settings.get("repeat_interval", "00:00:00"))
-                self.random_interval_var.set(settings.get("random_interval", False))
-                self.log(f"[{format_time(time.time())}] 腳本已載入：{os.path.basename(path)}，共 {len(self.events)} 筆事件。")
-                self.refresh_script_list()
-                self.script_var.set(os.path.basename(path))
-                with open(LAST_SCRIPT_FILE, "w", encoding="utf-8") as f:
-                    f.write(os.path.basename(path))
-                self.save_config()
-            except Exception as ex:
-                self.log(f"載入腳本失敗: {ex}")
 
     def load_last_script(self):
         if os.path.exists(LAST_SCRIPT_FILE):
@@ -3107,7 +3048,6 @@ class RecorderApp(tb.Window):
 
     def update_mouse_pos(self):
         try:
-            import mouse
             x, y = mouse.get_position()
             self.mouse_pos_label.config(text=f"(X={x},Y={y})")
         except Exception:
@@ -3458,7 +3398,6 @@ class RecorderApp(tb.Window):
             except Exception as e:
                 self.log(f"合併失敗: {e}")
                 messagebox.showerror("錯誤", f"合併失敗：\n{e}")
-                import traceback
                 traceback.print_exc()
                 
                 # 重新整理腳本列表
@@ -3479,7 +3418,6 @@ class RecorderApp(tb.Window):
                 
             except Exception as e:
                 messagebox.showerror("錯誤", f"合併失敗：{e}")
-                import traceback
                 self.log(f"合併錯誤詳情: {traceback.format_exc()}")
         
         merge_execute_btn = tb.Button(
@@ -3762,11 +3700,7 @@ class RecorderApp(tb.Window):
         驗證快捷鍵是否確實由使用者實體按下，而非腳本模擬。
         利用 Win32 API GetAsyncKeyState(vk) & 0x8000 檢查硬體層級狀態。
         """
-        try:
-            import win32api
-            import win32con
-        except ImportError:
-            return True 
+        # 模組已於頂部引入
 
         if not hotkey_str or not hotkey_str.strip():
             return False
@@ -3871,11 +3805,7 @@ class RecorderApp(tb.Window):
         
         禁止：keyboard.unhook_all() - 會移除所有熱鍵（包括其他程式）
         """
-        try:
-            import keyboard
-        except Exception as e:
-            self.log(f"[錯誤] keyboard 模組載入失敗: {e}")
-            return
+        # keyboard 模組已於頂部載入
         
         method_map = {
             "start": "start_record",
@@ -3946,14 +3876,7 @@ class RecorderApp(tb.Window):
         - 添加 keyboard 模組載入檢查
         - 詳細的錯誤處理和日誌
         """
-        try:
-            import keyboard
-        except ImportError as e:
-            self.log(f"[錯誤] 無法載入 keyboard 模組用於腳本快捷鍵: {e}")
-            return
-        except Exception as e:
-            self.log(f"[錯誤] keyboard 模組初始化失敗: {e}")
-            return
+        # keyboard 模組已於頂部載入
         
         # 移除舊的腳本快捷鍵
         for script, info in self._script_hotkey_handlers.items():
@@ -4030,7 +3953,6 @@ class RecorderApp(tb.Window):
         每30秒執行一次
         """
         try:
-            import keyboard
             
             # 檢查是否需要重新註冊（如果上次註冊超過5分鐘且有失敗記錄）
             current_time = time.time()
@@ -4220,16 +4142,6 @@ class RecorderApp(tb.Window):
             y = self.mini_window.winfo_y() + event.y - self._mini_y
             self.mini_window.geometry(f"+{x}+{y}")
 
-    def use_default_script_dir(self):
-        self.script_dir = SCRIPTS_DIR
-        if not os.path.exists(self.script_dir):
-            os.makedirs(self.script_dir)
-        self.refresh_script_list()
-        self.save_config()
-
-        # 開啟資料夾
-        os.startfile(self.script_dir)
-    
     def _on_script_combo_click(self, event=None):
         """當點擊腳本下拉選單時，即時重新整理列表"""
         self.refresh_script_list()
@@ -4330,19 +4242,16 @@ class RecorderApp(tb.Window):
                 if isinstance(child, tb.Scrollbar):
                     child.grid(row=0, column=1, sticky="ns")
         elif idx == 1:
-            # 腳本編輯器 - 直接開啟編輯器視窗
+            # 腳本設定
+            self.script_setting_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
+            self.refresh_script_listbox()
+        elif idx == 2:
+            # 指令編輯器 - 直接開啟編輯器視窗
             self.open_visual_editor()
             # 回到日誌顯示頁面
             self.page_menu.selection_clear(0, "end")
             self.page_menu.selection_set(0)
             self.show_page(0)
-        elif idx == 2:
-            # 腳本設定
-            self.script_setting_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
-            self.refresh_script_listbox()
-        elif idx == 3:
-            # 整體設定
-            self.global_setting_frame.place(x=0, y=0, anchor="nw")
 
     def on_script_treeview_select(self, event=None):
         """處理腳本 Treeview 選擇事件"""
@@ -4409,11 +4318,6 @@ class RecorderApp(tb.Window):
                 self.hotkey_capture_var.set("")
         except Exception as ex:
             self.log(f"處理點擊事件失敗: {ex}")
-
-    def on_script_listbox_select(self, event=None):
-        """保留舊的選擇處理（兼容性）"""
-        # 此方法已被 on_script_listbox_click 取代
-        pass
 
     def on_hotkey_entry_key(self, event):
         """強化版快捷鍵捕捉（用於腳本快捷鍵）- v2.8.2 修復版
@@ -4598,7 +4502,6 @@ class RecorderApp(tb.Window):
             self.log("提示：按下快捷鍵將使用腳本內儲存的參數直接執行")
         except Exception as ex:
             self.log(f"設定腳本快捷鍵失敗: {ex}")
-            import traceback
             self.log(f"錯誤詳情: {traceback.format_exc()}")
 
     def delete_selected_script(self):
@@ -4631,7 +4534,6 @@ class RecorderApp(tb.Window):
             return
         
         # 確認刪除
-        import tkinter.messagebox as messagebox
         if len(scripts_to_delete) == 1:
             # 單個腳本刪除
             script_name = scripts_to_delete[0][0]
@@ -4721,7 +4623,6 @@ class RecorderApp(tb.Window):
                 self.after(100, self._ensure_editor_on_top)
         except Exception as e:
             self.log(f"[錯誤] 無法開啟編輯器：{e}")
-            import traceback
             error_detail = traceback.format_exc()
             self.log(f"錯誤詳情: {error_detail}")
             messagebox.showerror("錯誤", f"無法開啟腳本編輯器：\n\n{e}\n\n請查看日誌獲取詳細資訊")
@@ -5007,7 +4908,6 @@ class RecorderApp(tb.Window):
             
         except Exception as e:
             self.log(f"執行排程腳本失敗：{e}")
-            import traceback
             self.log(f"錯誤詳情: {traceback.format_exc()}")
 
     def select_target_window(self):
@@ -5058,7 +4958,6 @@ class RecorderApp(tb.Window):
             WindowSelectorDialog(self, on_selected)
         except Exception as e:
             self.log(f"[錯誤] 無法開啟視窗選擇器：{e}")
-            import traceback
             self.log(f"錯誤詳情: {traceback.format_exc()}")
             messagebox.showerror("錯誤", f"無法開啟視窗選擇器：\n\n{e}")
     

@@ -533,6 +533,11 @@ class RecorderApp(tb.Window):
         self.style.configure("My.TCombobox", font=font_tuple(9))
         self.style.configure("My.TCheckbutton", font=font_tuple(9))
         self.style.configure("miniBold.TButton", font=font_tuple(9, "bold"))
+        
+        # 設定特定 bootstyle 按鈕的字體
+        for b_style in ["info", "danger", "warning", "success", "primary", "secondary"]:
+            self.style.configure(f"{b_style}.TButton", font=font_tuple(9))
+            self.style.configure(f"{b_style}.Outline.TButton", font=font_tuple(8))
 
         self.title(f"ChroLens_Mimic_{VERSION}")
         # 設定視窗圖示 (使用統一工具)
@@ -850,16 +855,16 @@ class RecorderApp(tb.Window):
         pl_btn_frame.pack(fill="x", padx=5, pady=5)
         
         # Buttons: "讀取腳本", "清除", "取消/恢復", "儲存組合", "▲", "▼"
-        self.pl_load_btn = tb.Button(pl_btn_frame, text="讀取腳本", bootstyle="info-outline", style="My.TButton", command=self.pl_load_scripts)
+        self.pl_load_btn = tb.Button(pl_btn_frame, text="讀取腳本", bootstyle="info-outline", command=self.pl_load_scripts)
         self.pl_load_btn.pack(side="left", padx=2)
         
-        self.pl_clear_btn = tb.Button(pl_btn_frame, text="清除", bootstyle="danger-outline", style="My.TButton", command=self.pl_clear)
+        self.pl_clear_btn = tb.Button(pl_btn_frame, text="清除", bootstyle="danger-outline", command=self.pl_clear)
         self.pl_clear_btn.pack(side="left", padx=2)
         
-        self.pl_toggle_btn = tb.Button(pl_btn_frame, text="取消/恢復", bootstyle="warning-outline", style="My.TButton", command=self.pl_toggle)
+        self.pl_toggle_btn = tb.Button(pl_btn_frame, text="取消/恢復", bootstyle="warning-outline", command=self.pl_toggle)
         self.pl_toggle_btn.pack(side="left", padx=2)
         
-        self.pl_save_btn = tb.Button(pl_btn_frame, text="儲存組合", bootstyle="success-outline", style="My.TButton", command=self.pl_save)
+        self.pl_save_btn = tb.Button(pl_btn_frame, text="儲存組合", bootstyle="success-outline", command=self.pl_save)
         self.pl_save_btn.pack(side="left", padx=2)
         
         # (已移除上下移動按鈕，因清單支援直接拖曳)
@@ -869,7 +874,7 @@ class RecorderApp(tb.Window):
         pl_info_frame.pack(fill="x", padx=5, pady=(0, 2))
         self.pl_mode_label = tb.Label(pl_info_frame, text="模式: 單一載入", font=font_tuple(8), foreground="#888888")
         self.pl_mode_label.pack(side="left")
-        tb.Label(pl_info_frame, text="[ 可直接拖曳調整順序 ]", font=font_tuple(8), foreground="#888888").pack(side="right")
+        tb.Label(pl_info_frame, text="[ 拖曳調整順序 ]", font=font_tuple(8), foreground="#888888").pack(side="right")
         
         # 佇列 Listbox
         self.playlist_listbox = tk.Listbox(self.playlist_frame, font=font_tuple(10), selectmode="extended", activestyle="none", bg="#1a1a1a", fg="#e0e0e0")
@@ -879,6 +884,8 @@ class RecorderApp(tb.Window):
         self.playlist_listbox.bind("<Button-1>", self.pl_drag_start)
         self.playlist_listbox.bind("<B1-Motion>", self.pl_drag_motion)
         self.playlist_listbox.bind("<ButtonRelease-1>", self.pl_drag_end)
+        # 綁定右鍵設定延遲事件
+        self.playlist_listbox.bind("<Button-3>", self.pl_on_right_click)
 
         # 腳本設定區（彈性調整）
         self.script_setting_frame = tb.Frame(self.page_content_frame)
@@ -995,23 +1002,23 @@ class RecorderApp(tb.Window):
         self.img_threshold_var.trace_add("write", on_threshold_change)
 
         # a) 設定快捷鍵按鈕：將捕捉到的快捷鍵寫入選定腳本並註冊
-        self.set_hotkey_btn = tb.Button(self.script_right_frame, text="設定快捷鍵", width=16, bootstyle=SUCCESS, style="My.TButton", command=self.set_script_hotkey)
+        self.set_hotkey_btn = tb.Button(self.script_right_frame, text="設定快捷鍵", width=16, bootstyle=SUCCESS, command=self.set_script_hotkey)
         self.set_hotkey_btn.pack(anchor="w", pady=2)
 
         # b) 直接開啟腳本資料夾（輔助功能）
-        self.open_dir_btn = tb.Button(self.script_right_frame, text="開啟資料夾", width=16, bootstyle=SECONDARY, style="My.TButton", command=self.open_scripts_dir)
+        self.open_dir_btn = tb.Button(self.script_right_frame, text="開啟資料夾", width=16, bootstyle=SECONDARY, command=self.open_scripts_dir)
         self.open_dir_btn.pack(anchor="w", pady=2)
 
         # c) 刪除按鈕：直接刪除檔案並取消註冊其快捷鍵（若有）
-        self.del_script_btn = tb.Button(self.script_right_frame, text="刪除腳本", width=16, bootstyle=DANGER, style="My.TButton", command=self.delete_selected_script)
+        self.del_script_btn = tb.Button(self.script_right_frame, text="刪除腳本", width=16, bootstyle=DANGER, command=self.delete_selected_script)
         self.del_script_btn.pack(anchor="w", pady=2)
         
         # d) 排程按鈕：設定腳本定時執行
-        self.schedule_btn = tb.Button(self.script_right_frame, text="排程", width=16, bootstyle=INFO, style="My.TButton", command=self.open_schedule_settings)
+        self.schedule_btn = tb.Button(self.script_right_frame, text="排程", width=16, bootstyle=INFO, command=self.open_schedule_settings)
         self.schedule_btn.pack(anchor="w", pady=2)
         
         # e) 合併腳本按鈕：將多個腳本合併為一個
-        self.merge_btn = tb.Button(self.script_right_frame, text=lang_map["合併腳本"], width=16, bootstyle=SUCCESS, style="My.TButton", command=self.merge_scripts)
+        self.merge_btn = tb.Button(self.script_right_frame, text=lang_map["合併腳本"], width=16, bootstyle=SUCCESS, command=self.merge_scripts)
         self.merge_btn.pack(anchor="w", pady=2)
 
         # 初始化清單
@@ -1066,12 +1073,8 @@ class RecorderApp(tb.Window):
         """顯示管理員權限警告"""
         try:
             result = messagebox.askquestion(
-                "管理員權限警告",
-                "️ 檢測到程式未以管理員身份執行！\n\n"
-                "錄製功能需要管理員權限才能正常工作。\n"
-                "鍵盤和滑鼠監聽可能會失敗。\n\n"
-                "是否要以管理員身份重新啟動程式？\n"
-                "（選擇「否」將繼續執行，但錄製功能可能無法使用）",
+                "權限通知",
+                "確保所有功能正常運作,是否以管理者權限再次開啟?",
                 icon='warning'
             )
             
@@ -2134,17 +2137,36 @@ class RecorderApp(tb.Window):
         self._update_playlist_ui()
         
         path = self.playlist_data[found_idx]['path']
+        delay = self.playlist_data[found_idx].get('delay', 0)
+        
         try:
-            # 使用全域已定義的 sio_load_script (包含相容性處理)
+            # 載入腳本
             data = sio_load_script(path)
             self.events = data.get("events", [])
-            self.log(f"[{format_time(time.time())}] 佇列執行: {os.path.basename(path)}")
-            # 開始執行
-            self._continue_play_record()
+            
+            if delay > 0:
+                self.log(f"[{format_time(time.time())}] 佇列等待: {delay} 秒後執行 {os.path.basename(path)}")
+                
+                # 若已有倒數計時工作，先取消防禦
+                if getattr(self, '_playlist_delay_job', None):
+                    self.after_cancel(self._playlist_delay_job)
+                    
+                self._playlist_delay_job = self.after(int(delay * 1000), self._do_play_loaded_script, path)
+            else:
+                self._do_play_loaded_script(path)
+                
             return True
         except Exception as e:
             self.log(f"佇列腳本載入失敗: {e}，跳過此腳本。")
             return self._play_next_in_playlist()
+
+    def _do_play_loaded_script(self, path):
+        """實際開始執行腳本"""
+        self._playlist_delay_job = None
+        if not self.playing or not getattr(self, '_is_playlist_playing', False):
+            return  # 若已被停止則不再執行
+        self.log(f"[{format_time(time.time())}] 佇列執行: {os.path.basename(path)}")
+        self._continue_play_record()
 
     def play_record(self):
         """開始執行"""
@@ -2549,6 +2571,11 @@ class RecorderApp(tb.Window):
         
         if self.playing:
             self.playing = False
+            # 取消可能的延遲任務
+            if getattr(self, '_playlist_delay_job', None):
+                self.after_cancel(self._playlist_delay_job)
+                self._playlist_delay_job = None
+                
             # 重置群組播放狀態，並恢復開始錄製按鈕
             if getattr(self, '_is_playlist_playing', False):
                 self._is_playlist_playing = False
@@ -3272,11 +3299,11 @@ class RecorderApp(tb.Window):
         main_content.pack(fill="both", expand=True, padx=10, pady=5)
         
         # 可用腳本列表（左側）
-        left_frame = tb.LabelFrame(main_content, text=lang_map.get("所有Script", "所有腳本"), padding=10)
+        left_frame = tb.LabelFrame(main_content, text=lang_map.get("所有Script", "所有腳本"))
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
         
         available_list = tk.Listbox(left_frame, height=12, selectmode=tk.EXTENDED, font=("微軟正黑體", 10))
-        available_list.pack(fill="both", expand=True)
+        available_list.pack(fill="both", expand=True, padx=10, pady=10)
         
         scripts = [f for f in os.listdir(self.script_dir) if f.endswith('.json')]
         for script in scripts:
@@ -3434,11 +3461,11 @@ class RecorderApp(tb.Window):
         down_btn.pack(pady=5)
         
         # 合併列表（右側）
-        right_frame = tb.LabelFrame(main_content, text="待合併腳本（執行順序）", padding=10)
+        right_frame = tb.LabelFrame(main_content, text="待合併腳本（執行順序）")
         right_frame.pack(side="left", fill="both", expand=True, padx=(5, 0))
         
         merge_list = tk.Listbox(right_frame, height=12, selectmode=tk.EXTENDED, font=("微軟正黑體", 10))
-        merge_list.pack(fill="both", expand=True)
+        merge_list.pack(fill="both", expand=True, padx=10, pady=10)
         merge_list.bind("<Double-Button-1>", on_double_click)
         
         # 底部操作區
@@ -5247,8 +5274,15 @@ class RecorderApp(tb.Window):
         for idx, item in enumerate(self.playlist_data):
             prefix = "" if item.get('enabled', True) else "[已停用] "
             pointer = "▶ " if self._is_playlist_playing and idx == self._current_pl_index else "  "
-            # Format: 1 01-公會.json
-            display_text = f"{pointer}{idx+1:2d} {prefix}{item['name']}"
+            
+            delay = item.get('delay', 0)
+            delay_str = f"  ({delay}秒)" if delay > 0 else ""
+            
+            name_disp = item['name']
+            if name_disp.endswith('.json'):
+                name_disp = name_disp[:-5]
+            
+            display_text = f"{pointer}{idx+1:2d} {prefix}{name_disp}{delay_str}"
             self.playlist_listbox.insert("end", display_text)
             
             if not item.get('enabled', True):
@@ -5462,6 +5496,28 @@ class RecorderApp(tb.Window):
 
     def pl_drag_end(self, event):
         self._drag_start_index = None
+
+    def pl_on_right_click(self, event):
+        idx = self.playlist_listbox.nearest(event.y)
+        if idx >= 0 and idx < len(self.playlist_data):
+            item = self.playlist_data[idx]
+            from tkinter import simpledialog
+            delay_str = simpledialog.askstring(
+                "延遲設定", 
+                f"請輸入在執行「{item['name']}」前的等待秒數：\n\n(輸入 0 代表無延遲)",
+                initialvalue=str(item.get('delay', 0)),
+                parent=self
+            )
+            if delay_str is not None:
+                try:
+                    delay = int(delay_str)
+                    if delay >= 0:
+                        self.playlist_data[idx]['delay'] = delay
+                        self._update_playlist_ui()
+                    else:
+                        self.log("輸入的延遲秒數不能為負數")
+                except ValueError:
+                    self.log("延遲秒數格式錯誤，請輸入整數")
 # ====== 設定檔讀寫 ======
 CONFIG_FILE = "user_config.json"
 

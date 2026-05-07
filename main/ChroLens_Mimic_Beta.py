@@ -9,7 +9,7 @@
 # 該檔案包含所有開發規範、流程說明、版本管理規則和重要備註
 # ═══════════════════════════════════════════════════════════════════════════
 
-VERSION = "2.7.9"
+VERSION = "2.7.8-Beta"
 
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
@@ -30,8 +30,25 @@ import re
 import ast
 import os
 
+# ════════════════════════════════════════════════════════════════════════════
+# 應用程式根目錄解析（支援 .py 直接執行 & PyInstaller .exe 打包）
+# ════════════════════════════════════════════════════════════════════════════
+def get_app_dir():
+    """
+    回傳應用程式的根目錄路徑。
+    - 直接執行 .py 時：回傳 .py 所在資料夾
+    - PyInstaller 打包成 .exe 時：回傳 .exe 所在資料夾（而非暫存的 _MEIPASS）
+    這確保 templates/、TTF/、modules/ 等資料夾在打包後仍能正確找到。
+    """
+    if getattr(sys, 'frozen', False):
+        # PyInstaller 打包後的執行環境
+        return os.path.dirname(sys.executable)
+    else:
+        # 一般 .py 執行環境
+        return os.path.dirname(os.path.abspath(__file__))
+
 # 🔧 加入模組路徑 (v2.7.8 Reorganization)
-_dir = os.path.dirname(os.path.abspath(__file__))
+_dir = get_app_dir()
 _modules_dir = os.path.join(_dir, 'modules')
 if os.path.exists(_modules_dir) and _modules_dir not in sys.path:
     sys.path.insert(0, _modules_dir)
@@ -60,6 +77,166 @@ try:
 except ImportError:
     print("pystray 或 Pillow 未安裝，系統匣功能將停用")
     PYSTRAY_AVAILABLE = False
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 【 Beta 新增 】視覺感知偵測套件
+# ═══════════════════════════════════════════════════════════════════════════
+try:
+    import cv2
+    import numpy as np
+    CV2_AVAILABLE = True
+    print("[OK] OpenCV 已載入（視覺偵測啟用）")
+except ImportError:
+    CV2_AVAILABLE = False
+    np = None
+    print("[提示] OpenCV 未安裝，視覺偵測功能停用。pip install opencv-python")
+
+try:
+    import mss as _mss_module
+    MSS_AVAILABLE = True
+    print("[OK] MSS 高速截圖已載入")
+except ImportError:
+    MSS_AVAILABLE = False
+    print("[提示] MSS 未安裝，將使用 PIL 截圖備援。pip install mss")
+
+try:
+    from ultralytics import YOLO as _YOLOModel
+    YOLO_AVAILABLE = True
+    print("[OK] YOLO 已載入")
+except ImportError:
+    _YOLOModel = None
+    YOLO_AVAILABLE = False
+    print("[提示] YOLO 未安裝，使用 OpenCV 模板比對。pip install ultralytics")
+
+# ==================== OCR 診斷懸浮窗 (v2.8.8) ====================
+class OCRFloatWindow:
+    def __init__(self, root):
+        self.root = root
+        self.window = tk.Toplevel(root)
+        self.window.title("Mimic OCR 診斷")
+        self.window.overrideredirect(True)  # 無邊框
+        self.window.attributes('-topmost', True)
+        self.window.configure(bg="#1e1e1e")
+        
+        # 建立外框
+        self.frame = tk.Frame(self.window, bg="#1e1e1e", highlightbackground="#00BCD4", highlightthickness=2)
+        self.frame.pack(fill="both", expand=True)
+        
+        # 圖片標籤
+        self.img_label = tk.Label(self.frame, bg="#2d2d2d")
+        self.img_label.pack(padx=5, pady=5)
+        
+        # 文字標籤
+        self.text_var = tk.StringVar(value="辨識中...")
+        self.text_label = tk.Entry(self.frame, textvariable=self.text_var, font=("Arial", 14, "bold"), 
+                                  bg="#1e1e1e", fg="#00BCD4", justify="center", bd=0)
+        self.text_label.pack(fill="x", padx=5, pady=5)
+        
+        # 自動隱藏計時
+        self._hide_timer = None
+
+    def show_result(self, image_np, text, main_x, main_y):
+        # 轉換影像
+        from PIL import Image, ImageTk
+        img = Image.fromarray(cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB))
+        # 縮放到寬度 200
+        w, h = img.size
+        new_w = 200
+        new_h = int(h * (new_w / w))
+        img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        
+        tk_img = ImageTk.PhotoImage(img)
+        self.img_label.config(image=tk_img)
+        self.img_label.image = tk_img
+        
+        self.text_var.set(text)
+        
+        # 置放於主視窗左側 (使用者要求的綠色框位置)
+        win_w, win_h = 220, new_h + 60
+        pos_x = main_x - win_w - 10
+        pos_y = main_y + 100
+        
+        # 螢幕邊界檢查：如果左邊放不下，就放到右邊
+        if pos_x < 10:
+            try:
+                main_w = self.root.winfo_width()
+                pos_x = main_x + main_w + 10
+            except:
+                pos_x = 10
+                
+        self.window.geometry(f"{win_w}x{win_h}+{int(pos_x)}+{int(pos_y)}")
+        
+        self.window.deiconify()
+        
+# ==================== AI 視覺高亮器 (v2.8.9) ====================
+class ScreenHighlighter:
+    """在螢幕上繪製半透明紅框，模擬 AI 追蹤效果"""
+    def __init__(self, root):
+        self.root = root
+        self.win = tk.Toplevel(root)
+        self.win.overrideredirect(True)
+        self.win.attributes('-topmost', True)
+        # 設定透明色為白色，並讓視窗完全穿透 (Click-through)
+        self.win.attributes('-transparentcolor', 'white')
+        self.win.attributes('-alpha', 0.8)
+        
+        # 讓視窗穿透滑鼠點擊 (Windows Only)
+        try:
+            import ctypes
+            GWL_EXSTYLE = -20
+            WS_EX_LAYERED = 0x80000
+            WS_EX_TRANSPARENT = 0x20
+            hwnd = ctypes.windll.user32.GetParent(self.win.winfo_id())
+            style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED | WS_EX_TRANSPARENT)
+        except:
+            pass
+
+        self.canvas = tk.Canvas(self.win, bg='white', highlightthickness=0)
+        self.canvas.pack(fill='both', expand=True)
+        self.win.withdraw()
+
+    def highlight(self, x, y, w, h, color='red', duration=1.5):
+        """在座標 (x,y) 處顯示寬 w 高 h 的框"""
+        self.win.geometry(f"{w}x{h}+{int(x)}+{int(y)}")
+        self.canvas.delete("all")
+        # 繪製紅框 (AI 追蹤風格)
+        self.canvas.create_rectangle(2, 2, w-2, h-2, outline=color, width=4)
+        # 繪製四角 L 型增強 AI 感
+        l_len = 20
+        self.canvas.create_line(0,0, l_len,0, fill=color, width=6)
+        self.canvas.create_line(0,0, 0,l_len, fill=color, width=6)
+        self.win.deiconify()
+        self.win.after(int(duration * 1000), self.win.withdraw)
+        
+        # 自動複製到剪貼簿 (使用者要求)
+        import pyperclip
+        pyperclip.copy(text)
+        
+        # 3秒後自動隱藏
+        if self._hide_timer: self.window.after_cancel(self._hide_timer)
+        self._hide_timer = self.window.after(3000, self.window.withdraw)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 【 Beta 新增 】OCR 文字辨識套件 (用於驗證碼)
+# ═══════════════════════════════════════════════════════════════════════════
+OCR_AVAILABLE = False
+OCR_ENGINE_TYPE = None # 'ddddocr' or 'tesseract' or None
+
+try:
+    import ddddocr
+    OCR_AVAILABLE = True
+    OCR_ENGINE_TYPE = 'ddddocr'
+    print("[OK] ddddocr 已載入 (驗證碼辨識優化)")
+except ImportError:
+    try:
+        import pytesseract
+        OCR_AVAILABLE = True
+        OCR_ENGINE_TYPE = 'tesseract'
+        print("[OK] Tesseract OCR 已載入")
+    except ImportError:
+        print("[提示] OCR 套件未安裝 (ddddocr 或 pytesseract)，文字辨識功能將無法使用")
 
 
 
@@ -160,7 +337,7 @@ except Exception as e:
     WindowSelectorDialog = None
 
 # 新增：註冊專案內的 LINESeedTW TTF（若存在），並提供通用 font_tuple() 幫助函式
-TTF_PATH = os.path.join(os.path.dirname(__file__), "TTF", "LINESeedTW_TTF_Rg.ttf")
+TTF_PATH = os.path.join(get_app_dir(), "TTF", "LINESeedTW_TTF_Rg.ttf")
 
 def _register_private_ttf(ttf_path):
     try:
@@ -364,6 +541,411 @@ class ScheduleManager:
             if hasattr(self.app, 'log'):
                 self.app.log(f" 觸發排程失敗: {e}")
     
+# ════════════════════════════════════════════════════════════════════════════
+# 【 Beta 核心 】視覺感知偵測引擎
+# ════════════════════════════════════════════════════════════════════════════
+class VisualDetectionEngine:
+    """
+    視覺感知偵測引擎 - ChroLens Beta 核心元件
+
+    功能：
+    1. 螢幕截圖（MSS 高速 / PIL 備援）
+    2. OpenCV 模板比對（TM_CCOEFF_NORMED）
+    3. 非極大值抑制（NMS）去除重複偵測
+    4. 空間錨點過濾（Spatial Anchoring）—解決多個相同目標的選擇困境
+       - ROI 策略：先在錨點座標±roi_radius 內搜尋
+       - 最近鄰策略：ROI 找不到時全螢幕搜尋並選距離最近者
+       - 回退策略：完全找不到時回退到原始錄製座標
+    5. YOLO 物件偵測（選用，需 ultralytics）
+    """
+
+    def __init__(self, logger=None):
+        self.logger = logger or print
+        self._sct = None
+        self._yolo_model = None
+        self._templates = {}  # {name: np_array}
+        if MSS_AVAILABLE:
+            try:
+                self._sct = _mss_module.mss()
+            except Exception as e:
+                self.logger(f"[VDE] MSS 初始化失敗: {e}")
+
+    # ------------------------------------------------------------------
+    # 截圖
+    # ------------------------------------------------------------------
+    def capture_screen(self, region=None):
+        """
+        截取全螢幕或指定區域。
+        region: (left, top, width, height) 或 None
+        回傳: numpy BGR 陣列，失敗回傳 None
+        """
+        if not CV2_AVAILABLE:
+            return None
+        try:
+            if MSS_AVAILABLE and self._sct:
+                monitor = (
+                    {"left": region[0], "top": region[1],
+                     "width": region[2], "height": region[3]}
+                    if region else self._sct.monitors[1]
+                )
+                shot = self._sct.grab(monitor)
+                img = np.array(shot)
+                return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+            else:
+                from PIL import ImageGrab
+                bbox = (region[0], region[1],
+                        region[0]+region[2], region[1]+region[3]) if region else None
+                pil_img = ImageGrab.grab(bbox=bbox)
+                img = np.array(pil_img)
+                return cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        except Exception as e:
+            self.logger(f"[VDE] 截圖失敗: {e}")
+            return None
+
+    def capture_region_around(self, cx, cy, radius=80):
+        """截取以 (cx,cy) 為中心、邊長 radius*2 的正方形區域，儲存為模板用。"""
+        left = max(0, cx - radius)
+        top  = max(0, cy - radius)
+        w = h = radius * 2
+        img = self.capture_screen(region=(left, top, w, h))
+        return img  # 可能為 None
+
+    # ------------------------------------------------------------------
+    # 模板管理
+    # ------------------------------------------------------------------
+    def save_template_from_click(self, cx, cy, name, radius=50):
+        """
+        以錄製點擊位置為中心，截圖儲存為模板。
+        回傳儲存路徑或 None。
+        """
+        if not CV2_AVAILABLE:
+            return None
+        img = self.capture_region_around(cx, cy, radius)
+        if img is None:
+            return None
+        tmpl_dir = os.path.join(get_app_dir(), "templates")
+        os.makedirs(tmpl_dir, exist_ok=True)
+        path = os.path.join(tmpl_dir, f"{name}.png")
+        cv2.imwrite(path, img)
+        self._templates[name] = img
+        self.logger(f"[VDE] 模板已儲存: {path}")
+        return path
+
+    def load_template(self, name, path):
+        """從檔案載入模板。"""
+        if not CV2_AVAILABLE or not os.path.exists(path):
+            return False
+        tmpl = cv2.imread(path)
+        if tmpl is not None:
+            self._templates[name] = tmpl
+            return True
+        return False
+
+    # ------------------------------------------------------------------
+    # 比對核心
+    # ------------------------------------------------------------------
+    def find_all_matches(self, screen_img, template_img, threshold=0.8):
+        """
+        在 screen_img 中找出所有與 template_img 相符的位置。
+        回傳: [(center_x, center_y, confidence), ...]
+        """
+        if not CV2_AVAILABLE or screen_img is None or template_img is None:
+            return []
+        try:
+            sg = cv2.cvtColor(screen_img,   cv2.COLOR_BGR2GRAY)
+            tg = cv2.cvtColor(template_img, cv2.COLOR_BGR2GRAY)
+            h, w = tg.shape
+            if h > sg.shape[0] or w > sg.shape[1]:
+                return []
+            res = cv2.matchTemplate(sg, tg, cv2.TM_CCOEFF_NORMED)
+            locs = np.where(res >= threshold)
+            matches = []
+            for pt in zip(*locs[::-1]):
+                cx = pt[0] + w // 2
+                cy = pt[1] + h // 2
+                matches.append((cx, cy, float(res[pt[1], pt[0]])))
+            return self._nms(matches, min_dist=w // 2)
+        except Exception as e:
+            self.logger(f"[VDE] 模板比對錯誤: {e}")
+            return []
+
+    def _nms(self, matches, min_dist=30):
+        """非極大值抑制：去除距離過近的重複結果。"""
+        if not matches:
+            return []
+        matches = sorted(matches, key=lambda x: x[2], reverse=True)
+        kept = []
+        for m in matches:
+            if all(((m[0]-k[0])**2 + (m[1]-k[1])**2)**0.5 >= min_dist for k in kept):
+                kept.append(m)
+        return kept
+
+    # ------------------------------------------------------------------
+    # 空間錨點定位（核心特色）
+    # ------------------------------------------------------------------
+    def find_best_match_with_anchor(self, screen_img, template_img,
+                                    anchor_x, anchor_y,
+                                    threshold=0.8, roi_radius=150):
+        """
+        【空間錨點定位】解決「畫面多個相同按鈕，只點特定一個」的問題。
+
+        策略 A - ROI 局部搜尋（最優先）
+            在錨點±roi_radius 像素的小方塊內偵測，ROI 內通常只有一個目標。
+        策略 B - 全螢幕最近鄰（備援）
+            ROI 內沒找到時，全螢幕掃描，選距離錨點座標最近的那一個。
+        策略 C - 回退錨點（最後手段）
+            完全找不到時，直接用原始錄製座標（確保腳本不中斷）。
+
+        回傳: (best_x, best_y, confidence, method_str)
+        """
+        if not CV2_AVAILABLE or screen_img is None:
+            return (anchor_x, anchor_y, 0.0, "fallback_anchor")
+
+        h_s, w_s = screen_img.shape[:2]
+
+        # --- 策略 A: ROI ---
+        rl = max(0, anchor_x - roi_radius)
+        rt = max(0, anchor_y - roi_radius)
+        rr = min(w_s, anchor_x + roi_radius)
+        rb = min(h_s, anchor_y + roi_radius)
+        roi = screen_img[rt:rb, rl:rr]
+        roi_hits = self.find_all_matches(roi, template_img, threshold)
+        if roi_hits:
+            best = max(roi_hits, key=lambda x: x[2])
+            abs_x = rl + best[0]
+            abs_y = rt + best[1]
+            self.logger(f"[VDE-A] ROI 命中 ({abs_x},{abs_y}) conf={best[2]:.2f} 共{len(roi_hits)}個")
+            return (abs_x, abs_y, best[2], "roi")
+
+        # --- 策略 B: 全螢幕 + 最近鄰 ---
+        all_hits = self.find_all_matches(screen_img, template_img, threshold * 0.9)
+        if all_hits:
+            def dist(m):
+                return ((m[0]-anchor_x)**2 + (m[1]-anchor_y)**2) ** 0.5
+            best = min(all_hits, key=dist)
+            d = dist(best)
+            self.logger(f"[VDE-B] 最近鄰 ({best[0]},{best[1]}) 距錨點={d:.0f}px 共{len(all_hits)}個")
+            return (best[0], best[1], best[2], "nearest")
+
+        # --- 策略 C: 回退 ---
+        self.logger(f"[VDE-C] 找不到目標，回退錨點 ({anchor_x},{anchor_y})")
+        return (anchor_x, anchor_y, 0.0, "fallback_anchor")
+
+    # ------------------------------------------------------------------
+    # YOLO（選用）
+    # ------------------------------------------------------------------
+    def load_yolo_model(self, model_path):
+        if not YOLO_AVAILABLE:
+            self.logger("[VDE] YOLO 未安裝")
+            return False
+        try:
+            self._yolo_model = _YOLOModel(model_path)
+            self.logger(f"[VDE] YOLO 模型載入: {model_path}")
+            return True
+        except Exception as e:
+            self.logger(f"[VDE] YOLO 載入失敗: {e}")
+            return False
+
+    def detect_with_yolo(self, screen_img, target_class=None,
+                         anchor_x=None, anchor_y=None, roi_radius=150):
+        """
+        YOLO 物件偵測，與空間錨點結合。
+        回傳格式與 find_best_match_with_anchor 相同，失敗回傳 None。
+        """
+        if not YOLO_AVAILABLE or self._yolo_model is None or screen_img is None:
+            return None
+        try:
+            results = self._yolo_model(screen_img, verbose=False)
+            candidates = []
+            for r in results:
+                for box in r.boxes:
+                    cls_name = self._yolo_model.names[int(box.cls[0])]
+                    if target_class and cls_name != target_class:
+                        continue
+                    conf = float(box.conf[0])
+                    x1, y1, x2, y2 = box.xyxy[0].tolist()
+                    candidates.append((int((x1+x2)/2), int((y1+y2)/2), conf))
+            if not candidates:
+                return None
+            if anchor_x is not None and anchor_y is not None:
+                best = min(candidates,
+                           key=lambda m: (m[0]-anchor_x)**2 + (m[1]-anchor_y)**2)
+            else:
+                best = max(candidates, key=lambda x: x[2])
+            return (best[0], best[1], best[2], "yolo")
+        except Exception as e:
+            self.logger(f"[VDE] YOLO 偵測失敗: {e}")
+            return None
+
+    # ------------------------------------------------------------------
+    # OCR 文字辨識 (v2.8.5 新增)
+    # ------------------------------------------------------------------
+    def recognize_text(self, img, is_captcha=True):
+        """
+        辨識圖片中的文字。
+        img: numpy BGR 陣列
+        is_captcha: 是否為驗證碼模式（會強化預處理）
+        """
+        if not OCR_AVAILABLE or img is None:
+            return ""
+
+        try:
+            # 1. 預處理
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            
+            if is_captcha:
+                # 針對驗證碼的去噪與強化
+                # 使用中值濾波去除雜點
+                denoised = cv2.medianBlur(gray, 3)
+                # 自適應二值化
+                thresh = cv2.threshold(denoised, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+                # 稍微膨脹讓字體更清晰
+                kernel = np.ones((2,2), np.uint8)
+                processed = cv2.dilate(thresh, kernel, iterations=1)
+            else:
+                processed = gray
+
+            # 2. 辨識
+            if OCR_ENGINE_TYPE == 'ddddocr':
+                # ddddocr 接收的是 bytes 或 PIL
+                import PIL.Image as PILImage
+                from io import BytesIO
+                success, encoded_image = cv2.imencode('.png', img) # ddddocr 建議用原圖或微調圖
+                if not success: return ""
+                ocr = ddddocr.DdddOcr(show_ad=False)
+                res = ocr.classification(encoded_image.tobytes())
+                return res
+            
+            elif OCR_ENGINE_TYPE == 'tesseract':
+                import pytesseract
+                # Tesseract 適合處理經過二值化的 processed 圖片
+                config = '--psm 7 --oem 3 -c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+                res = pytesseract.image_to_string(processed, config=config)
+                return res.strip()
+                
+        except Exception as e:
+            self.logger(f"[VDE] OCR 辨識出錯: {e}")
+            return ""
+        
+        return ""
+
+    def cleanup(self):
+        if self._sct:
+            try:
+                self._sct.close()
+            except Exception:
+                pass
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 【 Beta 核心 】UI 狀態機
+# ════════════════════════════════════════════════════════════════════════════
+class UIStateMachine:
+    """
+    UI 狀態機 - 識別當前畫面狀態並選擇對應動作。
+
+    用途範例（遊戲自動化）：
+      Home 狀態  -> 執行進入戰鬥腳本
+      Battle 狀態 -> 執行戰鬥操作腳本
+      Store 狀態  -> 執行購買腳本
+      Error 狀態  -> 執行關閉廣告/彈窗腳本
+    """
+
+    def __init__(self, vde, logger=None):
+        self.vde = vde               # VisualDetectionEngine 實例
+        self.logger = logger or print
+        self.states = {}             # {state_name: config_dict}
+        self.error_handlers = []     # [{template_path, close_x, close_y, threshold}]
+        self.current_state = "unknown"
+
+    # ------ 狀態管理 ------
+    def add_state(self, state_name, config):
+        """
+        新增 UI 狀態。
+        config = {
+            'template_path': '辨識此狀態的圖片路徑',
+            'threshold': 0.8,
+            'script': '對應腳本檔名.json'
+        }
+        """
+        self.states[state_name] = config
+        self.logger(f"[SM] 新增狀態: {state_name}")
+
+    def remove_state(self, state_name):
+        self.states.pop(state_name, None)
+
+    def add_error_handler(self, template_path, close_x, close_y, threshold=0.75):
+        """新增異常元素處理（廣告 / 更新彈窗）。"""
+        self.error_handlers.append({
+            'template_path': template_path,
+            'close_x': close_x,
+            'close_y': close_y,
+            'threshold': threshold
+        })
+        self.logger(f"[SM] 新增錯誤處理器: {os.path.basename(template_path)}")
+
+    # ------ 偵測 ------
+    def detect_current_state(self, screen_img):
+        """偵測當前畫面屬於哪個已定義狀態，回傳狀態名稱。"""
+        if not CV2_AVAILABLE or screen_img is None:
+            return "unknown"
+        for name, cfg in self.states.items():
+            path = cfg.get('template_path', '')
+            if not path or not os.path.exists(path):
+                continue
+            tmpl = cv2.imread(path)
+            if tmpl is None:
+                continue
+            hits = self.vde.find_all_matches(
+                screen_img, tmpl, cfg.get('threshold', 0.8))
+            if hits:
+                self.current_state = name
+                self.logger(f"[SM] 偵測到狀態: {name}")
+                return name
+        self.current_state = "unknown"
+        return "unknown"
+
+    def check_and_handle_errors(self, screen_img):
+        """
+        掃描畫面是否有異常元素（廣告/彈窗），偵測到則自動點擊關閉。
+        回傳 True 代表有處理，False 代表沒有。
+        """
+        if not CV2_AVAILABLE or screen_img is None:
+            return False
+        for handler in self.error_handlers:
+            path = handler.get('template_path', '')
+            if not path or not os.path.exists(path):
+                continue
+            tmpl = cv2.imread(path)
+            if tmpl is None:
+                continue
+            hits = self.vde.find_all_matches(
+                screen_img, tmpl, handler.get('threshold', 0.75))
+            if hits:
+                cx, cy = handler['close_x'], handler['close_y']
+                self.logger(f"[SM] 偵測到異常元素，點擊關閉: ({cx},{cy})")
+                ctypes.windll.user32.SetCursorPos(int(cx), int(cy))
+                time.sleep(0.1)
+                # 模擬左鍵 down + up
+                class _MI(ctypes.Structure):
+                    _fields_ = [("dx",ctypes.c_long),("dy",ctypes.c_long),
+                                ("mouseData",ctypes.c_ulong),("dwFlags",ctypes.c_ulong),
+                                ("time",ctypes.c_ulong),("dwExtraInfo",ctypes.POINTER(ctypes.c_ulong))]
+                class _IN(ctypes.Structure):
+                    _fields_ = [("type",ctypes.c_ulong),("mi",_MI)]
+                for flag in [0x0002, 0x0004]:
+                    inp = _IN(); inp.type = 0
+                    inp.mi = _MI(0,0,0,flag,0,None)
+                    ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
+                    time.sleep(0.05)
+                return True
+        return False
+
+    def get_script_for_state(self, state_name):
+        """取得指定狀態對應的腳本路徑。"""
+        return self.states.get(state_name, {}).get('script', None)
+
+
 # ====== RecorderApp 類別與其餘程式碼 ======
 SCRIPTS_DIR = "scripts"
 LAST_SCRIPT_FILE = "last_script.txt"
@@ -479,10 +1061,7 @@ class RecorderApp(tb.Window):
         self.playlist_data = []
         self._current_pl_index = -1
         self._is_playlist_playing = False
-        self._playlist_total_repeat = 0        # 目前群組播放已重複次數
-        self._playlist_start_time = 0          # 群組播放開始時間
         self._drag_start_index = None
-        self._is_playlist_modified = False  # 是否有未儲存的變動
 
         self.user_config = load_user_config()
         skin = self.user_config.get("skin", "darkly")
@@ -587,6 +1166,16 @@ class RecorderApp(tb.Window):
         self.schedule_manager = ScheduleManager(self)
         # 效能優化器
         self.performance_optimizer = None
+
+        # ====== 【 Beta 新增 】視覺偵測引擎越歷 ======
+        self.vde = None                     # VisualDetectionEngine 實例
+        self.ui_state_machine = None        # UIStateMachine 實例
+        self.visual_anchor_enabled = tk.BooleanVar(value=False)  # 全局視覺錨點開關
+        self.visual_roi_radius = tk.IntVar(value=150)            # ROI 半徑
+        self.visual_threshold = tk.DoubleVar(value=0.8)          # 匹配閾値
+        self.visual_capture_radius = tk.IntVar(value=50)         # 截取模板範圍
+        self.visual_templates = {}  # {event_index: template_path}
+        self.visual_states = {}     # 狀態機狀態記錄
 
 
 
@@ -820,6 +1409,7 @@ class RecorderApp(tb.Window):
         self.page_menu.insert(0, lang_map["1.日誌顯示"])
         self.page_menu.insert(1, lang_map["2.腳本設定"])
         self.page_menu.insert(2, lang_map["3.指令編輯器beta"])
+        self.page_menu.insert(3, "4.視覺偵測 Beta")
         self.page_menu.grid(row=0, column=0, sticky="nsew")
         self.page_menu.bind("<<ListboxSelect>>", self.on_page_selected)
 
@@ -869,9 +1459,6 @@ class RecorderApp(tb.Window):
         
         self.pl_save_btn = tb.Button(pl_btn_frame, text="儲存組合", bootstyle="success-outline", command=self.pl_save)
         self.pl_save_btn.pack(side="left", padx=2)
-        
-        self.pl_shuffle_btn = tb.Button(pl_btn_frame, text="隨機", bootstyle="info-outline", command=self.pl_shuffle)
-        self.pl_shuffle_btn.pack(side="left", padx=2)
         
         # (已移除上下移動按鈕，因清單支援直接拖曳)
         
@@ -1075,6 +1662,29 @@ class RecorderApp(tb.Window):
         # self._init_language(saved_lang)  # 此方法不存在，已移除
         self.after(1500, self._delayed_init)
 
+    def show_ocr_diagnostic(self, image_np, text):
+        """[核心功能] 顯示 OCR 診斷視窗並複製內容 (v2.8.8)"""
+        try:
+            if not hasattr(self, 'ocr_float_win') or not self.ocr_float_win:
+                self.ocr_float_win = OCRFloatWindow(self)
+            
+            # 獲取主視窗位置
+            main_x = self.winfo_x()
+            main_y = self.winfo_y()
+            
+            self.after(0, lambda: self.ocr_float_win.show_result(image_np, text, main_x, main_y))
+            self.log(f"[OCR] 診斷視窗已更新內容: {text}")
+        except Exception as e:
+            print(f"顯示診斷視窗失敗: {e}")
+
+    def highlight_area(self, x, y, w, h, color='red'):
+        """[核心功能] 在螢幕上顯示紅框高亮 (v2.8.9)"""
+        try:
+            if hasattr(self, 'highlighter') and self.highlighter:
+                self.after(0, lambda: self.highlighter.highlight(x, y, w, h, color))
+        except:
+            pass
+
     def _show_admin_warning(self):
         """顯示管理員權限警告"""
         try:
@@ -1119,21 +1729,38 @@ class RecorderApp(tb.Window):
             self.log(f"重新啟動為管理員時發生錯誤: {e}")
 
     def _delayed_init(self):
-        # 初始化 core_recorder（需要在 self.log 可用之後）
-        self.core_recorder = CoreRecorder(logger=self.log)
+        """延遲初始化核心引擎，確保日誌視窗已就緒"""
+        # 1. 初始化 core_recorder
+        from recorder import CoreRecorder
+        self.core_recorder = CoreRecorder(logger=self.log, app=self)
+        self.ocr_float_win = None
         
-        # 強化焦點獲取和快捷鍵註冊時序
-        self.after(50, self._force_focus)   # 主動獲得焦點
-        self.after(200, self._force_focus)  # 再次確認焦點
-        self.after(300, self._register_hotkeys)  # 註冊快捷鍵
+        # 2. 初始化視覺高亮器 (v2.8.9)
+        try:
+            self.highlighter = ScreenHighlighter(self)
+        except:
+            self.highlighter = None
+
+        # 3. 初始化視覺偵測引擎 (VDE)
+        try:
+            self.vde = VisualDetectionEngine(logger=self.log)
+            self.ui_state_machine = UIStateMachine(self.vde, logger=self.log)
+            self.log("[Beta] 視覺偵測引擎已初始化")
+        except Exception as _vde_err:
+            self.vde = None
+            self.log(f"[Beta] 視覺偵測引擎初始化失敗: {_vde_err}")
+
+        # 4. 強化焦點獲取和快捷鍵註冊時序
+        self.after(50, self._force_focus)
+        self.after(200, self._force_focus)
+        self.after(300, self._register_hotkeys)
         self.after(400, self._register_script_hotkeys)
-        #  新增：定期檢查快捷鍵健康狀態（每30秒）
         self.after(30000, self._check_hotkey_health)
         self.after(500, self.refresh_script_list)
         self.after(600, self.load_last_script)
         self.after(700, self.update_mouse_pos)
         self.after(800, self._init_background_mode)
-        self.after(900, self._load_all_schedules)  # 載入所有排程
+        self.after(900, self._load_all_schedules)
 
     def _force_focus(self):
         """主動獲得焦點，確保鍵盤鉤子正常工作"""
@@ -1815,12 +2442,13 @@ class RecorderApp(tb.Window):
             if not getattr(self.core_recorder, 'playing', False):
                 # 執行已結束，同步狀態
                 if self._is_playlist_playing:
-                    # 確保在調用 _play_next_in_playlist 前停止當前 core_recorder 狀態
-                    # 並讓 _play_next_in_playlist 處理下一步
-                    self.after(50, self._play_next_in_playlist)
+                    self._play_next_in_playlist()
                     return
                 else:
                     self.playing = False
+                    # ── Beta: 執行自然完成，移除視覺錨點 Hook ──
+                    self._vde_detach_hook()
+                    
                     self.log(f"[{format_time(time.time())}] 執行完成")
                     
                     # 釋放所有可能卡住的修飾鍵
@@ -2113,11 +2741,7 @@ class RecorderApp(tb.Window):
 
     
     def _play_next_in_playlist(self):
-        """播放佇列中的下一個啟用的腳本 (已修復並串接重複功能)"""
-        if not self._is_playlist_playing:
-            return False
-
-        # 尋找下一個啟用的腳本
+        """播放佇列中的下一個啟用的腳本"""
         start_idx = self._current_pl_index + 1
         found_idx = -1
         for i in range(start_idx, len(self.playlist_data)):
@@ -2125,99 +2749,45 @@ class RecorderApp(tb.Window):
                 found_idx = i
                 break
         
-        # 如果找不到下一個 (代表這一輪跑完了)
         if found_idx == -1:
-            # 檢查是否需要重複整個佇列
-            try:
-                repeat_target = int(self.repeat_var.get())
-            except:
-                repeat_target = 1
-            
-            repeat_time_sec = self._parse_time_to_seconds(self.repeat_time_var.get())
-            elapsed_total = time.time() - self._playlist_start_time
-            
-            # 判斷是否應該繼續下一輪
-            should_loop = False
-            if repeat_target == 0 or self._playlist_total_repeat + 1 < repeat_target:
-                should_loop = True
-            
-            # 如果有設定重複時間，則時間優先
-            if repeat_time_sec > 0 and elapsed_total >= repeat_time_sec:
-                should_loop = False
-                self.log(f"[{format_time(time.time())}] 已達到設定的總運作時間，群組播放停止。")
-
-            if should_loop:
-                self._playlist_total_repeat += 1
-                self._current_pl_index = -1 # 重置索引
-                self.log(f"[{format_time(time.time())}] 群組播放第 {self._playlist_total_repeat} 輪完成，準備開始第 {self._playlist_total_repeat + 1} 輪。")
-                
-                # 處理重複間隔
-                interval_sec = self._parse_time_to_seconds(self.repeat_interval_var.get())
-                if self.random_interval_var.get() and interval_sec > 0:
-                    interval_sec = random.uniform(0, interval_sec)
-                
-                if interval_sec > 0:
-                    self.log(f"[{format_time(time.time())}] 等待間隔: {interval_sec:.1f} 秒...")
-                    # 更新總運作倒數顯示（間隔中也要更新）
-                    self.update_countdown_label(0)
-                    self.after(int(interval_sec * 1000), self._play_next_in_playlist)
-                    return True
-                else:
-                    return self._play_next_in_playlist()
-            
-            # 不再重複，正式結束
-            self.log(f"[{format_time(time.time())}] 群組播放佇列執行完畢 (共 {self._playlist_total_repeat + 1} 輪)。")
+            self.log(f"[{format_time(time.time())}] 群組播放佇列已全數執行完畢。")
             self._is_playlist_playing = False
             self.playing = False
             self._current_pl_index = -1
-            self._playlist_total_repeat = 0
             self._update_playlist_ui()
             
-            # 恢復 UI
+            # 啟用開始錄製按鈕
             try:
                 self.btn_start.config(state="normal")
-            except Exception: pass
+            except Exception:
+                pass
             
+            # 停止時的 UI 重置
             self.update_time_label(0)
             self.update_countdown_label(0)
             self.update_total_time_label(0)
             self._release_all_modifiers()
-            
-            if self.mini_mode_on and self.auto_mini_var.get():
-                self.toggle_mini_mode()
             return False
             
         self._current_pl_index = found_idx
         self._update_playlist_ui()
         
-        # 取得路徑（支援相對路徑）
-        raw_path = self.playlist_data[found_idx]['path']
-        if not os.path.isabs(raw_path):
-            path = os.path.join(self.script_dir, raw_path)
-        else:
-            path = raw_path
-            
+        path = self.playlist_data[found_idx]['path']
         delay = self.playlist_data[found_idx].get('delay', 0)
         
         try:
             # 載入腳本
-            if not os.path.exists(path):
-                # 嘗試在當前腳本目錄下找檔名
-                basename = os.path.basename(path)
-                alt_path = os.path.join(self.script_dir, basename)
-                if os.path.exists(alt_path):
-                    path = alt_path
-                else:
-                    raise FileNotFoundError(f"找不到檔案: {path}")
-
             data = sio_load_script(path)
             self.events = data.get("events", [])
             
             if delay > 0:
                 self.log(f"[{format_time(time.time())}] 佇列等待: {delay} 秒後執行 {os.path.basename(path)}")
+                
+                # 若已有倒數計時工作，先取消防禦
                 if getattr(self, '_playlist_delay_job', None):
                     self.after_cancel(self._playlist_delay_job)
-                self._playlist_delay_job = self.after(int(delay * 1000), lambda p=path: self._do_play_loaded_script(p))
+                    
+                self._playlist_delay_job = self.after(int(delay * 1000), self._do_play_loaded_script, path)
             else:
                 self._do_play_loaded_script(path)
                 
@@ -2225,22 +2795,6 @@ class RecorderApp(tb.Window):
         except Exception as e:
             self.log(f"佇列腳本載入失敗: {e}，跳過此腳本。")
             return self._play_next_in_playlist()
-
-    def skip_current_script(self):
-        """跳過目前正在執行的佇列腳本，直接執行下一個"""
-        if not self._is_playlist_playing or not self.playing:
-            self.log("目前未在群組播放中，無法跳過。")
-            return
-        
-        self.log(f"[{format_time(time.time())}] 使用者要求跳過目前腳本...")
-        
-        # 停止當前核心播放器
-        if hasattr(self.core_recorder, 'stop'):
-            self.core_recorder.stop()
-        
-        # _update_play_time 會偵測到停止並自動調用 _play_next_in_playlist
-        # 但為了即時性，我們可以直接排程觸發
-        self.after(100, self._play_next_in_playlist)
 
     def _do_play_loaded_script(self, path):
         """實際開始執行腳本"""
@@ -2254,14 +2808,15 @@ class RecorderApp(tb.Window):
         """開始執行"""
         if self.playing:
             return
+
+        # 【 Beta 】播放前先掃描並清除廣告/彈窗
+        self._pre_play_error_check()
             
         has_enabled_pl = any(item.get('enabled', True) for item in self.playlist_data)
         if has_enabled_pl:
             self.playing = True
             self._is_playlist_playing = True
             self._current_pl_index = -1
-            self._playlist_total_repeat = 0
-            self._playlist_start_time = time.time()
             self.log(f"[{format_time(time.time())}] 開始執行群組播放佇列。")
             
             # 停用開始錄製按鈕，避免誤觸
@@ -2314,7 +2869,6 @@ class RecorderApp(tb.Window):
                     if size_mismatch or pos_mismatch or dpi_mismatch or resolution_mismatch:
                         # 創建詳細的對話視窗
                         dialog = tk.Toplevel(self)
-                        set_window_icon(dialog)
                         dialog.title("視窗狀態檢測")
                         dialog.geometry("720x820")
                         dialog.resizable(True, True)
@@ -2506,10 +3060,6 @@ class RecorderApp(tb.Window):
         scaled_count = 0  # 記錄縮放事件數量
         
         for event in self.events:
-            # 額外安全性檢查：確保 event 是字典
-            if not isinstance(event, dict):
-                self.log(f"[警告] 略過無效事件格式: {type(event)}")
-                continue
             event_copy = event.copy()
             
             # 處理滑鼠事件的座標
@@ -2576,16 +3126,12 @@ class RecorderApp(tb.Window):
         except:
             repeat = 1
         
-        # 若為群組播放模式，單個腳本只執行一次，重複邏輯由 _play_next_in_playlist 控制
-        if getattr(self, '_is_playlist_playing', False):
-            repeat = 1
-        else:
-            # 重複次數 = 0 表示無限重複，傳入 -1 給 core_recorder
-            if repeat == 0:
-                repeat = -1  # 無限重複
-                self.log(f"[{format_time(time.time())}] 設定為無限重複模式")
-            elif repeat < 0:
-                repeat = 1  # 負數視為1次
+        # 重複次數 = 0 表示無限重複，傳入 -1 給 core_recorder
+        if repeat == 0:
+            repeat = -1  # 無限重複
+            self.log(f"[{format_time(time.time())}] 設定為無限重複模式")
+        elif repeat < 0:
+            repeat = 1  # 負數視為1次
 
         # 計算總運作時間
         single_time = (self.events[-1]['time'] - self.events[0]['time']) / self.speed if self.events else 0
@@ -2615,6 +3161,9 @@ class RecorderApp(tb.Window):
                 self._current_play_index = idx
             except:
                 pass
+
+        # ── Beta: 播放前注入視覺錨點 Hook ──
+        self._vde_attach_hook()
 
         success = self.core_recorder.play(
             speed=self.speed,
@@ -2650,6 +3199,8 @@ class RecorderApp(tb.Window):
                         self.core_recorder.stop_record()
                     if hasattr(self.core_recorder, 'events'):
                         self.events = self.core_recorder.events
+                        # ── Beta: 錄製完成後批次截取視覺錨點模板 ──
+                        self._vde_stamp_templates(self.events)
                 except Exception as e:
                     self.log(f"[警告] 停止 core_recorder 時發生錯誤: {e}")
                     #  強制重置狀態
@@ -2680,11 +3231,12 @@ class RecorderApp(tb.Window):
             self.log(f"[{format_time(time.time())}] 停止執行。")
             
             # 停止 core_recorder 播放
-            if hasattr(self, 'core_recorder') and hasattr(self.core_recorder, 'stop_play'):
-                try:
-                    self.core_recorder.stop_play()
-                except Exception as e:
-                    self.log(f"[警告] 停止執行時發生錯誤: {e}")
+            try:
+                self.core_recorder.stop_play()
+                # ── Beta: 停止時移除視覺錨點 Hook ──
+                self._vde_detach_hook()
+            except Exception as e:
+                self.log(f"[警告] 停止執行時發生錯誤: {e}")
             
             # 釋放所有可能卡住的修飾鍵
             try:
@@ -2708,6 +3260,475 @@ class RecorderApp(tb.Window):
             pass
     
 
+
+    # ================================================================
+    # 【 Beta 】視覺偵測分頁 UI
+    # ================================================================
+    def _build_visual_detection_page(self):
+        """動態建立（或重用）視覺偵測設定分頁。"""
+        if hasattr(self, 'visual_detection_frame') and self.visual_detection_frame.winfo_exists():
+            # 每次切換頁面都刷新狀態燈
+            self._vde_refresh_status()
+            return
+
+        self.visual_detection_frame = tb.Frame(self.page_content_frame)
+        f = self.visual_detection_frame
+
+        # ════════════════════════════════════
+        # 區塊一：標題 + 元件狀態燈
+        # ════════════════════════════════════
+        tb.Label(f, text="自動視覺偵測功能",
+                 font=font_tuple(13, "bold"), foreground="#15D3BD").pack(anchor="w", pady=(6, 2))
+        tb.Label(f, text="讓程式「看得懂畫面」，自動找到正確的按鈕點擊，即使畫面位置偏移也不怕",
+                 font=font_tuple(9), foreground="#aaaaaa").pack(anchor="w", pady=(0, 6))
+
+        # 狀態燈 Frame
+        status_lf = tb.LabelFrame(f, text=" 元件狀態（綠色=正常，紅色=未安裝）")
+        status_lf.pack(fill="x", padx=4, pady=(0, 4))
+        status_grid = tb.Frame(status_lf)
+        status_grid.pack(fill="x", padx=8, pady=6)
+
+        def _status_row(parent, row, label, ok, ok_msg, fail_msg, tip):
+            dot_color = "#00e676" if ok else "#ff5252"
+            dot = tb.Label(parent, text="●", foreground=dot_color, font=font_tuple(14))
+            dot.grid(row=row, column=0, padx=(0, 6), sticky="w")
+            tb.Label(parent, text=label, font=font_tuple(9, "bold")).grid(row=row, column=1, sticky="w")
+            msg = ok_msg if ok else fail_msg
+            msg_lbl = tb.Label(parent, text=msg,
+                               foreground="#00e676" if ok else "#ff5252", font=font_tuple(9))
+            msg_lbl.grid(row=row, column=2, sticky="w", padx=8)
+            tb.Label(parent, text=tip, foreground="#666666", font=font_tuple(8)).grid(row=row, column=3, sticky="w")
+            return dot, msg_lbl
+
+        self._vde_cv2_dot, self._vde_cv2_lbl = _status_row(
+            status_grid, 0,
+            "影像辨識核心 (OpenCV)",
+            CV2_AVAILABLE,
+            "已就緒 ✔",
+            "未安裝 ✘  →  執行: pip install opencv-python",
+            "負責比對畫面上的按鈕圖案"
+        )
+        import cv2 as _cv2_check
+        cv2_ver = getattr(_cv2_check, '__version__', '?') if CV2_AVAILABLE else '-'
+        tb.Label(status_grid, text=f"版本: {cv2_ver}", foreground="#555555",
+                 font=font_tuple(8)).grid(row=0, column=4, padx=(4,0), sticky="w")
+
+        self._vde_mss_dot, self._vde_mss_lbl = _status_row(
+            status_grid, 1,
+            "高速截圖模組 (MSS)",
+            MSS_AVAILABLE,
+            "已就緒 ✔",
+            "未安裝，改用備援截圖  →  pip install mss",
+            "負責快速擷取螢幕畫面"
+        )
+        self._vde_yolo_dot, self._vde_yolo_lbl = _status_row(
+            status_grid, 2,
+            "AI 物件偵測 (YOLO)",
+            YOLO_AVAILABLE,
+            "已就緒 ✔（進階功能）",
+            "未安裝（選用）  →  pip install ultralytics",
+            "可識別更複雜的畫面元素，非必要"
+        )
+
+        # VDE 引擎本身
+        vde_ok = self.vde is not None
+        self._vde_engine_dot, self._vde_engine_lbl = _status_row(
+            status_grid, 3,
+            "偵測引擎",
+            vde_ok,
+            "運作中 ✔",
+            "初始化失敗 ✘",
+            "程式啟動時自動初始化"
+        )
+
+        # ════════════════════════════════════
+        # 區塊二：主開關 + 一鍵測試
+        # ════════════════════════════════════
+        ctrl_lf = tb.LabelFrame(f, text=" 主要控制 ")
+        ctrl_lf.pack(fill="x", padx=4, pady=4)
+        ctrl_inner = tb.Frame(ctrl_lf); ctrl_inner.pack(fill="x", padx=8, pady=6)
+
+        tb.Checkbutton(ctrl_inner,
+                       text="啟用智慧點擊修正  （執行腳本時，自動把點擊位置對準畫面上最近的目標按鈕）",
+                       variable=self.visual_anchor_enabled,
+                       style="My.TCheckbutton").pack(anchor="w")
+
+        btn_test_row = tb.Frame(ctrl_inner); btn_test_row.pack(fill="x", pady=(6, 0))
+        tb.Button(btn_test_row, text="一鍵測試（截圖 + 顯示畫面資訊）",
+                  bootstyle="success-outline",
+                  command=self._vde_run_test).pack(side="left", padx=(0, 8))
+        tb.Button(btn_test_row, text="掃描目前畫面狀態",
+                  bootstyle="info-outline",
+                  command=self._scan_ui_state_now).pack(side="left", padx=2)
+
+        # ════════════════════════════════════
+        # 區塊三：精細度參數（改為 Scale 滑桿）
+        # ════════════════════════════════════
+        param_lf = tb.LabelFrame(f, text=" 精細度設定（不確定的話保持預設即可）")
+        param_lf.pack(fill="x", padx=4, pady=4)
+        param_inner = tb.Frame(param_lf); param_inner.pack(fill="x", padx=8, pady=6)
+
+        def _param_row(parent, row, label, var, from_, to, tip_text):
+            tb.Label(parent, text=label, font=font_tuple(9), width=20, anchor="w").grid(
+                row=row, column=0, sticky="w")
+            sc = tb.Scale(parent, variable=var, from_=from_, to=to, orient="horizontal",
+                          length=160, bootstyle="info")
+            sc.grid(row=row, column=1, padx=6)
+            val_lbl = tb.Label(parent, font=font_tuple(9, monospace=True), width=5, anchor="w")
+            val_lbl.grid(row=row, column=2)
+            tb.Label(parent, text=tip_text, foreground="#666666",
+                     font=font_tuple(8)).grid(row=row, column=3, padx=8, sticky="w")
+            def _update_val(*_):
+                try:
+                    val_lbl.config(text=f"{var.get():.0f}" if isinstance(var.get(), float) and var.get() == int(var.get()) else f"{var.get():.2f}")
+                except Exception:
+                    pass
+            var.trace_add("write", _update_val)
+            _update_val()
+
+        _param_row(param_inner, 0,
+                   "搜尋範圍 (像素)",
+                   self.visual_roi_radius, 50, 400,
+                   "在目標附近多大的範圍內搜尋？預設150像素")
+        _param_row(param_inner, 1,
+                   "相似度門檻",
+                   self.visual_threshold, 0.5, 1.0,
+                   "多像才算找到？越高越嚴格，預設0.8")
+        _param_row(param_inner, 2,
+                   "記憶截取範圍",
+                   self.visual_capture_radius, 20, 150,
+                   "錄製時截取按鈕周圍多大？預設50像素")
+
+        # ════════════════════════════════════
+        # 區塊四：已記憶的按鈕圖案
+        # ════════════════════════════════════
+        tmpl_lf = tb.LabelFrame(f, text=" 📂 已記憶的按鈕圖案（用於智慧點擊修正）")
+        tmpl_lf.pack(fill="both", expand=True, padx=4, pady=4)
+
+        tmpl_hint = tb.Label(tmpl_lf,
+                             text="這裡會顯示程式「認識」的按鈕圖片。"
+                                  "目前尚無圖案，未來錄製時勾選「視覺錨點」會自動產生。",
+                             font=font_tuple(8), foreground="#888888")
+        tmpl_hint.pack(anchor="w", padx=6, pady=(4, 0))
+
+        self.vde_template_listbox = tk.Listbox(
+            tmpl_lf, font=font_tuple(9), bg="#1a1a1a", fg="#e0e0e0",
+            selectbackground="#15D3BD", selectforeground="#000000", height=5)
+        self.vde_template_listbox.pack(fill="both", expand=True, padx=4, pady=4)
+        self._refresh_vde_template_list()
+
+        btn_row = tb.Frame(tmpl_lf); btn_row.pack(fill="x", padx=4, pady=(0, 4))
+        tb.Button(btn_row, text="🔄 重新整理列表",
+                  bootstyle="info-outline",
+                  command=self._refresh_vde_template_list).pack(side="left", padx=2)
+        tb.Button(btn_row, text="🗑 刪除選取的圖案",
+                  bootstyle="danger-outline",
+                  command=self._delete_selected_template).pack(side="left", padx=2)
+        tb.Button(btn_row, text="📁 開啟圖案儲存資料夾",
+                  bootstyle="secondary-outline",
+                  command=self._open_template_dir).pack(side="left", padx=2)
+
+        # ════════════════════════════════════
+        # 區塊五：即時 Log（獨立於主日誌）
+        # ════════════════════════════════════
+        log_lf = tb.LabelFrame(f, text=" 📋 視覺偵測運作紀錄（即時）")
+        log_lf.pack(fill="x", padx=4, pady=4)
+        self.vde_log_text = tk.Text(log_lf, height=5, state="disabled",
+                                    bg="#0d1117", fg="#c9d1d9",
+                                    font=font_tuple(8, monospace=True),
+                                    relief="flat", wrap="word")
+        self.vde_log_text.pack(fill="both", padx=4, pady=4)
+
+        # 狀態列
+        self.vde_status_bar = tb.Label(f,
+            text="就緒。請點擊「一鍵測試」確認偵測功能是否正常運作。",
+            font=font_tuple(8), foreground="#666666", anchor="w")
+        self.vde_status_bar.pack(fill="x", padx=4, pady=(0, 4))
+
+        # 初始化後立刻顯示狀態
+        self.after(100, self._vde_refresh_status)
+
+    def _refresh_vde_template_list(self):
+        """重新整理模板列表。"""
+        if not hasattr(self, 'vde_template_listbox'):
+            return
+        self.vde_template_listbox.delete(0, "end")
+        tmpl_dir = os.path.join(get_app_dir(), "templates")
+        if os.path.isdir(tmpl_dir):
+            for fn in sorted(os.listdir(tmpl_dir)):
+                if fn.endswith(".png"):
+                    self.vde_template_listbox.insert("end", fn)
+
+    def _delete_selected_template(self):
+        sel = self.vde_template_listbox.curselection()
+        if not sel:
+            return
+        fname = self.vde_template_listbox.get(sel[0])
+        tmpl_dir = os.path.join(get_app_dir(), "templates")
+        path = os.path.join(tmpl_dir, fname)
+        try:
+            os.remove(path)
+            self.log(f"[Beta] 已刪除模板: {fname}")
+            self._vde_log(f"已刪除圖案: {fname}")
+            self._refresh_vde_template_list()
+        except Exception as e:
+            self.log(f"[Beta] 刪除模板失敗: {e}")
+
+    def _open_template_dir(self):
+        tmpl_dir = os.path.join(get_app_dir(), "templates")
+        os.makedirs(tmpl_dir, exist_ok=True)
+        import subprocess
+        subprocess.Popen(f'explorer "{tmpl_dir}"')
+
+    def _vde_log(self, msg):
+        """寫入 VDE 專屬 Log 區（若分頁已開啟）。"""
+        if not hasattr(self, 'vde_log_text'):
+            return
+        try:
+            ts = datetime.datetime.now().strftime("%H:%M:%S")
+            self.vde_log_text.config(state="normal")
+            self.vde_log_text.insert("end", f"[{ts}] {msg}\n")
+            self.vde_log_text.see("end")
+            self.vde_log_text.config(state="disabled")
+        except Exception:
+            pass
+
+    def _vde_set_status(self, msg):
+        """更新底部狀態列文字。"""
+        if hasattr(self, 'vde_status_bar'):
+            try:
+                self.vde_status_bar.config(text=msg)
+            except Exception:
+                pass
+
+    def _vde_refresh_status(self):
+        """刷新狀態燈顏色（每次切換到此分頁時呼叫）。"""
+        def _set(dot, lbl, ok, ok_msg, fail_msg):
+            try:
+                dot.config(foreground="#00e676" if ok else "#ff5252")
+                lbl.config(text=ok_msg if ok else fail_msg,
+                           foreground="#00e676" if ok else "#ff5252")
+            except Exception:
+                pass
+
+        _set(getattr(self, '_vde_cv2_dot', None),
+             getattr(self, '_vde_cv2_lbl', None),
+             CV2_AVAILABLE, "已就緒 ✔", "未安裝 ✘")
+        _set(getattr(self, '_vde_mss_dot', None),
+             getattr(self, '_vde_mss_lbl', None),
+             MSS_AVAILABLE, "已就緒 ✔", "未安裝，使用備援截圖")
+        _set(getattr(self, '_vde_yolo_dot', None),
+             getattr(self, '_vde_yolo_lbl', None),
+             YOLO_AVAILABLE, "已就緒 ✔（進階功能）", "未安裝（選用）")
+        vde_ok = self.vde is not None
+        _set(getattr(self, '_vde_engine_dot', None),
+             getattr(self, '_vde_engine_lbl', None),
+             vde_ok, "運作中 ✔", "初始化失敗 ✘")
+        self._vde_log("頁面已重新整理，狀態燈已更新。")
+        self._vde_set_status("狀態燈已更新。點擊「一鍵測試」可驗證截圖功能是否正常。")
+
+    def _vde_run_test(self):
+        """一鍵測試：截圖並顯示畫面資訊到 VDE Log 區。"""
+        self._vde_log("═══ 開始測試 ═══")
+        self._vde_set_status("測試中，請稍候...")
+
+        if not CV2_AVAILABLE:
+            msg = "❌ 影像辨識核心 (OpenCV) 未安裝，無法測試。請先執行：pip install opencv-python"
+            self._vde_log(msg)
+            self._vde_set_status(msg)
+            return
+        if not self.vde:
+            msg = "❌ 偵測引擎未初始化，請重新啟動程式。"
+            self._vde_log(msg)
+            self._vde_set_status(msg)
+            return
+
+        # 截圖測試
+        self._vde_log("正在截取螢幕畫面...")
+        try:
+            screen = self.vde.capture_screen()
+            if screen is None:
+                raise RuntimeError("截圖回傳 None")
+            h, w = screen.shape[:2]
+            method = "MSS 高速截圖" if MSS_AVAILABLE else "PIL 備援截圖"
+            self._vde_log(f"✅ 截圖成功！畫面大小: {w} × {h} 像素（使用 {method}）")
+            self._vde_set_status(f"✅ 測試通過！畫面 {w}×{h}，偵測引擎正常運作。")
+        except Exception as e:
+            self._vde_log(f"❌ 截圖失敗: {e}")
+            self._vde_set_status(f"❌ 截圖失敗: {e}")
+            return
+
+        # 模板狀態
+        tmpl_dir = os.path.join(get_app_dir(), "templates")
+        tmpl_count = 0
+        if os.path.isdir(tmpl_dir):
+            tmpl_count = len([x for x in os.listdir(tmpl_dir) if x.endswith(".png")])
+        self._vde_log(f"📂 已記憶的按鈕圖案數量: {tmpl_count} 個")
+        if tmpl_count == 0:
+            self._vde_log("   （尚無圖案，智慧點擊修正功能暫時無法使用）")
+        else:
+            self._vde_log("   （智慧點擊修正功能可正常使用）")
+
+        # YOLO
+        yolo_status = "已安裝（進階）" if YOLO_AVAILABLE else "未安裝（選用，不影響基本功能）"
+        self._vde_log(f"🤖 AI 物件偵測 (YOLO): {yolo_status}")
+        self._vde_log("═══ 測試完成 ═══")
+        self._refresh_vde_template_list()
+
+    def _scan_ui_state_now(self):
+        """立即截圖並偵測目前 UI 狀態。"""
+        self._vde_log("正在掃描目前畫面狀態...")
+        if not self.vde or not CV2_AVAILABLE:
+            msg = "偵測引擎未就緒，請確認 OpenCV 已安裝。"
+            self.log(f"[Beta] {msg}")
+            self._vde_log(f"❌ {msg}")
+            return
+        screen = self.vde.capture_screen()
+        if screen is None:
+            msg = "截圖失敗"
+            self.log(f"[Beta] {msg}")
+            self._vde_log(f"❌ {msg}")
+            return
+        state = self.ui_state_machine.detect_current_state(screen) if self.ui_state_machine else "unknown"
+        if state == "unknown":
+            msg = "目前畫面狀態：未知（尚未設定任何狀態識別圖案）"
+        else:
+            msg = f"目前畫面狀態：{state}"
+        self.log(f"[Beta] {msg}")
+        self._vde_log(f"🔍 {msg}")
+        self._vde_set_status(msg)
+        if hasattr(self, 'sm_state_label'):
+            try:
+                self.sm_state_label.config(text=f"目前狀態: {state}")
+            except Exception:
+                pass
+
+
+    # ================================================================
+    # 【 Beta 】視覺錨點座標解析
+    # ================================================================
+    def _resolve_visual_anchor(self, event):
+        """
+        在執行單一事件前，使用 VDE 修正點擊座標。
+        輸入: event dict（含 x, y）
+        回傳: (resolved_x, resolved_y)
+        """
+        if not self.visual_anchor_enabled.get() or not self.vde or not CV2_AVAILABLE:
+            return event.get('x', 0), event.get('y', 0)
+
+        anchor_x = event.get('x', 0)
+        anchor_y = event.get('y', 0)
+        tmpl_key  = event.get('vde_template_key', '')
+
+        # 嘗試從模板庫取模板
+        tmpl_img = self.vde._templates.get(tmpl_key) if tmpl_key else None
+        if tmpl_img is None and tmpl_key:
+            tmpl_path = os.path.join(
+                get_app_dir(), "templates", f"{tmpl_key}.png")
+            if os.path.exists(tmpl_path):
+                self.vde.load_template(tmpl_key, tmpl_path)
+                tmpl_img = self.vde._templates.get(tmpl_key)
+
+        if tmpl_img is None:
+            return anchor_x, anchor_y  # 無模板，回退原座標
+
+        screen = self.vde.capture_screen()
+        if screen is None:
+            return anchor_x, anchor_y
+
+        best_x, best_y, conf, method = self.vde.find_best_match_with_anchor(
+            screen, tmpl_img,
+            anchor_x, anchor_y,
+            threshold=self.visual_threshold.get(),
+            roi_radius=self.visual_roi_radius.get()
+        )
+        self.log(f"[VDE] ({anchor_x},{anchor_y}) -> ({best_x},{best_y}) [{method}] conf={conf:.2f}")
+        return best_x, best_y
+
+    # ================================================================
+    # 【 Beta 】錄製後模板截圖 & 播放 Hook 管理
+    # ================================================================
+    def _vde_stamp_templates(self, events):
+        """
+        錄製停止後，為所有 mouse-down 事件批次截取視覺模板。
+        在背景執行緒執行，不阻塞 UI。
+        每個 event 會取得 vde_template_key，並把 PNG 存到 templates/ 資料夾。
+        """
+        if not CV2_AVAILABLE or not self.vde:
+            return
+        if not self.visual_anchor_enabled.get():
+            return
+
+        def _do_stamp():
+            tmpl_dir = os.path.join(get_app_dir(), "templates")
+            os.makedirs(tmpl_dir, exist_ok=True)
+            stamped = 0
+            cap_radius = int(self.visual_capture_radius.get())
+
+            for ev in events:
+                if ev.get('type') != 'mouse' or ev.get('event') != 'down':
+                    continue
+                x = ev.get('x')
+                y = ev.get('y')
+                if x is None or y is None:
+                    continue
+
+                # 用時間戳 + 座標產生唯一 key，避免重複
+                import hashlib
+                raw = f"{ev.get('time', 0):.6f}_{x}_{y}"
+                key = "vde_" + hashlib.md5(raw.encode()).hexdigest()[:10]
+
+                # 截圖存檔
+                try:
+                    saved_path = self.vde.save_template_from_click(
+                        x, y, key, radius=cap_radius)
+                    if saved_path:
+                        ev['vde_template_key'] = key
+                        stamped += 1
+                except Exception as _e:
+                    self.log(f"[VDE] 截圖失敗 ({x},{y}): {_e}")
+
+            msg = f"[VDE] 模板截圖完成：{stamped} 個點擊已記憶"
+            self.log(msg)
+            self._vde_log(msg)
+            # 重新整理頁面列表（若分頁已開啟）
+            self.after(0, self._refresh_vde_template_list)
+
+        threading.Thread(target=_do_stamp, daemon=True).start()
+
+    def _vde_attach_hook(self):
+        """
+        將 _resolve_visual_anchor 注入到 core_recorder.visual_anchor_hook，
+        使播放時每個 mouse-down 事件都自動呼叫視覺錨點修正。
+        """
+        if not hasattr(self, 'core_recorder'):
+            return
+        if self.visual_anchor_enabled.get() and self.vde and CV2_AVAILABLE:
+            self.core_recorder.visual_anchor_hook = self._resolve_visual_anchor
+            self.log("[VDE] 智慧點擊修正已啟用（播放時自動修正座標）")
+        else:
+            self.core_recorder.visual_anchor_hook = None
+
+    def _vde_detach_hook(self):
+        """播放結束後清除 hook（避免殘留）。"""
+        if hasattr(self, 'core_recorder'):
+            self.core_recorder.visual_anchor_hook = None
+
+
+    # ================================================================
+    # 【 Beta 】播放前錯誤元素掃描
+    # ================================================================
+    def _pre_play_error_check(self):
+        """播放腳本前先掃描並處理廣告/彈窗。"""
+        if not self.vde or not self.ui_state_machine or not CV2_AVAILABLE:
+            return
+        screen = self.vde.capture_screen()
+        if screen is None:
+            return
+        handled = self.ui_state_machine.check_and_handle_errors(screen)
+        if handled:
+            self.log("[Beta] 偵測到異常元素並已自動關閉，繼續執行腳本。")
+            time.sleep(0.5)
 
     def force_quit(self):
         """
@@ -3000,10 +4021,6 @@ class RecorderApp(tb.Window):
         
         # 檢查檔案是否存在
         if not os.path.exists(path):
-            if script == "[ 群組播放佇列 ]":
-                self.log("提示: 尚未儲存組合的群組")
-                messagebox.showinfo("提示", "尚未儲存組合的群組，可以直接依照當前重複次數/時間設定，或是儲存組合後進行設定")
-                return
             self.log(f"儲存失敗: 找不到腳本檔案 '{script_file}'")
             messagebox.showerror("錯誤", f"找不到腳本檔案:\n{script_file}\n\n請確認腳本是否存在")
             return
@@ -3103,67 +4120,6 @@ class RecorderApp(tb.Window):
         if script == "[ 群組播放佇列 ]":
             self.show_page(0)
             return
-            
-        # 檢查是否有未儲存的變動
-        if getattr(self, '_is_playlist_modified', False) and self.playlist_data:
-            # 建立自定義對話框詢問儲存
-            from tkinter import Toplevel
-            save_win = tb.Toplevel(self)
-            set_window_icon(save_win)
-            save_win.title("儲存提醒")
-            save_win.geometry("400x180")
-            save_win.resizable(False, False)
-            save_win.grab_set()
-            save_win.transient(self)
-            
-            # 居中
-            save_win.update_idletasks()
-            x = self.winfo_x() + (self.winfo_width() - 400) // 2
-            y = self.winfo_y() + (self.winfo_height() - 180) // 2
-            save_win.geometry(f"+{x}+{y}")
-            
-            tb.Label(save_win, text="目前群組播放佇列有變動，是否要儲存？", font=("Microsoft JhengHei", 11)).pack(pady=25)
-            
-            btn_frame = tb.Frame(save_win)
-            btn_frame.pack(fill="x", padx=10)
-            
-            def do_save_as():
-                save_win.destroy()
-                self.pl_save()
-                self.on_script_selected() # 遞迴調用以繼續載入
-
-            def do_overwrite():
-                save_win.destroy()
-                # 取得當前腳本名稱（如果是群組的話）
-                current = self.script_var.get()
-                if "群組-" in current:
-                    path = os.path.join(self.script_dir, current + ".json")
-                    try:
-                        group_data = {"is_group": True, "playlist": self.playlist_data}
-                        with open(path, 'w', encoding='utf-8') as f:
-                            json.dump(group_data, f, ensure_ascii=False, indent=2)
-                        self.log(f"已覆蓋儲存群組: {current}")
-                        self._is_playlist_modified = False
-                        self.on_script_selected()
-                    except Exception as e:
-                        messagebox.showerror("錯誤", f"儲存失敗: {e}")
-                else:
-                    self.pl_save()
-                    self.on_script_selected()
-
-            def do_cancel():
-                save_win.destroy()
-                self._is_playlist_modified = False
-                self.on_script_selected()
-
-            tb.Button(btn_frame, text="另存新檔", command=do_save_as, bootstyle=SUCCESS).pack(side="left", expand=True, padx=5)
-            # 如果目前本來就是讀取群組，才顯示覆蓋
-            if "群組-" in script:
-                tb.Button(btn_frame, text="覆蓋", command=do_overwrite, bootstyle=INFO).pack(side="left", expand=True, padx=5)
-            tb.Button(btn_frame, text="不儲存", command=do_cancel, bootstyle=SECONDARY).pack(side="left", expand=True, padx=5)
-            
-            # 返回，直到對話框處理完畢
-            return
         
         # 如果沒有副檔名，加上 .json
         if not script.endswith('.json'):
@@ -3200,7 +4156,6 @@ class RecorderApp(tb.Window):
             if data.get("is_group", False):
                 self.log(f"[{format_time(time.time())}] 載入群組播放佇列：{script_file}")
                 self.playlist_data = data.get("playlist", [])
-                self._is_playlist_modified = False # 剛載入，重置修改狀態
                 self._update_playlist_ui()
                 self.events = []
                 self.show_page(0)
@@ -3235,10 +4190,6 @@ class RecorderApp(tb.Window):
             
             # 設定事件列表
             self.events = events
-            
-            # 選項是一般腳本時, 則不顯示佇列內容, 避免混淆
-            self.playlist_data = []
-            self._update_playlist_ui()
             
             # 恢復參數 (帶預設值)
             self.speed_var.set(settings.get("speed", "100"))
@@ -4573,19 +5524,19 @@ class RecorderApp(tb.Window):
             widget.grid_forget()
             widget.place_forget()
         if idx == 0:
-            # 日誌顯示
             self.log_page_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
         elif idx == 1:
-            # 腳本設定
             self.script_setting_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
             self.refresh_script_listbox()
         elif idx == 2:
-            # 指令編輯器 - 直接開啟編輯器視窗
             self.open_visual_editor()
-            # 回到日誌顯示頁面
             self.page_menu.selection_clear(0, "end")
             self.page_menu.selection_set(0)
             self.show_page(0)
+        elif idx == 3:
+            # 【 Beta 】視覺偵測分頁
+            self._build_visual_detection_page()
+            self.visual_detection_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
 
     def on_script_treeview_select(self, event=None):
         """處理腳本 Treeview 選擇事件"""
@@ -5446,11 +6397,6 @@ class RecorderApp(tb.Window):
                 name_disp = name_disp[:-5]
             
             display_text = f"{pointer}{idx+1:2d} {prefix}{name_disp}{delay_str}"
-            
-            # 若為群組播放模式且正在重複，顯示輪次資訊
-            if self._is_playlist_playing and self._playlist_total_repeat > 0:
-                self.pl_mode_label.config(text=f"狀態: 群組播放中 (第 {self._playlist_total_repeat + 1} 輪)", foreground="#00ff00")
-            
             self.playlist_listbox.insert("end", display_text)
             
             if not item.get('enabled', True):
@@ -5558,15 +6504,14 @@ class RecorderApp(tb.Window):
                 added_count = 0
                 for idx in selections:
                     script_name = listbox.get(idx)
-                    # 儲存相對路徑，增加群組檔案的可移植性
+                    full_path = os.path.join(script_path, script_name)
                     self.playlist_data.append({
-                        'path': script_name, 
+                        'path': full_path,
                         'name': script_name,
                         'enabled': True
                     })
                     added_count += 1
                 
-                self._is_playlist_modified = True
                 self._update_playlist_ui()
                 self.log(f"已成功加入 {added_count} 個腳本至佇列")
                 dialog.destroy()
@@ -5589,14 +6534,12 @@ class RecorderApp(tb.Window):
 
     def pl_clear(self):
         self.playlist_data.clear()
-        self._is_playlist_modified = True
         self._update_playlist_ui()
 
     def pl_toggle(self):
         selections = self.playlist_listbox.curselection()
         for idx in selections:
             self.playlist_data[idx]['enabled'] = not self.playlist_data[idx].get('enabled', True)
-        self._is_playlist_modified = True
         self._update_playlist_ui()
         # 重新選取
         for idx in selections:
@@ -5628,7 +6571,6 @@ class RecorderApp(tb.Window):
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(group_data, f, ensure_ascii=False, indent=2)
             self.log(f"群組播放佇列已儲存: {name}")
-            self._is_playlist_modified = False
             self.refresh_script_list()
         except Exception as e:
             self.log(f"儲存失敗: {e}")
@@ -5639,7 +6581,6 @@ class RecorderApp(tb.Window):
             return
         idx = selections[0]
         self.playlist_data[idx - 1], self.playlist_data[idx] = self.playlist_data[idx], self.playlist_data[idx - 1]
-        self._is_playlist_modified = True
         self._update_playlist_ui()
         self.playlist_listbox.selection_set(idx - 1)
 
@@ -5649,7 +6590,6 @@ class RecorderApp(tb.Window):
             return
         idx = selections[0]
         self.playlist_data[idx + 1], self.playlist_data[idx] = self.playlist_data[idx], self.playlist_data[idx + 1]
-        self._is_playlist_modified = True
         self._update_playlist_ui()
         self.playlist_listbox.selection_set(idx + 1)
 
@@ -5663,7 +6603,6 @@ class RecorderApp(tb.Window):
         if current_idx != self._drag_start_index and 0 <= current_idx < len(self.playlist_data):
             item = self.playlist_data.pop(self._drag_start_index)
             self.playlist_data.insert(current_idx, item)
-            self._is_playlist_modified = True
             self._update_playlist_ui()
             self._drag_start_index = current_idx
             self.playlist_listbox.selection_clear(0, "end")
@@ -5671,17 +6610,6 @@ class RecorderApp(tb.Window):
 
     def pl_drag_end(self, event):
         self._drag_start_index = None
-        self._is_playlist_modified = True
-
-    def pl_shuffle(self):
-        """隨機打亂播放佇列"""
-        if not self.playlist_data:
-            return
-        import random
-        random.shuffle(self.playlist_data)
-        self._is_playlist_modified = True
-        self._update_playlist_ui()
-        self.log("已隨機打亂播放佇列順序")
 
     def pl_on_right_click(self, event):
         idx = self.playlist_listbox.nearest(event.y)
@@ -5699,7 +6627,6 @@ class RecorderApp(tb.Window):
                     delay = int(delay_str)
                     if delay >= 0:
                         self.playlist_data[idx]['delay'] = delay
-                        self._is_playlist_modified = True
                         self._update_playlist_ui()
                     else:
                         self.log("輸入的延遲秒數不能為負數")

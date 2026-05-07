@@ -6,39 +6,44 @@ from typing import Any, Dict, List
 
 def _normalize_loaded(data: Any) -> Dict[str, Any]:
     """將載入資料轉成 dict 格式: {'events': [...], 'settings': {...}}"""
-    if isinstance(data, dict) and "events" in data:
-        events = data.get("events", []) or []
-        # 優先從 settings 區塊讀取，若不存在則從根層級讀取（向下相容）
-        if "settings" in data and isinstance(data["settings"], dict):
-            settings = {
-                "speed": data["settings"].get("speed", "100"),
-                "repeat": data["settings"].get("repeat", "1"),
-                "repeat_time": data["settings"].get("repeat_time", "00:00:00"),
-                "repeat_interval": data["settings"].get("repeat_interval", "00:00:00"),
-                "random_interval": data["settings"].get("random_interval", False),
-                "script_hotkey": data["settings"].get("script_hotkey", ""),
-                "script_actions": data["settings"].get("script_actions", []),
-                "window_info": data["settings"].get("window_info", None)
-            }
-        else:
-            # 向下相容：從根層級讀取
-            settings = {
-                "speed": data.get("speed", "100"),
-                "repeat": data.get("repeat", "1"),
-                "repeat_time": data.get("repeat_time", "00:00:00"),
-                "repeat_interval": data.get("repeat_interval", "00:00:00"),
-                "random_interval": data.get("random_interval", False),
-                "script_hotkey": data.get("script_hotkey", ""),
-                "script_actions": data.get("script_actions", []),
-                "window_info": data.get("window_info", None)
-            }
-        return {"events": events, "settings": settings}
-    else:
-        # 舊格式：直接是事件 list
-        return {"events": data or [], "settings": {
-            "speed": "100", "repeat": "1", "repeat_time": "00:00:00",
-            "repeat_interval": "00:00:00", "random_interval": False, "script_hotkey": ""
-        }}
+    if isinstance(data, dict):
+        if "is_group" in data and data["is_group"]:
+            # 群組腳本格式：保留原始結構
+            return data
+        
+        if "events" in data:
+            events = data.get("events", []) or []
+            # 優先從 settings 區塊讀取，若不存在則從根層級讀取（向下相容）
+            if "settings" in data and isinstance(data["settings"], dict):
+                settings = {
+                    "speed": data["settings"].get("speed", "100"),
+                    "repeat": data["settings"].get("repeat", "1"),
+                    "repeat_time": data["settings"].get("repeat_time", "00:00:00"),
+                    "repeat_interval": data["settings"].get("repeat_interval", "00:00:00"),
+                    "random_interval": data["settings"].get("random_interval", False),
+                    "script_hotkey": data["settings"].get("script_hotkey", ""),
+                    "script_actions": data["settings"].get("script_actions", []),
+                    "window_info": data["settings"].get("window_info", None)
+                }
+            else:
+                # 向下相容：從根層級讀取
+                settings = {
+                    "speed": data.get("speed", "100"),
+                    "repeat": data.get("repeat", "1"),
+                    "repeat_time": data.get("repeat_time", "00:00:00"),
+                    "repeat_interval": data.get("repeat_interval", "00:00:00"),
+                    "random_interval": data.get("random_interval", False),
+                    "script_hotkey": data.get("script_hotkey", ""),
+                    "script_actions": data.get("script_actions", []),
+                    "window_info": data.get("window_info", None)
+                }
+            return {"events": events, "settings": settings}
+    
+    # 舊格式：直接是事件 list
+    return {"events": data or [], "settings": {
+        "speed": "100", "repeat": "1", "repeat_time": "00:00:00",
+        "repeat_interval": "00:00:00", "random_interval": False, "script_hotkey": ""
+    }}
 
 def load_script(path: str) -> Dict[str, Any]:
     """讀取腳本檔案並回傳 normalized dict"""

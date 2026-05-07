@@ -1,0 +1,42 @@
+{
+  "events": [
+    {
+      "type": "comment",
+      "text": "1. 啟動 AI 主動搜尋驗證碼區塊並辨識輸入",
+      "time": 0.0
+    },
+    {
+      "type": "ocr_auto_input",
+      "time": 0.0
+    },
+    {
+      "type": "delay",
+      "duration": 0.5,
+      "time": 0.0
+    },
+    {
+      "type": "comment",
+      "text": "2. 點擊提交按鈕",
+      "time": 0.5
+    },
+    {
+      "type": "click_text",
+      "target_text": "提交",
+      "image": null,
+      "offset_x": 0,
+      "offset_y": 0,
+      "timeout": 5.0,
+      "time": 0.0
+    }
+  ],
+  "settings": {
+    "speed": "100",
+    "repeat": "1",
+    "repeat_time": "00:00:00",
+    "repeat_interval": "00:00:00",
+    "random_interval": false,
+    "script_hotkey": "",
+    "script_actions": [],
+    "window_info": null
+  }
+}

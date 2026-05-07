@@ -2892,6 +2892,10 @@ class TextCommandEditor(tk.Toplevel):
                 ("新增標籤", "#FFC107", None, "#標籤名稱"),
                 ("跳轉標籤", "#FF9800", None, ">>#標籤名稱"),
                 ("條件失敗跳轉", "#FF5722", None, ">>>#標籤名稱"),
+                ("相對OCR辨識", "#673AB7", self._capture_region_relative_to_text, None),
+                ("相對圖片OCR", "#512DA8", self._capture_region_relative_to_image, None),
+                ("相對文字點擊", "#3F51B5", self._on_relative_text_click, None),
+                ("相對圖片點擊", "#303F9F", self._on_relative_image_click, None),
                 ("OCR文字判斷", "#00BCD4", None, ">if文字>更改為需判斷文字\n>>#找到\n>>>#沒找到"),
                 ("OCR等待文字", "#009688", None, ">等待文字>更改為需等待文字, 最長10s"),
                 ("OCR點擊文字", "#4CAF50", None, ">點擊文字>更改為需點擊文字"),
@@ -3828,18 +3832,18 @@ class TextCommandEditor(tk.Toplevel):
                     continue
 
                 if event_type == "set_variable":
-                    lines.append(f">設定變數>{event.get('name', '')}, {event.get('value', 0)}\n")
+                    lines.append(f">設定變數>{event.get('name', '')}, {event.get('value', 0)}, T={self._format_time(current_time)}\n")
                     last_event_time = current_time
                     continue
 
                 if event_type == "variable_operation":
                     op = "加1" if event.get("operation") == "add" else "減1"
-                    lines.append(f">變數{op}>{event.get('name', '')}\n")
+                    lines.append(f">變數{op}>{event.get('name', '')}, T={self._format_time(current_time)}\n")
                     last_event_time = current_time
                     continue
 
                 if event_type == "if_variable":
-                    lines.append(f">if變數>{event.get('name', '')}, {event.get('operator', '==')}, {event.get('value', 0)}\n")
+                    lines.append(f">if變數>{event.get('name', '')}, {event.get('operator', '==')}, {event.get('value', 0)}, T={self._format_time(current_time)}\n")
                     if event.get("on_success"): lines.append(f">>{self._format_branch_action(event['on_success'])}\n")
                     if event.get("on_failure"): lines.append(f">>>{self._format_branch_action(event['on_failure'])}\n")
                     last_event_time = current_time
@@ -3847,27 +3851,73 @@ class TextCommandEditor(tk.Toplevel):
 
                 if event_type == "loop_start":
                     if event.get("loop_type") == "repeat":
-                        lines.append(f">重複>{event.get('max_count', 1)}次\n")
+                        lines.append(f">重複>{event.get('max_count', 1)}次, T={self._format_time(current_time)}\n")
                     elif event.get("loop_type") == "while":
                         cond = event.get("condition", {})
                         if cond.get("type") == "image_exists":
-                            lines.append(f">當圖片存在>{cond.get('image', '')}\n")
+                            lines.append(f">當圖片存在>{cond.get('image', '')}, T={self._format_time(current_time)}\n")
                     last_event_time = current_time
                     continue
 
                 if event_type == "loop_end":
-                    lines.append(">重複結束\n" if event.get("loop_type") == "repeat" else ">迴圈結束\n")
+                    loop_name = ">重複結束" if event.get("loop_type") == "repeat" else ">迴圈結束"
+                    lines.append(f"{loop_name}, T={self._format_time(current_time)}\n")
                     last_event_time = current_time
                     continue
 
                 if event_type == "delay":
                     ms = int(event.get("duration", 0) * 1000)
-                    if ms > 0: lines.append(f">延遲{ms}ms\n")
+                    time_val_str = f"T={self._format_time(current_time)}"
+                    if ms > 0: lines.append(f">延遲{ms}ms, {time_val_str}\n")
                     last_event_time = current_time + event.get("duration", 0)
                     continue
 
                 if event_type == "start_combat":
-                    lines.append(">啟動自動戰鬥\n")
+                    lines.append(f">啟動自動戰鬥, T={self._format_time(current_time)}\n")
+                    last_event_time = current_time
+                    continue
+
+                if event_type == "ocr_auto_input":
+                    lines.append(f">自動辨識輸入驗證碼, T={self._format_time(current_time)}\n")
+                    last_event_time = current_time
+                    continue
+
+                if event_type == "ocr_input":
+                    r = event.get("region", (0, 0, 0, 0))
+                    # 內部儲存 (x1,y1,x2,y2)，輸出 (x,y,w,h)
+                    x, y, w, h = r[0], r[1], r[2]-r[0], r[3]-r[1]
+                    lines.append(f">OCR辨識輸入範圍({x},{y},{w},{h}), T={self._format_time(current_time)}\n")
+                    last_event_time = current_time
+                    continue
+
+                if event_type == "ocr_relative_input":
+                    anchor = event.get("anchor_text", "")
+                    dx, dy, w, h = event.get("offset", (0, 0, 100, 30))
+                    lines.append(f">相對OCR辨識輸入>{anchor}, 偏移({dx},{dy},{w},{h}), T={self._format_time(current_time)}\n")
+                    last_event_time = current_time
+                    continue
+
+                if event_type == "click_text":
+                    target = event.get("target_text", "")
+                    off_x = event.get("offset_x", 0)
+                    off_y = event.get("offset_y", 0)
+                    suffix = f", 偏移({off_x},{off_y})" if (off_x != 0 or off_y != 0) else ""
+                    lines.append(f">點擊文字>{target}{suffix}, T={self._format_time(current_time)}\n")
+                    last_event_time = current_time
+                    continue
+
+                if event_type == "wait_text":
+                    target = event.get("target_text", "")
+                    timeout = event.get("timeout", 10.0)
+                    lines.append(f">等待文字>{target}, 最長{timeout}s, T={self._format_time(current_time)}\n")
+                    last_event_time = current_time
+                    continue
+
+                if event_type == "if_text_exists":
+                    target = event.get("target_text", "")
+                    lines.append(f">if文字>{target}, T={self._format_time(current_time)}\n")
+                    if event.get("on_success"): lines.append(f">>{self._format_branch_action(event['on_success'])}\n")
+                    if event.get("on_failure"): lines.append(f">>>{self._format_branch_action(event['on_failure'])}\n")
                     last_event_time = current_time
                     continue
 
@@ -3897,6 +3947,35 @@ class TextCommandEditor(tk.Toplevel):
             for k in pressed_keys: lines.append(f"# >按下{k} (未放開)\n")
             
         return "".join(lines)
+
+    def _format_generic_event(self, event: dict) -> str:
+        """
+        通用格式化 (作為後備)
+        用於處理未被顯式處理的事件類型
+        """
+        event_type = event.get("type", "")
+        current_time = event.get("time", 0)
+        time_suffix = f", T={self._format_time(current_time)}"
+        
+        if event_type == "mouse":
+            evt = event.get("event")
+            btn = "左鍵" if event.get("button") == "left" else "右鍵" if event.get("button") == "right" else "中鍵"
+            x, y = event.get("x"), event.get("y")
+            coord_str = f"({x},{y})" if x is not None else ""
+            
+            if evt == "down": return f"按下{btn}{coord_str}{time_suffix}"
+            if evt == "up": return f"放開{btn}{coord_str}{time_suffix}"
+            if evt == "move": return f"移動至{coord_str}{time_suffix}"
+            if evt == "wheel": return f"滾輪({event.get('delta', 0)}){time_suffix}"
+        
+        elif event_type == "keyboard":
+            evt = event.get("event")
+            key = event.get("name", "")
+            if evt == "down": return f"按下{key}{time_suffix}"
+            if evt == "up": return f"放開{key}{time_suffix}"
+            
+        # 如果無法格式化，返回描述性字串
+        return f"未知指令({event_type}){time_suffix}"
 
     
     def _format_time(self, seconds: float) -> str:
@@ -4285,7 +4364,7 @@ class TextCommandEditor(tk.Toplevel):
                         "等待圖片", "點擊圖片", "如果存在", 
                         "辨識>", "移動至>", "左鍵點擊>", "右鍵點擊>", 
                         "如果存在>", "辨識任一>", "if>",
-                        "if文字>", "等待文字>", "點擊文字>"  # OCR指令
+                        "if文字>", "等待文字>", "點擊文字>", "自動辨識輸入驗證碼"  # OCR指令
                     ]) or line.startswith(">延遲"):
                         # 圖片指令和OCR指令處理
                         #  v2.8.2+: 使用 cumulative_offset 作為基準，偵測 T 回溯
@@ -4497,6 +4576,58 @@ class TextCommandEditor(tk.Toplevel):
         :param start_time: 起始時間戳
         :return: JSON事件字典
         """
+        # 自動搜尋驗證碼指令 (v2.8.7+)
+        # 格式: >自動辨識輸入驗證碼, T=0s000
+        auto_ocr_pattern = r'>自動辨識輸入驗證碼(?:,\s*T=([\w\d]+))?$'
+        match = re.match(auto_ocr_pattern, command_line)
+        if match:
+            time_str = match.group(1) if match.group(1) else "0s000"
+            abs_time = start_time + self._parse_time(time_str)
+            return {
+                "type": "ocr_auto_input",
+                "time": abs_time
+            }
+
+        # OCR 辨識輸入指令 (v2.8.5+)
+        # 格式: >OCR辨識輸入範圍(x,y,w,h), T=0s000
+        # OCR 辨識輸入指令 (v2.8.5+)
+        # 格式: >OCR辨識輸入範圍(x,y,w,h), T=0s000
+        ocr_input_pattern = r'>OCR辨識輸入範圍\((\d+),(\d+),(\d+),(\d+)\)(?:,\s*T=([\w\d]+))?$'
+        match = re.match(ocr_input_pattern, command_line)
+        if match:
+            x, y, w, h = int(match.group(1)), int(match.group(2)), int(match.group(3)), int(match.group(4))
+            time_str = match.group(5) if match.group(5) else "0s000"
+            abs_time = start_time + self._parse_time(time_str)
+            
+            return {
+                "type": "ocr_input",
+                "region": (x, y, x + w, y + h),
+                "time": abs_time
+            }
+
+        # 相對 OCR 指令 (v2.8.6+)
+        # 格式: >相對OCR辨識輸入>錨點, 偏移(dx,dy,w,h), T=0s000
+        # 相對 OCR 指令 (v2.8.6+)
+        # 格式: >相對OCR辨識輸入>錨點, 偏移(dx,dy,w,h), T=0s000
+        rel_ocr_pattern = r'>相對OCR辨識輸入>(.+?),\s*偏移\((\d+),(\d+),(\d+),(\d+)\)(?:,\s*T=([\w\d]+))?$'
+        match = re.match(rel_ocr_pattern, command_line)
+        if match:
+            anchor = match.group(1).strip()
+            is_image = anchor.startswith('圖片:')
+            if is_image: anchor = anchor[3:].strip()
+            
+            dx, dy, w, h = int(match.group(2)), int(match.group(3)), int(match.group(4)), int(match.group(5))
+            time_str = match.group(6) if match.group(6) else "0s000"
+            abs_time = start_time + self._parse_time(time_str)
+            
+            return {
+                "type": "ocr_relative_input",
+                "anchor_text": anchor,
+                "is_image_anchor": is_image,
+                "offset": (dx, dy, w, h),
+                "time": abs_time
+            }
+
         # 辨識圖片指令（新格式：>辨識>pic01, 邊框, 範圍(x1,y1,x2,y2), T=0s100）
         # 圖片辨識指令（>辨識>pic01, 邊框, 範圍(x1,y1,x2,y2), T=0s000）
         recognize_pattern = r'>辨識>(.+?)(?:,\s*T=(\d+)s(\d+))?$'
@@ -4827,12 +4958,12 @@ class TextCommandEditor(tk.Toplevel):
             return result
         
         # 新增：如果存在圖片（條件判斷）>如果存在>pic01, T=0s100
-        if_exists_pattern = r'>如果存在>(.+?)(?:,\s*T=(\d+)s(\d+))'
+        if_exists_pattern = r'>如果存在>(.+?)(?:,\s*T=(\d+)s(\d+))?'
         match = re.match(if_exists_pattern, command_line)
         if match:
             pic_name = match.group(1).strip().rstrip(',').strip()
-            seconds = int(match.group(2))
-            millis = int(match.group(3))
+            seconds = int(match.group(2)) if match.group(2) else 0
+            millis = int(match.group(3)) if match.group(3) else 0
             abs_time = start_time + seconds + millis / 1000.0
             
             # 查找對應的圖片檔案
@@ -4854,13 +4985,12 @@ class TextCommandEditor(tk.Toplevel):
         # ==================== OCR 文字辨識指令 ====================
         
         # OCR 條件判斷：>if文字>確認, T=0s000
-        ocr_if_pattern = r'>if文字>(.+?)(?:,\s*T=(\d+)s(\d+))'
+        ocr_if_pattern = r'>if文字>(.+?)(?:,\s*T=([\w\d]+))?$'
         match = re.match(ocr_if_pattern, command_line)
         if match:
-            target_text = match.group(1).strip().rstrip(',').strip()
-            seconds = int(match.group(2))
-            millis = int(match.group(3))
-            abs_time = start_time + seconds + millis / 1000.0
+            target_text = match.group(1).strip()
+            time_str = match.group(2) if match.group(2) else "0s000"
+            abs_time = start_time + self._parse_time(time_str)
             
             # 解析後續行的 >> 和 >>> 分支
             branches = self._parse_simple_condition_branches(next_lines)
@@ -4882,14 +5012,13 @@ class TextCommandEditor(tk.Toplevel):
             }
         
         # 等待文字出現：>等待文字>確認, 最長10s, T=0s000
-        ocr_wait_pattern = r'>等待文字>(.+?),\s*最長(\d+(?:\.\d+)?)[sS],\s*T=(\d+)s(\d+)'
+        ocr_wait_pattern = r'>等待文字>(.+?)(?:,\s*最長(\d+(?:\.\d+)?)[sS])?(?:,\s*T=([\w\d]+))?$'
         match = re.match(ocr_wait_pattern, command_line)
         if match:
             target_text = match.group(1).strip()
-            timeout = float(match.group(2))
-            seconds = int(match.group(3))
-            millis = int(match.group(4))
-            abs_time = start_time + seconds + millis / 1000.0
+            timeout = float(match.group(2)) if match.group(2) else 10.0
+            time_str = match.group(3) if match.group(3) else "0s000"
+            abs_time = start_time + self._parse_time(time_str)
             
             return {
                 "type": "wait_text",
@@ -4899,29 +5028,36 @@ class TextCommandEditor(tk.Toplevel):
                 "time": abs_time
             }
         
-        # 點擊文字位置：>點擊文字>登入, T=0s000
-        ocr_click_pattern = r'>點擊文字>(.+?)(?:,\s*T=(\d+)s(\d+))'
+        # 點擊文字位置：>點擊文字>登入, 偏移(x,y), T=0s000
+        ocr_click_pattern = r'>點擊文字>(.+?)(?:,\s*偏移\((\d+),(\d+)\))?(?:,\s*T=([\w\d]+))?$'
         match = re.match(ocr_click_pattern, command_line)
         if match:
-            target_text = match.group(1).strip().rstrip(',').strip()
-            seconds = int(match.group(2))
-            millis = int(match.group(3))
-            abs_time = start_time + seconds + millis / 1000.0
+            target = match.group(1).strip()
+            is_image = target.startswith('圖片:')
+            if is_image: target = target[3:].strip()
+            
+            off_x = int(match.group(2)) if match.group(2) else 0
+            off_y = int(match.group(3)) if match.group(3) else 0
+            time_str = match.group(4) if match.group(4) else "0s000"
+            abs_time = start_time + self._parse_time(time_str)
             
             return {
-                "type": "click_text",
-                "target_text": target_text,
+                "type": "click_image_anchor" if is_image else "click_text",
+                "target_text": target,
+                "image": target if is_image else None,
+                "offset_x": off_x,
+                "offset_y": off_y,
                 "timeout": 5.0,
                 "time": abs_time
             }
         
         # 延遲指令：>延遲1000ms, T=0s000
-        delay_pattern = r'>延遲(\d+)ms,\s*T=(\d+)s(\d+)'
+        delay_pattern = r'>延遲(\d+)ms(?:,\s*T=(\d+)s(\d+))?'
         match = re.match(delay_pattern, command_line)
         if match:
             delay_ms = int(match.group(1))
-            seconds = int(match.group(2))
-            millis = int(match.group(3))
+            seconds = int(match.group(2)) if match.group(2) else 0
+            millis = int(match.group(3)) if match.group(3) else 0
             abs_time = start_time + seconds + millis / 1000.0
             
             return {
@@ -4931,12 +5067,12 @@ class TextCommandEditor(tk.Toplevel):
             }
         
         # 新增：辨識任一圖片（多圖同時辨識）>辨識任一>pic01|pic02|pic03, T=0s100
-        recognize_any_pattern = r'>辨識任一>(.+?),\s*T=(\d+)s(\d+)'
+        recognize_any_pattern = r'>辨識任一>(.+?)(?:,\s*T=(\d+)s(\d+))?'
         match = re.match(recognize_any_pattern, command_line)
         if match:
             pic_names = match.group(1).strip().split('|')
-            seconds = int(match.group(2))
-            millis = int(match.group(3))
+            seconds = int(match.group(2)) if match.group(2) else 0
+            millis = int(match.group(3)) if match.group(3) else 0
             abs_time = start_time + seconds + millis / 1000.0
             
             # 為每張圖片建立配置
@@ -6457,6 +6593,7 @@ class TextCommandEditor(tk.Toplevel):
                 (r'if文字>', 'syntax_ocr'),
                 (r'等待文字>', 'syntax_ocr'),
                 (r'點擊文字>', 'syntax_ocr'),
+                (r'自動辨識輸入驗證碼', 'syntax_ocr'),
             ]
             
             # 鍵盤操作 (淡紫色)
@@ -7353,6 +7490,233 @@ class TextCommandEditor(tk.Toplevel):
             
         except Exception as e:
             self._show_message("錯誤", f"插入指令失敗：{e}", "error")
+
+    def _capture_region_for_ocr_input(self):
+        """選擇範圍用於 OCR 辨識並輸入 (驗證碼專用)"""
+        # 儲存視窗狀態
+        self.editor_geometry = self.geometry()
+        if self.parent:
+            self.parent_geometry = self.parent.geometry()
+        
+        # 隱藏視窗
+        self.lower()
+        if self.parent:
+            self.parent.lower()
+        
+        self.update_idletasks()
+        if self.parent:
+            self.parent.update_idletasks()
+        
+        self.withdraw()
+        if self.parent:
+            self.parent.withdraw()
+        
+        self.update_idletasks()
+        if self.parent:
+            self.parent.update_idletasks()
+        
+        # 延遲後選擇範圍
+        self.after(300, self._do_ocr_input_region_selection)
+
+    def _do_ocr_input_region_selection(self):
+        """執行 OCR 輸入範圍選擇"""
+        try:
+            # 創建範圍選擇視窗
+            from modules.text_script_editor import RegionSelector
+            region_selector = RegionSelector(self, self._on_ocr_region_selected)
+            region_selector.wait_window()
+        except Exception as e:
+            # 降級處理：如果導入失敗，嘗試直接調用
+            try:
+                region_selector = RegionSelector(self, self._on_ocr_region_selected)
+                region_selector.wait_window()
+            except:
+                self._show_message("錯誤", f"範圍選擇失敗：{e}", "error")
+                self._restore_windows()
+
+    def _on_ocr_region_selected(self, region):
+        """OCR 範圍選擇完成回調"""
+        # 恢復視窗
+        self._restore_windows()
+        
+        if region is None:
+            return
+        
+        # 確保編輯器在最上層
+        self.lift()
+        self.focus_force()
+        
+        try:
+            x1, y1, x2, y2 = region
+            # 轉換為 (x, y, w, h) 格式，符合 OCR辨識輸入範圍 的預期
+            w = x2 - x1
+            h = y2 - y1
+            
+            current_time = self._get_next_available_time()
+            # 格式: >OCR辨識輸入範圍(x,y,w,h), T=0s000
+            command = f">OCR辨識輸入範圍({x1},{y1},{w},{h}), T={current_time}\n"
+            
+            self.text_editor.insert(tk.INSERT, command)
+            self._update_status(f"已插入 OCR 辨識輸入：範圍({x1},{y1},{w},{h})", "success")
+            
+        except Exception as e:
+            self._show_message("錯誤", f"插入指令失敗：{e}", "error")
+
+    def _on_relative_text_click(self):
+        """相對文字點擊對話框"""
+        from tkinter import simpledialog
+        anchor = simpledialog.askstring("相對文字點擊", "請輸入錨點文字（例如：驗證碼）:", parent=self)
+        if not anchor: return
+        
+        offset = simpledialog.askstring("相對文字點擊", "請輸入偏移量 x,y (例如: 250,0):", initialvalue="250,0", parent=self)
+        if not offset: return
+        
+        try:
+            current_time = self._get_next_available_time()
+            command = f">點擊文字>{anchor}, 偏移({offset}), T={current_time}\n"
+            self.text_editor.insert(tk.INSERT, command)
+        except:
+            pass
+
+    def _capture_region_relative_to_text(self):
+        """相對 OCR 辨識區域選取"""
+        from tkinter import simpledialog
+        self.anchor_text = simpledialog.askstring("相對 OCR 辨識", "請輸入錨點文字（例如：驗證碼）:", parent=self)
+        if not self.anchor_text: return
+        
+        # 隱藏視窗準備選取
+        self.lower()
+        self.withdraw()
+        self.after(300, self._do_relative_ocr_selection)
+
+    def _do_relative_ocr_selection(self):
+        try:
+            from modules.text_script_editor import RegionSelector
+            # 使用 RegionSelector 取得螢幕座標，稍後再轉換為相對座標
+            region_selector = RegionSelector(self, self._on_relative_ocr_selected)
+            region_selector.wait_window()
+        except:
+            self._restore_windows()
+
+    def _on_relative_ocr_selected(self, region):
+        self._restore_windows()
+        if not region: return
+        
+        # 由於我們需要錨點的實際座標來計算偏移，
+        # 這裡我們需要執行一次快速 OCR 來定位錨點。
+        try:
+            from modules.ocr_trigger import OCRTrigger
+            ocr = OCRTrigger(ocr_engine="auto")
+            import mss
+            import numpy as np
+            import cv2
+            
+            with mss.mss() as sct:
+                monitor = sct.monitors[1]
+                screenshot = np.array(sct.grab(monitor))
+                gray = cv2.cvtColor(screenshot, cv2.COLOR_BGRA2GRAY)
+                pos = ocr.find_text_position(gray, self.anchor_text)
+                
+            if not pos:
+                self._show_message("警告", f"當前畫面上找不到「{self.anchor_text}」，將使用絕對座標模式", "warning")
+                self._on_ocr_region_selected(region)
+                return
+            
+            ax, ay = pos
+            x1, y1, x2, y2 = region
+            dx, dy = x1 - ax, y1 - ay
+            w, h = x2 - x1, y2 - y1
+            
+            current_time = self._get_next_available_time()
+            command = f">相對OCR辨識輸入>{self.anchor_text}, 偏移({dx},{dy},{w},{h}), T={current_time}\n"
+            self.text_editor.insert(tk.INSERT, command)
+            self._update_status(f"已插入相對 OCR 指令", "success")
+        except Exception as e:
+            self._show_message("錯誤", f"計算相對座標失敗: {e}", "error")
+
+    def _on_relative_image_click(self):
+        """相對圖片點擊對話框"""
+        from tkinter import simpledialog
+        img_name = simpledialog.askstring("相對圖片點擊", "請輸入錨點圖片名稱 (例如: btn_captcha):", parent=self)
+        if not img_name: return
+        
+        offset = simpledialog.askstring("相對圖片點擊", "請輸入偏移量 x,y (例如: 150,0):", initialvalue="150,0", parent=self)
+        if not offset: return
+        
+        try:
+            current_time = self._get_next_available_time()
+            command = f">點擊文字>圖片:{img_name}, 偏移({offset}), T={current_time}\n"
+            self.text_editor.insert(tk.INSERT, command)
+        except:
+            pass
+
+    def _capture_region_relative_to_image(self):
+        """相對圖片 OCR 辨識區域選取"""
+        from tkinter import simpledialog
+        self.anchor_img = simpledialog.askstring("相對圖片 OCR", "請輸入錨點圖片名稱 (例如: label_verify):", parent=self)
+        if not self.anchor_img: return
+        
+        self.lower()
+        self.withdraw()
+        self.after(300, self._do_relative_image_ocr_selection)
+
+    def _do_relative_image_ocr_selection(self):
+        try:
+            from modules.text_script_editor import RegionSelector
+            region_selector = RegionSelector(self, self._on_relative_image_ocr_selected)
+            region_selector.wait_window()
+        except:
+            self._restore_windows()
+
+    def _on_relative_image_ocr_selected(self, region):
+        self._restore_windows()
+        if not region: return
+        
+        try:
+            # 搜尋圖片錨點
+            from modules.recorder import CoreRecorder
+            recorder = CoreRecorder() # 僅用於獲取圖片目錄
+            img_path = os.path.join(recorder.image_dir, f"{self.anchor_img}.png")
+            if not os.path.exists(img_path):
+                img_path = os.path.join(recorder.image_dir, f"{self.anchor_img}.jpg")
+                
+            if not os.path.exists(img_path):
+                self._show_message("警告", f"找不到圖片檔案「{self.anchor_img}」，將使用絕對座標模式", "warning")
+                self._on_ocr_region_selected(region)
+                return
+            
+            # 使用 OpenCV 尋找圖片中心
+            import cv2
+            import numpy as np
+            import mss
+            
+            with mss.mss() as sct:
+                monitor = sct.monitors[1]
+                screenshot = np.array(sct.grab(monitor))
+                template = cv2.imread(img_path)
+                
+                res = cv2.matchTemplate(screenshot[:,:,:3], template, cv2.TM_CCOEFF_NORMED)
+                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+                
+                if max_val < 0.8:
+                    self._show_message("警告", f"當前畫面上找不到圖片「{self.anchor_img}」，將使用絕對座標模式", "warning")
+                    self._on_ocr_region_selected(region)
+                    return
+                
+                # 錨點中心
+                ax = max_loc[0] + template.shape[1] // 2
+                ay = max_loc[1] + template.shape[0] // 2
+                
+            x1, y1, x2, y2 = region
+            dx, dy = x1 - ax, y1 - ay
+            w, h = x2 - x1, y2 - y1
+            
+            current_time = self._get_next_available_time()
+            command = f">相對OCR辨識輸入>圖片:{self.anchor_img}, 偏移({dx},{dy},{w},{h}), T={current_time}\n"
+            self.text_editor.insert(tk.INSERT, command)
+            self._update_status(f"已插入相對圖片 OCR 指令", "success")
+        except Exception as e:
+            self._show_message("錯誤", f"計算相對座標失敗: {e}", "error")
     
     def _capture_and_ocr(self):
         """截圖並進行文字辨識（OCR），顯示結果並可插入指令"""

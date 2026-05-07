@@ -13,6 +13,8 @@ import os
 import cv2
 import numpy as np
 from PIL import ImageGrab
+import tkinter as tk
+from PIL import Image, ImageTk
 
 #  優化：引入更快的螢幕截圖庫
 try:
@@ -38,6 +40,25 @@ except ImportError:
     YOLODetector = None
     get_detector = None
     print("️ YOLO 模組未載入，物件偵測功能不可用")
+
+
+# ==================== OCR 診斷懸浮窗 ====================
+class OCRFloatWindow:
+    def __init__(self, root):
+        self.window = tk.Toplevel(root)
+        self.window.title("OCR 診斷")
+        self.window.attributes('-topmost', True)
+        self.label = tk.Label(self.window)
+        self.label.pack()
+        self.text_label = tk.Label(self.window, text="", font=("Arial", 12))
+        self.text_label.pack()
+
+    def update(self, image_np, text):
+        img = Image.fromarray(image_np)
+        img = ImageTk.PhotoImage(img)
+        self.label.config(image=img)
+        self.label.image = img
+        self.text_label.config(text=f"辨識內容: {text}")
 
 
 # ==================== 觸發器管理器 (v2.8.0+) ====================
@@ -257,6 +278,92 @@ class TriggerManager:
                     if pos:
                         return 'success'
                     return 'failure'
+
+            # 6. OCR 指令 (v2.8.5)
+            elif action_text.startswith('>OCR辨識輸入'):
+                import re
+                match = re.search(r'範圍\((\d+),(\d+),(\d+),(\d+)\)', action_text)
+                if match:
+                    x, y, w, h = int(match.group(1)), int(match.group(2)), int(match.group(3)), int(match.group(4))
+                    region = (x, y, x + w, y + h) # 轉換為 (x1, y1, x2, y2)
+                    event = {
+                        'type': 'ocr_input',
+                        'region': region,
+                        'time': time.time()
+                    }
+                    return self.recorder._execute_event(event)
+                return 'failure'
+                
+            elif action_text.startswith('>點擊文字>'):
+                # 支援偏移語法: >點擊文字>標籤, 偏移(x,y)
+                # 支援圖片錨點: >點擊文字>圖片:pic_name, 偏移(x,y)
+                import re
+                match = re.search(r'>點擊文字>(.+?)(?:,\s*偏移\((\d+),(\d+)\))?$', action_text)
+                if match:
+                    target = match.group(1).strip()
+                    off_x = int(match.group(2)) if match.group(2) else 0
+                    off_y = int(match.group(3)) if match.group(3) else 0
+                    
+                    event_type = 'click_text'
+                    if target.startswith('圖片:'):
+                        event_type = 'click_image_anchor'
+                        target = target[3:].strip()
+                    
+                    event = {
+                        'type': event_type,
+                        'target_text': target, # 或者是圖片名稱
+                        'image': target,       # 相容性
+                        'offset_x': off_x,
+                        'offset_y': off_y,
+                        'time': time.time()
+                    }
+                    return self.recorder._execute_event(event)
+                return 'failure'
+
+            elif action_text.startswith('>等待文字>'):
+                target_text = action_text[6:].strip()
+                event = {
+                    'type': 'wait_text',
+                    'target_text': target_text,
+                    'time': time.time()
+                }
+                return self.recorder._execute_event(event)
+            
+            # 7. 相對 OCR 指令 (v2.8.6)
+            elif action_text.startswith('>相對OCR辨識輸入>'):
+                # 格式: >相對OCR辨識輸入>錨點文字, 偏移(x,y,w,h)
+                # 支援圖片錨點: >相對OCR辨識輸入>圖片:錨點圖片, 偏移(x,y,w,h)
+                import re
+                match = re.search(r'>相對OCR辨識輸入>(.+?),\s*偏移\((\d+),(\d+),(\d+),(\d+)\)', action_text)
+                if match:
+                    anchor = match.group(1).strip()
+                    dx = int(match.group(2))
+                    dy = int(match.group(3))
+                    w = int(match.group(4))
+                    h = int(match.group(5))
+                    
+                    is_image_anchor = anchor.startswith('圖片:')
+                    if is_image_anchor:
+                        anchor = anchor[3:].strip()
+                        
+                    event = {
+                        'type': 'ocr_relative_input',
+                        'anchor_text': anchor,
+                        'is_image_anchor': is_image_anchor,
+                        'offset': (dx, dy, w, h),
+                        'time': time.time()
+                    }
+                    return self.recorder._execute_event(event)
+                return 'failure'
+            
+            # 8. 自動搜尋驗證碼 (v2.8.7)
+            elif action_text.startswith('>自動辨識輸入驗證碼'):
+                event = {
+                    'type': 'ocr_auto_input',
+                    'time': time.time()
+                }
+                return self.recorder._execute_event(event)
+
         except Exception as e:
             self.logger(f"[觸發器] 執行動作失敗: {e}")
         return None
@@ -420,7 +527,8 @@ class CoreRecorder:
     - 預留 OCR 觸發介面
     """
     
-    def __init__(self, logger=None):
+    def __init__(self, logger=None, app=None):
+        self.app = app
         #  支援新舊兩種 logger 格式
         # 舊格式：lambda 函式 logger(msg)
         # 新格式：LoggerManager 實例 logger.info(msg)
@@ -502,6 +610,20 @@ class CoreRecorder:
         self._bezier_mover = BezierMouseMover() if BEZIER_AVAILABLE else None
         self._use_bezier = False  # 預設關閉（保持向下相容）
         
+        self.ocr_diagnostic_window = None
+
+    def show_ocr_diagnostic(self, image_np, text):
+        """顯示 OCR 診斷結果"""
+        if self.app and hasattr(self.app, 'show_ocr_diagnostic'):
+            self.app.show_ocr_diagnostic(image_np, text)
+        else:
+            # Fallback: 如果沒有 app，建立獨立視窗
+            if self.ocr_diagnostic_window is None:
+                root = tk.Tk()
+                root.withdraw()
+                self.ocr_diagnostic_window = OCRFloatWindow(root)
+            self.ocr_diagnostic_window.update(image_np, text)
+
     def _log(self, msg: str, level: str = "info"):
         """統一日誌輸出（相容新舊格式）
         
@@ -1254,7 +1376,22 @@ class CoreRecorder:
                 if should_execute:
                     # 記錄執行前的精確時間
                     exec_start = time.time()
-                    
+
+                    # ── Beta: 視覺錨點座標修正 ──────────────────────────
+                    # 若外部（RecorderApp）有注入 visual_anchor_hook，
+                    # 則在 mouse down 事件執行前呼叫它來修正 x/y。
+                    _vah = getattr(self, 'visual_anchor_hook', None)
+                    if _vah and event.get('type') == 'mouse' and event.get('event') == 'down':
+                        try:
+                            new_x, new_y = _vah(event)
+                            if new_x is not None and new_y is not None:
+                                event = dict(event)   # 淺複製，避免改動原始 events 列表
+                                event['x'] = new_x
+                                event['y'] = new_y
+                        except Exception as _vah_err:
+                            self._log(f"[VDE] visual_anchor_hook 錯誤: {_vah_err}", "warning")
+                    # ── Beta: 結束 ───────────────────────────────────────
+
                     # 根據後台模式選擇執行方法
                     result = self._execute_event_with_mode(event)
                     
@@ -2085,8 +2222,8 @@ class CoreRecorder:
         elif event['type'] == 'if_image_exists':
             try:
                 image_name = event.get('image', '')
-                confidence = event.get('confidence', 0.65)  #  優化：降低預設閾值
-                on_success = event.get('on_success')  # {'action': 'continue'/'stop'/'jump', 'target': 'label_name', 'repeat_count': N}
+                confidence = event.get('confidence', 0.65)
+                on_success = event.get('on_success')
                 on_failure = event.get('on_failure')
                 show_border = event.get('show_border', False)
                 region = event.get('region', None)
@@ -2149,6 +2286,7 @@ class CoreRecorder:
                 # 等待文字出現
                 found = ocr.wait_for_text(
                     target_text=target_text,
+                    capture_func=lambda: self._capture_screen_fast(), # 傳入截圖函數
                     timeout=timeout,
                     match_mode=match_mode,
                     interval=0.5
@@ -2189,6 +2327,7 @@ class CoreRecorder:
                 
                 found = ocr.wait_for_text(
                     target_text=target_text,
+                    capture_func=lambda: self._capture_screen_fast(),
                     timeout=timeout,
                     match_mode=match_mode
                 )
@@ -2205,36 +2344,243 @@ class CoreRecorder:
         elif event['type'] == 'click_text':
             try:
                 from ocr_trigger import OCRTrigger
+                import win32api, win32con
                 
                 target_text = event.get('target_text', '')
-                timeout = event.get('timeout', 5.0)
+                region = event.get('region', None)
                 
                 self.logger(f"[OCR] 尋找並點擊文字: {target_text}")
                 
-                ocr = OCRTrigger(ocr_engine="auto")
+                # 初始化 OCR
+                ocr = OCRTrigger(ocr_engine="auto", logger=self.logger)
                 
                 if not ocr.is_available():
                     self.logger("[OCR] ️ OCR 引擎未啟用")
-                    return ('continue',)
+                    return 'failure'
                 
-                # 尋找文字位置
-                pos = ocr.find_text_position(target_text)
+                # 1. 取得截圖
+                snapshot = self._capture_screen_fast(region)
+                if snapshot is None:
+                    self.logger("[OCR] ️ 截圖失敗")
+                    return 'failure'
                 
+                # 2. 尋找文字位置
+                pos = ocr.find_text_position(snapshot, target_text, region=region)
                 if pos:
                     x, y = pos
-                    self.logger(f"[OCR]  找到文字於 ({x}, {y})，執行點擊")
+                    # 加上偏移量
+                    x += event.get('offset_x', 0)
+                    y += event.get('offset_y', 0)
                     
-                    # 移動並點擊
+                    self.logger(f"[OCR]  目標文字座標: {pos}, 最終點擊座標: ({x}, {y})")
                     win32api.SetCursorPos((x, y))
                     time.sleep(0.05)
                     win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, x, y, 0, 0)
                     time.sleep(0.05)
                     win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, x, y, 0, 0)
+                    return 'success'
                 else:
-                    self.logger(f"[OCR]  未找到文字")
-                    
+                    self.logger(f"[OCR]  未找到文字: {target_text}")
+                    return 'failure'
+                
             except Exception as e:
                 self.logger(f"[OCR] 錯誤: {e}")
+                return 'failure'
+
+        # OCR 相對辨識並輸入：ocr_relative_input (v2.8.6+)
+        elif event['type'] == 'ocr_relative_input':
+            try:
+                from ocr_trigger import OCRTrigger
+                import keyboard
+                import win32api, win32con
+                
+                anchor = event.get('anchor_text', '')
+                is_image_anchor = event.get('is_image_anchor', False)
+                dx, dy, w, h = event.get('offset', (0, 0, 100, 30))
+                
+                anchor_type_name = "圖片" if is_image_anchor else "文字"
+                self.logger(f"[OCR] 以{anchor_type_name}「{anchor}」為基準尋找相對區域並輸入...")
+                
+                anchor_pos = None
+                
+                if is_image_anchor:
+                    # 1a. 使用圖片搜尋尋找錨點
+                    res = self._find_image_on_screen(anchor)
+                    if res:
+                        anchor_pos = (res[0], res[1])
+                else:
+                    # 1b. 使用 OCR 尋找錨點文字
+                    ocr = OCRTrigger(ocr_engine="auto", logger=self.logger)
+                    full_snap = self._capture_screen_fast()
+                    anchor_pos = ocr.find_text_position(full_snap, anchor)
+                
+                if not anchor_pos:
+                    self.logger(f"[OCR]  找不到錨點{anchor_type_name}: {anchor}")
+                    return 'failure'
+                
+                # 2. 計算相對區域
+                ax, ay = anchor_pos
+                region = (ax + dx, ay + dy, ax + dx + w, ay + dy + h)
+                self.logger(f"[OCR]  找到錨點於 {anchor_pos}，計算目標區域: {region}")
+                
+                # 3. 截取目標區域並辨識 (此處仍需 OCR 引擎來讀驗證碼)
+                ocr = OCRTrigger(ocr_engine="auto", logger=self.logger)
+                if not ocr.is_available():
+                    self.logger("[OCR] ️ 錯誤: OCR 引擎未安裝，無法辨識驗證碼文字")
+                    return 'failure'
+                
+                # 重試機制：驗證碼有時會辨識出空值，嘗試最多 3 次
+                captcha_text = ""
+                for attempt in range(3):
+                    target_snap = self._capture_screen_fast(region)
+                    captcha_text = ocr.recognize(target_snap, is_captcha=True).strip()
+                    if captcha_text:
+                        break
+                    self.logger(f"[OCR]  辨識嘗試 {attempt+1} 失敗，正在重試...")
+                    time.sleep(0.5)
+                
+                if captcha_text:
+                    self.logger(f"[OCR]  辨識成功: {captcha_text}")
+                    # 4. 自動點擊輸入框 (假設輸入框在辨識區域內或錨點旁)
+                    # 為了保險，我們先點擊錨點右側的區域確保焦點
+                    win32api.SetCursorPos((ax + dx + 10, ay + dy + 10))
+                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+                    time.sleep(0.05)
+                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+                    time.sleep(0.1)
+                    
+                    # 5. 輸入文字
+                    keyboard.write(captcha_text)
+                    return 'success'
+                else:
+                    self.logger("[OCR]  辨識失敗 (重試次數耗盡)")
+                    return 'failure'
+                    
+            except Exception as e:
+                self.logger(f"[OCR] 相對辨識錯誤: {e}")
+                return 'failure'
+
+        # 圖片錨點點擊：click_image_anchor
+        elif event['type'] == 'click_image_anchor':
+            try:
+                import win32api, win32con
+                image_name = event.get('image', '')
+                off_x = event.get('offset_x', 0)
+                off_y = event.get('offset_y', 0)
+                
+                self.logger(f"[視覺] 以圖片「{image_name}」為基準進行偏移點擊...")
+                
+                res = self._find_image_on_screen(image_name)
+                if res:
+                    x, y = res[0] + off_x, res[1] + off_y
+                    self.logger(f"[視覺]  找到圖片，點擊座標: ({x}, {y})")
+                    win32api.SetCursorPos((x, y))
+                    time.sleep(0.05)
+                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, x, y, 0, 0)
+                    time.sleep(0.05)
+                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, x, y, 0, 0)
+                    return 'success'
+                else:
+                    self.logger(f"[視覺]  找不到圖片錨點: {image_name}")
+                    return 'failure'
+            except Exception as e:
+                self.logger(f"[視覺] 錨點點擊錯誤: {e}")
+                return 'failure'
+
+        # AI 自動辨識並輸入驗證碼：ocr_auto_input (v2.8.7+)
+        elif event['type'] == 'ocr_auto_input':
+            try:
+                from ocr_trigger import OCRTrigger
+                import keyboard
+                import win32api, win32con
+                
+                self.logger("[AI] 正在全螢幕掃描驗證碼區塊...")
+                
+                ocr = OCRTrigger(ocr_engine="auto", logger=self.logger)
+                if not ocr.is_available():
+                    self.logger("[AI] ️ 錯誤: OCR 引擎未安裝")
+                    return 'failure'
+                
+                # 1. 獲取全螢幕截圖
+                full_snap = self._capture_screen_fast()
+                
+                # 2. 呼叫自動搜尋
+                res = ocr.find_captcha_on_screen(full_snap)
+                
+                if res:
+                    x, y, w, h, text, crop = res
+                    self.logger(f"[AI]  發現驗證碼區塊: ({x}, {y}, {w}, {h}), 內容: {text}")
+                    
+                    # [新功能] AI 紅框追蹤效果 (v2.8.9)
+                    if hasattr(self.recorder, 'highlight_area'):
+                        self.recorder.highlight_area(x, y, w, h)
+                        
+                    # [懸浮診斷視窗] 顯示辨識結果
+                    self.show_ocr_diagnostic(crop, text)
+                    
+                    # 3. 嘗試定位輸入框 (通常在驗證碼左邊或下面)
+                    # 根據使用者附圖，輸入框在驗證碼左側約 150-200 像素
+                    input_x, input_y = x - 200, y + h // 2
+                    self.logger(f"[AI]  嘗試聚焦輸入框: ({input_x}, {input_y})")
+                    
+                    win32api.SetCursorPos((input_x, input_y))
+                    time.sleep(0.05)
+                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+                    time.sleep(0.05)
+                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+                    time.sleep(0.2)
+                    
+                    # 4. 輸入文字
+                    import pyperclip
+                    try:
+                        pyperclip.copy(text)
+                    except:
+                        pass
+                    keyboard.write(text)
+                    return 'success'
+                else:
+                    self.logger("[AI] ️ 在畫面上找不到明顯的驗證碼區塊")
+                    return 'failure'
+            except Exception as e:
+                self.logger(f"[AI] 自動搜尋錯誤: {e}")
+                return 'failure'
+
+        # OCR 辨識並輸入：ocr_input (CAPTCHA 專用)
+        elif event['type'] == 'ocr_input':
+            try:
+                from ocr_trigger import OCRTrigger
+                import keyboard
+                
+                region = event.get('region')
+                if not region:
+                    self.logger("[OCR] ️ 錯誤: 未指定 OCR 辨識區域")
+                    return None
+                
+                self.logger(f"[OCR] 正在辨識區域 {region} 的驗證碼...")
+                
+                # 截取目標區域
+                snapshot = self._capture_screen_fast(region)
+                if snapshot is None:
+                    self.logger("[OCR] ️ 截圖失敗")
+                    return None
+                
+                # 初始化 OCR 並辨識
+                ocr = OCRTrigger(ocr_engine="auto", logger=self.logger)
+                captcha_text = ocr.recognize(snapshot, is_captcha=True)
+                
+                if captcha_text:
+                    self.logger(f"[OCR]  辨識成功: {captcha_text}")
+                    # 輸入文字
+                    keyboard.write(captcha_text)
+                    self.logger(f"[OCR]  已自動輸入文字")
+                    return 'success'
+                else:
+                    self.logger("[OCR] ️ 辨識失敗，未獲得文字內容")
+                    return 'failure'
+                    
+            except Exception as e:
+                self.logger(f"[OCR] 執行錯誤: {e}")
+                return 'failure'
         
         #  新增：多圖片同時辨識
         elif event['type'] == 'recognize_any':

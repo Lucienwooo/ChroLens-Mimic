@@ -795,6 +795,18 @@ class TextCommandEditor(tk.Toplevel):
         )
         workflow_mode_check.pack(side="left", padx=15)
         
+        # 網格模式開關
+        self.grid_mode_var = tk.BooleanVar(value=False)
+        self.grid_mode = False
+        grid_mode_check = tk.Checkbutton(
+            trajectory_control,
+            text="網格模式",
+            variable=self.grid_mode_var,
+            command=self._toggle_grid_mode,
+            font=font_tuple(9)
+        )
+        grid_mode_check.pack(side="left", padx=15)
+        
         # 使用 LINE Seed 字體
         editor_font = ("LINE Seed TW", 10) if LINE_SEED_FONT_LOADED else font_tuple(10, monospace=True)
         
@@ -816,6 +828,36 @@ class TextCommandEditor(tk.Toplevel):
             maxundo=-1
         )
         self.text_editor.pack(fill="both", expand=True)
+        
+        # 建立網格編輯器容器（初始隱藏）
+        self.grid_frame = tk.Frame(self.editor_container, bg="#252526")
+        
+        # 網格 Canvas 與滾動條，實現滾動功能
+        self.grid_canvas = tk.Canvas(self.grid_frame, bg="#252526", highlightthickness=0)
+        self.grid_scrollbar = ttk.Scrollbar(self.grid_frame, orient="vertical", command=self.grid_canvas.yview)
+        
+        # 網格內部容器，放置每一列
+        self.grid_inner = tk.Frame(self.grid_canvas, bg="#252526")
+        
+        # 建立 Canvas 視窗，綁定內部 Frame
+        self.grid_canvas_window = self.grid_canvas.create_window((0, 0), window=self.grid_inner, anchor="nw")
+        
+        # 綁定滾動配置
+        self.grid_inner.bind("<Configure>", self._on_grid_inner_configure)
+        self.grid_canvas.bind("<Configure>", self._on_grid_canvas_configure)
+        
+        # 滾輪事件
+        self.grid_canvas.bind_all("<MouseWheel>", self._on_grid_mousewheel)
+        
+        # 配對 Scrollbar
+        self.grid_canvas.configure(yscrollcommand=self.grid_scrollbar.set)
+        
+        # pack 排版
+        self.grid_scrollbar.pack(side="right", fill="y")
+        self.grid_canvas.pack(side="left", fill="both", expand=True)
+        
+        # 儲存每一列資料的列表
+        self.grid_rows = []
         
         # 綁定 Ctrl+A 全選功能
         self.text_editor.bind("<Control-a>", self._select_all_text)
@@ -2876,6 +2918,7 @@ class TextCommandEditor(tk.Toplevel):
                 ("點擊圖片", "#3F51B5", None, ">左鍵點擊>pic01"),
                 ("條件判斷", "#2196F3", None, ">if>pic01\n>>#標籤\n>>>#標籤"),
                 ("等待圖片", "#1976D2", None, ">等待圖片>pic01, 最長10s"),
+                ("驗證碼辨識beta", "#E91E63", self._capture_region_for_ocr_input, None),
             ],
             "滑鼠鍵盤": [
                 ("座標左鍵點擊", "#03A9F4", self._capture_left_click_coordinate, None),
@@ -4364,7 +4407,8 @@ class TextCommandEditor(tk.Toplevel):
                         "等待圖片", "點擊圖片", "如果存在", 
                         "辨識>", "移動至>", "左鍵點擊>", "右鍵點擊>", 
                         "如果存在>", "辨識任一>", "if>",
-                        "if文字>", "等待文字>", "點擊文字>", "自動辨識輸入驗證碼"  # OCR指令
+                        "if文字>", "等待文字>", "點擊文字>", "自動辨識輸入驗證碼",
+                        "OCR辨識輸入範圍", "相對OCR辨識輸入"  # OCR指令
                     ]) or line.startswith(">延遲"):
                         # 圖片指令和OCR指令處理
                         #  v2.8.2+: 使用 cumulative_offset 作為基準，偵測 T 回溯
@@ -4821,6 +4865,9 @@ class TextCommandEditor(tk.Toplevel):
                 pic_name = pic_name.replace('追蹤', '').strip()
             if '返回' in pic_name:
                 pic_name = pic_name.replace('返回', '').strip()
+            #  新增：先取第一個逗點前的部分作為圖片名稱，防範延遲參數被黏入 (Bug 修復)
+            pic_name = pic_name.split(',')[0].strip()
+            
             #  強力清理：移除所有逗點和多餘空白
             pic_name = re.sub(r'[,\s]+', '', pic_name).strip()
             
@@ -4871,6 +4918,8 @@ class TextCommandEditor(tk.Toplevel):
                 pic_name = pic_name.replace('邊框', '').strip()
             if region_match:
                 pic_name = pic_name.replace(region_match.group(0), '').strip()
+            #  新增：限制僅取第一個逗點前的內容 (Bug 修復)
+            pic_name = pic_name.split(',')[0].strip()
             pic_name = pic_name.rstrip(',').strip()
 
             # 查找對應的圖片檔案
@@ -4928,6 +4977,8 @@ class TextCommandEditor(tk.Toplevel):
                 pic_name = pic_name.replace('邊框', '').strip()
             if region_match:
                 pic_name = pic_name.replace(region_match.group(0), '').strip()
+            #  新增：限制僅取第一個逗點前的內容 (Bug 修復)
+            pic_name = pic_name.split(',')[0].strip()
             pic_name = pic_name.rstrip(',').strip()
             
             # 查找對應的圖片檔案
@@ -9659,6 +9710,730 @@ class TextCommandEditor(tk.Toplevel):
         text_content = self.text_editor.get("1.0", tk.END).strip()
         if text_content:
             self._parse_and_draw_workflow(text_content)
+
+    # ==================== 結構化低代碼網格編輯器實作方法 (Structured Dropdown Grid - VS Code Premium Edition) ====================
+    def _on_grid_inner_configure(self, event):
+        # 更新滾動區域
+        self.grid_canvas.configure(scrollregion=self.grid_canvas.bbox("all"))
+        
+    def _on_grid_canvas_configure(self, event):
+        # 讓內部 Frame 寬度與 Canvas 一致
+        self.grid_canvas.itemconfig(self.grid_canvas_window, width=event.width)
+        
+    def _on_grid_mousewheel(self, event):
+        # 滑鼠滾輪控制滾動
+        if hasattr(self, 'grid_mode') and self.grid_mode and hasattr(self, 'grid_canvas') and self.grid_canvas.winfo_exists():
+            self.grid_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+    def _toggle_grid_mode(self):
+        # 如果開啟了網格模式，關閉圖形模式
+        if self.grid_mode_var.get():
+            if self.workflow_mode_var.get():
+                self.workflow_mode_var.set(False)
+                self._toggle_workflow_mode()
+            
+            # 從文字編輯器載入數據到網格
+            self._load_text_to_grid()
+            
+            # 隱藏文字編輯器，顯示網格編輯器
+            self.text_editor.pack_forget()
+            self.grid_frame.pack(fill="both", expand=True)
+            self.grid_mode = True
+        else:
+            # 從網格儲存數據到文字編輯器
+            self._save_grid_to_text()
+            
+            # 隱藏網格編輯器，顯示文字編輯器
+            self.grid_frame.pack_forget()
+            self.text_editor.pack(fill="both", expand=True)
+            self.grid_mode = False
+
+    def _update_grid_timestamps(self):
+        current_time_ms = 0
+        for r in self.grid_rows:
+            # 將累加毫秒數轉換為 XsXXX 格式
+            sec = current_time_ms // 1000
+            ms = current_time_ms % 1000
+            t_val = f"{sec}s{ms:03d}"
+            r["time_var"].set(t_val)
+            if "time_label" in r and r["time_label"].winfo_exists():
+                r["time_label"].config(text=f"T={t_val}")
+                
+            # 累加延遲
+            cat = r["category_var"].get()
+            sub = r["sub_var"].get() if "sub_var" in r else ""
+            delay = r["delay_var"].get()
+            delay_ms = int(delay) if delay.isdigit() else 0
+            
+            # 如果是流程控制的延遲等待，其延遲時間來自 target
+            if cat == "流程控制" and sub == "延遲等待":
+                target = r["target_var"].get() if "target_var" in r else ""
+                if target.isdigit():
+                    delay_ms = int(target)
+                    
+            current_time_ms += delay_ms
+
+    def _sync_and_reload(self):
+        self._update_grid_timestamps()
+        self._save_grid_to_text()
+
+    def _parse_line_to_data(self, line):
+        line = line.strip()
+        if not line:
+            return {"category": "空白", "sub_action": "", "target": "", "delay": 0, "timestamp": "0s000"}
+        if line.startswith("#"):
+            return {"category": "註解", "sub_action": "", "target": line[1:].strip(), "delay": 0, "timestamp": ""}
+        
+        # 移除 T=... 後置並解析
+        timestamp = "0s000"
+        if "T=" in line:
+            parts = line.split("T=")
+            timestamp = parts[-1].strip()
+            line = parts[0].strip()
+            if line.endswith(","):
+                line = line[:-1].strip()
+                
+        # 優先判斷是否為獨立的延遲指令，防止被通用延遲後置移除 (Bug 修復)
+        standalone_delay_match = re.match(r'^>?延遲(\d+)ms$', line)
+        if standalone_delay_match:
+            delay_ms = int(standalone_delay_match.group(1))
+            return {
+                "category": "流程控制",
+                "sub_action": "延遲等待",
+                "target": str(delay_ms),
+                "delay": delay_ms,
+                "timestamp": timestamp
+            }
+
+        # 移除 延遲Xms 後置並解析
+        delay_ms = 0
+        import re
+        delay_match = re.search(r'(?:,\s*)?延遲(\d+)ms', line)
+        if delay_match:
+            delay_ms = int(delay_match.group(1))
+            line = line.replace(delay_match.group(0), "").strip()
+            if line.endswith(","):
+                line = line[:-1].strip()
+                
+        # 去除首個 > 符號
+        if line.startswith(">"):
+            line = line[1:].strip()
+            
+        # 現在解析指令動作與目標
+        category = "滑鼠鍵盤"
+        sub_action = ""
+        target = ""
+        
+        # 同義詞歸一化，確保 100% 相容各式語法
+        if line.startswith("移動至"):
+            line = line.replace("移動至", "滑鼠移動", 1)
+        elif line.startswith("點擊圖片") or line.startswith("左鍵點擊>"):
+            # 如果左鍵點擊後面直接是圖片名稱，將其分類為影像辨識
+            parts = line.split(">")
+            if len(parts) > 1 and not ("," in parts[1] and all(p.strip().isdigit() for p in parts[1].split(","))):
+                category = "影像辨識"
+                sub_action = "點擊圖片"
+                target = parts[1].strip()
+        elif line.startswith("辨識>"):
+            category = "影像辨識"
+            sub_action = "圖片辨識"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+        elif line.startswith("if全部存在") or line.startswith("如果全部存在"):
+            category = "影像辨識"
+            sub_action = "辨識任一" # 或對應多圖
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+        elif line.startswith("if任一存在") or line.startswith("如果任一存在"):
+            category = "影像辨識"
+            sub_action = "辨識任一"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+        elif line.startswith("if") or line.startswith("當圖片存在"):
+            category = "影像辨識"
+            sub_action = "如果存在"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+        elif line.startswith("按键") or line.startswith("按鍵") or line.startswith("按"):
+            # 支援 >按enter, >按鍵k 等等
+            category = "滑鼠鍵盤"
+            sub_action = "鍵盤按鍵"
+            if ">" in line:
+                target = line.split(">")[1].strip()
+            else:
+                for prefix in ["按鍵按键", "按鍵", "按键", "按"]:
+                    if line.startswith(prefix):
+                        target = line[len(prefix):].strip()
+                        break
+
+        # 流程控制
+        elif line.startswith("延遲") and line.endswith("ms") and line[2:-2].isdigit():
+            category = "流程控制"
+            sub_action = "延遲等待"
+            target = line[2:-2]
+        elif line.startswith("重複結束") or line.startswith("迴圈結束"):
+            category = "流程控制"
+            sub_action = "迴圈結束"
+        elif line.startswith("重複"):
+            category = "流程控制"
+            sub_action = "重複N次"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+        elif line.startswith("新增迴圈標籤"):
+            category = "流程控制"
+            sub_action = "新增迴圈標籤"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+        elif line.startswith("跳轉迴圈標籤"):
+            category = "流程控制"
+            sub_action = "跳轉迴圈標籤"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+        elif line.startswith("條件失敗跳轉"):
+            category = "流程控制"
+            sub_action = "條件失敗跳轉"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+            
+        # 變數系統
+        elif line.startswith("設定變數"):
+            category = "變數系統"
+            sub_action = "設定變數"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+        elif line.startswith("變數加1"):
+            category = "變數系統"
+            sub_action = "變數加1"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+        elif line.startswith("變數減1"):
+            category = "變數系統"
+            sub_action = "變數減1"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+        elif line.startswith("if變數"):
+            category = "變數系統"
+            sub_action = "if變數"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+            
+        # 影像辨識
+        elif "等待圖片" in line:
+            category = "影像辨識"
+            sub_action = "等待圖片"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+        elif "點擊圖片" in line:
+            category = "影像辨識"
+            sub_action = "點擊圖片"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+        elif "如果存在" in line:
+            category = "影像辨識"
+            sub_action = "如果存在"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+        elif "辨識任一" in line:
+            category = "影像辨識"
+            sub_action = "辨識任一"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+        elif "自動辨識輸入驗證碼" in line:
+            category = "影像辨識"
+            sub_action = "自動辨識輸入驗證碼"
+        elif "OCR辨識輸入範圍" in line:
+            category = "影像辨識"
+            sub_action = "OCR辨識輸入範圍"
+            match = re.search(r'\((.+?)\)', line)
+            target = match.group(1).strip() if match else ""
+        elif "相對OCR辨識輸入" in line:
+            category = "影像辨識"
+            sub_action = "相對OCR辨識輸入"
+            parts = line.split(">")
+            target = parts[1].strip() if len(parts) > 1 else ""
+            
+        # 滑鼠鍵盤 (預設)
+        else:
+            category = "滑鼠鍵盤"
+            for kw in ["左鍵點擊", "右鍵點擊", "滑鼠移動", "按下", "放開", "鍵入", "連點", "雙擊"]:
+                if line.startswith(kw):
+                    sub_action = kw
+                    if "(" in line:
+                        match = re.search(r'\((.+?)\)', line)
+                        target = match.group(1).strip() if match else ""
+                    elif ">" in line:
+                        target = line.split(">")[1].strip()
+                    else:
+                        target = line[len(kw):].strip()
+                    break
+            if not sub_action:
+                sub_action = "鍵入"
+                target = line
+            
+            # 正規化按鍵子動作名稱，對接 Combobox 與儲存白名單
+            if sub_action == "按下":
+                sub_action = "按鍵按下"
+            elif sub_action == "放開":
+                sub_action = "按鍵放開"
+            elif sub_action in ["鍵入", ""]:
+                sub_action = "按鍵鍵入"
+                
+        return {
+            "category": category,
+            "sub_action": sub_action,
+            "target": target,
+            "delay": delay_ms,
+            "timestamp": timestamp
+        }
+
+    # === 拖曳排序實作方法 ===
+    def _on_grip_press(self, event, row_data):
+        self.drag_start_idx = self.grid_rows.index(row_data)
+        # 拖曳時高亮該行背景
+        row_data["frame"].configure(bg="#3e3e42")
+        for w in row_data["widgets_to_bg"]:
+            if w.winfo_exists() and w != row_data["param_frame"]:
+                w.configure(bg="#3e3e42")
+
+    def _on_grip_motion(self, event, row_data):
+        if not hasattr(self, 'drag_start_idx') or self.drag_start_idx is None:
+            return
+        current_idx = self.grid_rows.index(row_data)
+        mouse_y = event.y_root
+        
+        target_idx = None
+        for idx, r in enumerate(self.grid_rows):
+            if idx == current_idx:
+                continue
+            f = r["frame"]
+            if not f.winfo_exists():
+                continue
+            ry = f.winfo_rooty()
+            rh = f.winfo_height()
+            if ry <= mouse_y <= ry + rh:
+                target_idx = idx
+                break
+                
+        if target_idx is not None:
+            self.grid_rows[current_idx], self.grid_rows[target_idx] = self.grid_rows[target_idx], self.grid_rows[current_idx]
+            self._repack_all_rows()
+
+    def _on_grip_release(self, event, row_data):
+        self.drag_start_idx = None
+        # 恢復背景顏色
+        row_data["frame"].configure(bg="#252526")
+        for w in row_data["widgets_to_bg"]:
+            if w.winfo_exists() and w != row_data["param_frame"]:
+                w.configure(bg="#252526")
+        self._sync_and_reload()
+
+    def _add_grid_row(self, data, index=None):
+        row_frame = tk.Frame(self.grid_inner, bd=1, relief="solid", highlightthickness=0)
+        
+        # 類別高亮系統 (VS Code 語法高亮前景配色)
+        fg_colors = {
+            "影像辨識": "#4ec9b0", # Teal / Aquamarine
+            "滑鼠鍵盤": "#569cd6", # VS Blue
+            "流程控制": "#dcdcaa", # VS Light Yellow
+            "變數系統": "#c586c0", # VS Purple
+            "註解": "#6a9955",     # Syntax Green
+            "空白": "#808080"      # Dim Gray
+        }
+        
+        category = data.get("category", "空白")
+        row_bg = "#252526" # 與底色一致，完美融合透明感
+        row_fg = fg_colors.get(category, "#ffffff")
+        
+        row_frame.configure(bg=row_bg)
+        
+        # 1. 最左邊拖曳手把 Grip (彩色的功能提示手把)
+        grip_label = tk.Label(row_frame, text="☰", bg=row_bg, fg=row_fg, font=font_tuple(10, "bold"), cursor="fleur", width=3)
+        grip_label.pack(side="left", padx=5)
+        
+        # 2. 類別下拉
+        cat_var = tk.StringVar(value=category)
+        cat_combo = ttk.Combobox(row_frame, textvariable=cat_var, values=["影像辨識", "滑鼠鍵盤", "流程控制", "變數系統", "註解", "空白"], width=10, state="readonly", font=font_tuple(9))
+        cat_combo.pack(side="left", padx=5, pady=5)
+        
+        # 3. 參數框
+        param_frame = tk.Frame(row_frame, bg=row_bg)
+        param_frame.pack(side="left", fill="x", expand=True, padx=5)
+        
+        # 4. 後置延遲
+        delay_label = tk.Label(row_frame, text="延遲", bg=row_bg, fg="#d4d4d4", font=font_tuple(9))
+        delay_label.pack(side="left", padx=(5, 2))
+        
+        delay_var = tk.StringVar(value=str(data.get("delay", 0)))
+        delay_entry = tk.Entry(row_frame, textvariable=delay_var, width=5, justify="center", font=font_tuple(9),
+                               bg="#1e1e1e", fg="#ffffff", insertbackground="#ffffff", bd=1, relief="solid", highlightthickness=0)
+        delay_entry.pack(side="left", padx=2)
+        delay_entry.bind("<FocusOut>", lambda e: self._sync_and_reload())
+        delay_entry.bind("<Return>", lambda e: self._sync_and_reload())
+        
+        ms_label = tk.Label(row_frame, text="ms", bg=row_bg, fg="#d4d4d4", font=font_tuple(9))
+        ms_label.pack(side="left", padx=2)
+        
+        # 5. 右側控制區 (將 ❌ 放在最邊緣防誤觸)
+        right_btn_frame = tk.Frame(row_frame, bg=row_bg)
+        right_btn_frame.pack(side="right", padx=5)
+        
+        del_btn = tk.Button(right_btn_frame, text="❌", bd=0, bg=row_bg, fg="#ef4444", activebackground="#2d2d30", font=font_tuple(8), cursor="hand2")
+        del_btn.pack(side="right", padx=2)
+        
+        add_btn = tk.Button(right_btn_frame, text="➕", bd=0, bg=row_bg, fg="#10b981", activebackground="#2d2d30", font=font_tuple(8), cursor="hand2")
+        add_btn.pack(side="right", padx=5)
+        
+        time_var = tk.StringVar(value=data.get("timestamp", "0s000"))
+        time_label = tk.Label(right_btn_frame, text=f"T={time_var.get()}", bg=row_bg, fg=row_fg, width=10, font=font_tuple(9, monospace=True))
+        time_label.pack(side="right", padx=5)
+        
+        row_data = {
+            "frame": row_frame,
+            "category_var": cat_var,
+            "category_combo": cat_combo,
+            "param_frame": param_frame,
+            "delay_var": delay_var,
+            "time_var": time_var,
+            "time_label": time_label,
+            "grip_label": grip_label,
+            "widgets_to_bg": [row_frame, right_btn_frame, del_btn, add_btn, delay_label, ms_label, time_label, param_frame, grip_label]
+        }
+        
+        del_btn.config(command=lambda: self._delete_grid_row(row_data))
+        add_btn.config(command=lambda: self._insert_grid_row_after(row_data))
+        
+        # 綁定拖曳事件
+        grip_label.bind("<ButtonPress-1>", lambda e, rd=row_data: self._on_grip_press(e, rd))
+        grip_label.bind("<B1-Motion>", lambda e, rd=row_data: self._on_grip_motion(e, rd))
+        grip_label.bind("<ButtonRelease-1>", lambda e, rd=row_data: self._on_grip_release(e, rd))
+        
+        def on_category_changed(event):
+            new_cat = cat_var.get()
+            new_fg = fg_colors.get(new_cat, "#ffffff")
+            grip_label.configure(fg=new_fg)
+            time_label.configure(fg=new_fg)
+            time_label.configure(text=f"T={time_var.get()}")
+            self._update_param_widgets(row_data, new_cat, {"sub_action": "", "target": ""})
+            self._sync_and_reload()
+            
+        cat_combo.bind("<<ComboboxSelected>>", on_category_changed)
+        self._update_param_widgets(row_data, category, data)
+        
+        if index is None:
+            row_frame.pack(fill="x", padx=5, pady=2, anchor="w")
+            self.grid_rows.append(row_data)
+        else:
+            self.grid_rows.insert(index, row_data)
+            self._repack_all_rows()
+
+    def _update_param_widgets(self, row_data, category, data):
+        param_frame = row_data["param_frame"]
+        for w in param_frame.winfo_children():
+            w.destroy()
+            
+        fg_colors = {
+            "影像辨識": "#4ec9b0",
+            "滑鼠鍵盤": "#569cd6",
+            "流程控制": "#dcdcaa",
+            "變數系統": "#c586c0",
+            "註解": "#6a9955",
+            "空白": "#808080"
+        }
+        row_bg = "#252526"
+        row_fg = fg_colors.get(category, "#ffffff")
+        
+        sub_var = tk.StringVar(value=data.get("sub_action", ""))
+        target_var = tk.StringVar(value=data.get("target", ""))
+        
+        row_data["sub_var"] = sub_var
+        row_data["target_var"] = target_var
+        
+        if category == "空白":
+            tk.Label(param_frame, text="( 空白行 )", bg=row_bg, fg="#888888", font=font_tuple(9)).pack(side="left", padx=5)
+            
+        elif category == "註解":
+            tk.Label(param_frame, text="#", bg=row_bg, fg=row_fg, font=font_tuple(9, bold=True)).pack(side="left", padx=2)
+            comment_entry = tk.Entry(param_frame, textvariable=target_var, width=50, 
+                                     bg="#1e1e1e", fg="#ffffff", insertbackground="#ffffff", bd=1, relief="solid", highlightthickness=0, font=font_tuple(9))
+            comment_entry.pack(side="left", fill="x", expand=True, padx=5)
+            comment_entry.bind("<FocusOut>", lambda e: self._sync_and_reload())
+            comment_entry.bind("<Return>", lambda e: self._sync_and_reload())
+            
+        elif category == "影像辨識":
+            sub_combo = ttk.Combobox(param_frame, textvariable=sub_var, values=["圖片辨識", "點擊圖片", "等待圖片", "如果存在", "辨識任一", "自動辨識輸入驗證碼", "OCR辨識輸入範圍", "相對OCR辨識輸入"], width=18, state="readonly", font=font_tuple(9))
+            sub_combo.pack(side="left", padx=2)
+            
+            target_container = tk.Frame(param_frame, bg=row_bg)
+            target_container.pack(side="left", fill="x", expand=True, padx=5)
+            
+            def rebuild_target_widgets(*args):
+                for w in target_container.winfo_children():
+                    w.destroy()
+                sub = sub_var.get()
+                
+                if sub in ["圖片辨識", "點擊圖片", "等待圖片", "如果存在"]:
+                    tk.Label(target_container, text="圖片名稱", bg=row_bg, fg="#d4d4d4", font=font_tuple(9)).pack(side="left", padx=2)
+                    try:
+                        pics = [os.path.splitext(f)[0] for f in os.listdir(self.images_dir) if f.endswith(('.png', '.jpg', '.jpeg', '.bmp'))]
+                    except:
+                        pics = []
+                    pic_combo = ttk.Combobox(target_container, textvariable=target_var, values=pics, width=15, font=font_tuple(9))
+                    pic_combo.pack(side="left", padx=2)
+                    pic_combo.bind("<<ComboboxSelected>>", lambda e: self._sync_and_reload())
+                    
+                elif sub == "辨識任一":
+                    tk.Label(target_container, text="圖片名稱 (用 | 分隔)", bg=row_bg, fg="#d4d4d4", font=font_tuple(9)).pack(side="left", padx=2)
+                    pic_entry = tk.Entry(target_container, textvariable=target_var, width=25, 
+                                         bg="#1e1e1e", fg="#ffffff", insertbackground="#ffffff", bd=1, relief="solid", highlightthickness=0, font=font_tuple(9))
+                    pic_entry.pack(side="left", padx=2)
+                    pic_entry.bind("<FocusOut>", lambda e: self._sync_and_reload())
+                    pic_entry.bind("<Return>", lambda e: self._sync_and_reload())
+                    
+                elif sub == "OCR辨識輸入範圍":
+                    tk.Label(target_container, text="範圍 (x,y,w,h)", bg=row_bg, fg="#d4d4d4", font=font_tuple(9)).pack(side="left", padx=2)
+                    range_entry = tk.Entry(target_container, textvariable=target_var, width=15, 
+                                           bg="#1e1e1e", fg="#ffffff", insertbackground="#ffffff", bd=1, relief="solid", highlightthickness=0, font=font_tuple(9))
+                    range_entry.pack(side="left", padx=2)
+                    range_entry.bind("<FocusOut>", lambda e: self._sync_and_reload())
+                    range_entry.bind("<Return>", lambda e: self._sync_and_reload())
+                    
+                    def select_range():
+                        self.withdraw()
+                        selector = RegionSelector(self, lambda r: [target_var.set(f"{r[0]},{r[1]},{r[2]-r[0]},{r[3]-r[1]}"), self._sync_and_reload()])
+                        self.wait_window(selector)
+                        self.deiconify()
+                    btn = tk.Button(target_container, text="🎯", bd=1, relief="solid", command=select_range, 
+                                    bg="#1e1e1e", fg="#ffffff", activebackground="#2d2d30", activeforeground="#ffffff", font=font_tuple(8), cursor="hand2")
+                    btn.pack(side="left", padx=2)
+                    
+                elif sub == "相對OCR辨識輸入":
+                    tk.Label(target_container, text="目標文字與偏移", bg=row_bg, fg="#d4d4d4", font=font_tuple(9)).pack(side="left", padx=2)
+                    rel_entry = tk.Entry(target_container, textvariable=target_var, width=25, 
+                                         bg="#1e1e1e", fg="#ffffff", insertbackground="#ffffff", bd=1, relief="solid", highlightthickness=0, font=font_tuple(9))
+                    rel_entry.pack(side="left", padx=2)
+                    rel_entry.bind("<FocusOut>", lambda e: self._sync_and_reload())
+                    rel_entry.bind("<Return>", lambda e: self._sync_and_reload())
+                    
+                elif sub == "自動辨識輸入驗證碼":
+                    tk.Label(target_container, text="( 無參數 )", bg=row_bg, fg="#888888", font=font_tuple(9)).pack(side="left", padx=5)
+            
+            sub_combo.bind("<<ComboboxSelected>>", lambda e: [rebuild_target_widgets(), self._sync_and_reload()])
+            rebuild_target_widgets()
+            
+        elif category == "滑鼠鍵盤":
+            sub_combo = ttk.Combobox(param_frame, textvariable=sub_var, values=["左鍵點擊", "右鍵點擊", "滑鼠移動", "鍵盤按鍵", "按鍵按下", "按鍵放開", "按鍵鍵入", "雙擊", "連點"], width=12, state="readonly", font=font_tuple(9))
+            sub_combo.pack(side="left", padx=2)
+            
+            target_container = tk.Frame(param_frame, bg=row_bg)
+            target_container.pack(side="left", fill="x", expand=True, padx=5)
+            
+            def rebuild_mouse_key_widgets(*args):
+                for w in target_container.winfo_children():
+                    w.destroy()
+                sub = sub_var.get()
+                
+                if sub in ["左鍵點擊", "右鍵點擊", "滑鼠移動", "雙擊", "連點"]:
+                    tk.Label(target_container, text="座標(X,Y) 或 圖片名", bg=row_bg, fg="#d4d4d4", font=font_tuple(9)).pack(side="left", padx=2)
+                    try:
+                        pics = [os.path.splitext(f)[0] for f in os.listdir(self.images_dir) if f.endswith(('.png', '.jpg', '.jpeg', '.bmp'))]
+                    except:
+                        pics = []
+                    target_combo = ttk.Combobox(target_container, textvariable=target_var, values=pics, width=15, font=font_tuple(9))
+                    target_combo.pack(side="left", padx=2)
+                    target_combo.bind("<<ComboboxSelected>>", lambda e: self._sync_and_reload())
+                    
+                    def select_coords():
+                        self.withdraw()
+                        btn_type = "left" if "左" in sub or "雙" in sub or "連" in sub or "移動" in sub else "right"
+                        selector = CoordinateSelector(self, btn_type, lambda x, y: [target_var.set(f"{x},{y}"), self._sync_and_reload()])
+                        self.wait_window(selector)
+                        self.deiconify()
+                    btn = tk.Button(target_container, text="🎯", bd=1, relief="solid", command=select_coords, 
+                                    bg="#1e1e1e", fg="#ffffff", activebackground="#2d2d30", activeforeground="#ffffff", font=font_tuple(8), cursor="hand2")
+                    btn.pack(side="left", padx=2)
+                    
+                else:
+                    tk.Label(target_container, text="按鍵名稱 / 內容", bg=row_bg, fg="#d4d4d4", font=font_tuple(9)).pack(side="left", padx=2)
+                    key_entry = tk.Entry(target_container, textvariable=target_var, width=15, 
+                                         bg="#1e1e1e", fg="#ffffff", insertbackground="#ffffff", bd=1, relief="solid", highlightthickness=0, font=font_tuple(9))
+                    key_entry.pack(side="left", padx=2)
+                    key_entry.bind("<FocusOut>", lambda e: self._sync_and_reload())
+                    key_entry.bind("<Return>", lambda e: self._sync_and_reload())
+            
+            sub_combo.bind("<<ComboboxSelected>>", lambda e: [rebuild_mouse_key_widgets(), self._sync_and_reload()])
+            rebuild_mouse_key_widgets()
+            
+        elif category == "流程控制":
+            sub_combo = ttk.Combobox(param_frame, textvariable=sub_var, values=["延遲等待", "重複N次", "迴圈結束", "新增迴圈標籤", "跳轉迴圈標籤", "條件失敗跳轉"], width=15, state="readonly", font=font_tuple(9))
+            sub_combo.pack(side="left", padx=2)
+            
+            target_container = tk.Frame(param_frame, bg=row_bg)
+            target_container.pack(side="left", fill="x", expand=True, padx=5)
+            
+            def rebuild_flow_widgets(*args):
+                for w in target_container.winfo_children():
+                    w.destroy()
+                sub = sub_var.get()
+                
+                if sub == "延遲等待":
+                    tk.Label(target_container, text="時間 (ms)", bg=row_bg, fg="#d4d4d4", font=font_tuple(9)).pack(side="left", padx=2)
+                    time_entry = tk.Entry(target_container, textvariable=target_var, width=8, justify="center", 
+                                          bg="#1e1e1e", fg="#ffffff", insertbackground="#ffffff", bd=1, relief="solid", highlightthickness=0, font=font_tuple(9))
+                    time_entry.pack(side="left", padx=2)
+                    time_entry.bind("<FocusOut>", lambda e: self._sync_and_reload())
+                    time_entry.bind("<Return>", lambda e: self._sync_and_reload())
+                    
+                elif sub == "重複N次":
+                    tk.Label(target_container, text="次數", bg=row_bg, fg="#d4d4d4", font=font_tuple(9)).pack(side="left", padx=2)
+                    num_entry = tk.Entry(target_container, textvariable=target_var, width=5, justify="center", 
+                                         bg="#1e1e1e", fg="#ffffff", insertbackground="#ffffff", bd=1, relief="solid", highlightthickness=0, font=font_tuple(9))
+                    num_entry.pack(side="left", padx=2)
+                    num_entry.bind("<FocusOut>", lambda e: self._sync_and_reload())
+                    num_entry.bind("<Return>", lambda e: self._sync_and_reload())
+                    
+                elif sub in ["新增迴圈標籤", "跳轉迴圈標籤", "條件失敗跳轉"]:
+                    tk.Label(target_container, text="標籤名稱", bg=row_bg, fg="#d4d4d4", font=font_tuple(9)).pack(side="left", padx=2)
+                    label_entry = tk.Entry(target_container, textvariable=target_var, width=15, 
+                                           bg="#1e1e1e", fg="#ffffff", insertbackground="#ffffff", bd=1, relief="solid", highlightthickness=0, font=font_tuple(9))
+                    label_entry.pack(side="left", padx=2)
+                    label_entry.bind("<FocusOut>", lambda e: self._sync_and_reload())
+                    label_entry.bind("<Return>", lambda e: self._sync_and_reload())
+                    
+                elif sub == "迴圈結束":
+                    tk.Label(target_container, text="( 無參數 )", bg=row_bg, fg="#888888", font=font_tuple(9)).pack(side="left", padx=5)
+            
+            sub_combo.bind("<<ComboboxSelected>>", lambda e: [rebuild_flow_widgets(), self._sync_and_reload()])
+            rebuild_flow_widgets()
+            
+        elif category == "變數系統":
+            sub_combo = ttk.Combobox(param_frame, textvariable=sub_var, values=["設定變數", "變數加1", "變數減1", "if變數"], width=12, state="readonly", font=font_tuple(9))
+            sub_combo.pack(side="left", padx=2)
+            
+            target_container = tk.Frame(param_frame, bg=row_bg)
+            target_container.pack(side="left", fill="x", expand=True, padx=5)
+            
+            def rebuild_var_widgets(*args):
+                for w in target_container.winfo_children():
+                    w.destroy()
+                sub = sub_var.get()
+                
+                tk.Label(target_container, text="運算式 / 條件", bg=row_bg, fg="#d4d4d4", font=font_tuple(9)).pack(side="left", padx=2)
+                var_entry = tk.Entry(target_container, textvariable=target_var, width=25, 
+                                     bg="#1e1e1e", fg="#ffffff", insertbackground="#ffffff", bd=1, relief="solid", highlightthickness=0, font=font_tuple(9))
+                var_entry.pack(side="left", padx=2)
+                var_entry.bind("<FocusOut>", lambda e: self._sync_and_reload())
+                var_entry.bind("<Return>", lambda e: self._sync_and_reload())
+            
+            sub_combo.bind("<<ComboboxSelected>>", lambda e: [rebuild_var_widgets(), self._sync_and_reload()])
+            rebuild_var_widgets()
+
+    def _repack_all_rows(self):
+        for r in self.grid_rows:
+            r['frame'].pack_forget()
+        for r in self.grid_rows:
+            r['frame'].pack(fill="x", padx=5, pady=2, anchor="w")
+            
+    def _delete_grid_row(self, row_data):
+        row_data['frame'].destroy()
+        if row_data in self.grid_rows:
+            self.grid_rows.remove(row_data)
+        self._repack_all_rows()
+        self._sync_and_reload()
+        
+    def _insert_grid_row_after(self, row_data):
+        idx = self.grid_rows.index(row_data)
+        empty_data = {"category": "空白", "sub_action": "", "target": "", "delay": 0, "timestamp": "0s000"}
+        self._add_grid_row(empty_data, index=idx+1)
+        self._sync_and_reload()
+
+    def _load_text_to_grid(self):
+        for r in self.grid_rows:
+            r['frame'].destroy()
+        self.grid_rows.clear()
+        
+        text = self.text_editor.get("1.0", "end")
+        lines = text.splitlines()
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            data = self._parse_line_to_data(line)
+            self._add_grid_row(data)
+            
+        if not self.grid_rows:
+            self._add_grid_row({"category": "空白", "sub_action": "", "target": "", "delay": 0, "timestamp": "0s000"})
+
+    def _save_grid_to_text(self):
+        lines = []
+        current_time_ms = 0
+        
+        for r in self.grid_rows:
+            cat = r["category_var"].get()
+            sub = r["sub_var"].get() if "sub_var" in r else ""
+            target = r["target_var"].get() if "target_var" in r else ""
+            delay = r["delay_var"].get()
+            
+            delay_ms = int(delay) if delay.isdigit() else 0
+            
+            # 將累加毫秒數轉換為 XsXXX 格式
+            sec = current_time_ms // 1000
+            ms = current_time_ms % 1000
+            t_val = f"{sec}s{ms:03d}"
+            
+            if cat == "空白":
+                continue
+            elif cat == "註解":
+                lines.append(f"#{target}\n")
+                continue
+                
+            action_line = ""
+            if cat == "影像辨識":
+                if sub == "圖片辨識":
+                    action_line = f">辨識>{target}, 延遲{delay_ms}ms, T={t_val}"
+                elif sub in ["等待圖片", "點擊圖片", "如果存在"]:
+                    action_line = f">{sub}>{target}, 延遲{delay_ms}ms, T={t_val}"
+                elif sub == "辨識任一":
+                    action_line = f">辨識任一>{target}, T={t_val}"
+                elif sub == "自動辨識輸入驗證碼":
+                    action_line = f">自動辨識輸入驗證碼, T={t_val}"
+                elif sub == "OCR辨識輸入範圍":
+                    action_line = f">OCR辨識輸入範圍({target}), T={t_val}"
+                elif sub == "相對OCR辨識輸入":
+                    action_line = f">相對OCR辨識輸入>{target}, T={t_val}"
+            elif cat == "滑鼠鍵盤":
+                if sub in ["左鍵點擊", "右鍵點擊", "滑鼠移動", "雙擊", "連點"]:
+                    if "," in target and all(p.strip().isdigit() for p in target.split(",")):
+                        action_line = f">{sub}({target}), 延遲{delay_ms}ms, T={t_val}"
+                    else:
+                        action_line = f">{sub}>{target}, 延遲{delay_ms}ms, T={t_val}"
+                elif sub in ["按鍵按下", "按鍵放開", "按鍵鍵入", "鍵入"]:
+                    kw = "按下" if sub == "按鍵按下" else "放開" if sub == "按鍵放開" else "鍵入"
+                    action_line = f">{kw}{target}, 延遲{delay_ms}ms, T={t_val}"
+                elif sub == "鍵盤按鍵":
+                    action_line = f">{target}, 延遲{delay_ms}ms, T={t_val}"
+            elif cat == "流程控制":
+                if sub == "延遲等待":
+                    action_line = f">延遲{target}ms, T={t_val}"
+                    if target.isdigit():
+                        delay_ms = int(target)
+                elif sub == "重複N次":
+                    action_line = f">重複>{target}, T={t_val}"
+                elif sub == "迴圈結束":
+                    action_line = f">重複結束, T={t_val}"
+                elif sub in ["新增迴圈標籤", "跳轉迴圈標籤", "條件失敗跳轉"]:
+                    action_line = f">{sub}>{target}, T={t_val}"
+            elif cat == "變數系統":
+                action_line = f">{sub}>{target}, T={t_val}"
+                
+            if action_line:
+                lines.append(action_line + "\n")
+                
+            current_time_ms += delay_ms
+            
+        self.text_editor.delete("1.0", "end")
+        self.text_editor.insert("1.0", "".join(lines))
+
 
 
 class ScreenCaptureSelector(tk.Toplevel):

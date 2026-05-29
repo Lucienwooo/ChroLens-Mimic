@@ -1,0 +1,12 @@
+{
+    "include": [
+        "main"
+    ],
+    "extraPaths": [
+        "main/modules"
+    ],
+    "reportMissingImports": true,
+    "reportMissingModuleSource": false,
+    "pythonVersion": "3.13",
+    "pythonPlatform": "Windows"
+}

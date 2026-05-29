@@ -86,11 +86,11 @@ set HIDDEN_MODULES=--hidden-import "ttkbootstrap" --hidden-import "ttkbootstrap.
 set HIDDEN_LIBS=--hidden-import "keyboard" --hidden-import "mouse" --hidden-import "mss" --hidden-import "PIL" --hidden-import "cv2" --hidden-import "numpy" --hidden-import "pystray" --hidden-import "pynput" --hidden-import "pynput.keyboard._win32" --hidden-import "pynput.mouse._win32"
 set HIDDEN_APP=--hidden-import "bezier_mouse" --hidden-import "yolo_detector" --hidden-import "recorder" --hidden-import "text_script_editor" --hidden-import "lang" --hidden-import "script_io" --hidden-import "about" --hidden-import "mini" --hidden-import "pynput_hotkey" --hidden-import "window_selector" --hidden-import "version_manager" --hidden-import "version_info_dialog"
 
-set COLLECT_OPTS=--collect-all "ttkbootstrap" --collect-all "ultralytics" --collect-submodules "pynput"
+set COLLECT_OPTS=--collect-all "ttkbootstrap" --collect-all "ultralytics" --collect-all "ddddocr" --collect-all "cnocr" --collect-all "cnstd" --collect-all "rapidocr" --collect-submodules "pynput"
 
 set PYINSTALLER_CMD=pyinstaller %PYST_OPTS% %DATA_OPTS% %PATH_OPTS% %HIDDEN_MODULES% %HIDDEN_LIBS% %HIDDEN_APP% %COLLECT_OPTS% --noconfirm %ICON_PARAM% "ChroLens_Mimic.py"
 
-%PYINSTALLER_CMD%
+call %PYINSTALLER_CMD%
 
 if %errorlevel% neq 0 (
     color 0C

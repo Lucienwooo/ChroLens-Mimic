@@ -12,14 +12,18 @@ import os
 # 嘗試匯入 OCR 庫
 OCR_ENGINE_TYPE = None
 try:
-    import ddddocr
-    OCR_ENGINE_TYPE = 'ddddocr'
+    import cnocr
+    OCR_ENGINE_TYPE = 'cnocr'
 except ImportError:
     try:
-        import pytesseract
-        OCR_ENGINE_TYPE = 'pytesseract'
+        import ddddocr
+        OCR_ENGINE_TYPE = 'ddddocr'
     except ImportError:
-        pass
+        try:
+            import pytesseract
+            OCR_ENGINE_TYPE = 'pytesseract'
+        except ImportError:
+            pass
 
 class OCRTrigger:
     def __init__(self, ocr_engine="auto", logger=None):
@@ -33,7 +37,23 @@ class OCRTrigger:
         self._init_engine()
 
     def _init_engine(self):
-        if self.engine_type == 'ddddocr':
+        if self.engine_type == 'cnocr':
+            try:
+                from cnocr import CnOcr
+                self.ocr_instance = CnOcr()
+            except Exception as e:
+                self.logger(f"[OCR] cnocr 初始化失敗: {e}")
+                try:
+                    import ddddocr
+                    self.engine_type = 'ddddocr'
+                    self.ocr_instance = ddddocr.DdddOcr(show_ad=False)
+                except Exception:
+                    try:
+                        import pytesseract
+                        self.engine_type = 'pytesseract'
+                    except Exception:
+                        self.engine_type = None
+        elif self.engine_type == 'ddddocr':
             try:
                 # 關閉 ddddocr 的日誌輸出，保持介面整潔
                 self.ocr_instance = ddddocr.DdddOcr(show_ad=False)
@@ -93,33 +113,80 @@ class OCRTrigger:
             # 1. 影像預處理 - 確保為 BGR numpy 陣列
             img = self._ensure_bgr(img)
 
-            # 放大圖片有助於辨識小文字或驗證碼
+            # 如果是驗證碼且可用 ddddocr，執行多策略辨識
             if is_captcha:
-                img = cv2.resize(img, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+                dddd_inst = None
+                if self.engine_type == 'ddddocr':
+                    dddd_inst = self.ocr_instance
+                else:
+                    try:
+                        if not hasattr(self, '_dddd_fallback_instance') or self._dddd_fallback_instance is None:
+                            import ddddocr
+                            self._dddd_fallback_instance = ddddocr.DdddOcr(show_ad=False)
+                        dddd_inst = self._dddd_fallback_instance
+                    except:
+                        pass
                 
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            
+                if dddd_inst is not None:
+                    # 【策略一】直接對原始影像進行 ddddocr
+                    try:
+                        _, img_encoded = cv2.imencode(".png", img)
+                        res = dddd_inst.classification(img_encoded.tobytes()).strip()
+                        if 3 <= len(res) <= 7:
+                            return res
+                    except:
+                        pass
+
+                    # 【策略二】簡單灰度化 + 兩倍放大
+                    try:
+                        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                        resized_gray = cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+                        _, img_encoded = cv2.imencode(".png", resized_gray)
+                        res = dddd_inst.classification(img_encoded.tobytes()).strip()
+                        if 3 <= len(res) <= 7:
+                            return res
+                    except:
+                        pass
+
+            # ----------------------------------------------------
+            # 標準預處理流程 (用於非驗證碼，或當前不使用 ddddocr 時)
+            # ----------------------------------------------------
             if is_captcha:
                 # 針對驗證碼的去噪與強化
+                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 denoised = cv2.medianBlur(gray, 3)
-                # 使用自適應二值化
                 thresh = cv2.adaptiveThreshold(denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
                                             cv2.THRESH_BINARY_INV, 11, 2)
                 kernel = np.ones((2,2), np.uint8)
                 processed = cv2.dilate(thresh, kernel, iterations=1)
             else:
-                processed = gray
+                processed = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
             # 2. 執行辨識
-            if self.engine_type == 'ddddocr':
-                # ddddocr 需要 bytes 或 PIL Image
+            if self.engine_type == 'cnocr':
+                # cnocr 支援 numpy 陣列，直接使用單行辨識
+                res = self.ocr_instance.ocr_for_single_line(img)
+                text = res.get('text', '').strip() if res else ''
+                
+                # 如果結果為空或可信度低，嘗試在灰度圖上辨識
+                if not text or res.get('score', 0) < 0.2:
+                    gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    res_gray = self.ocr_instance.ocr_for_single_line(gray_img)
+                    if res_gray and res_gray.get('score', 0) > res.get('score', 0):
+                        text = res_gray.get('text', '').strip()
+                        
+                # 預處理中英文按鈕文字中的常見邊緣符號或括號噪點
+                text = text.replace('|V', '').replace('|v', '').replace('|', '')
+                text = text.replace('（', '').replace('）', '').replace('(', '').replace(')', '')
+                return text.strip()
+
+            elif self.engine_type == 'ddddocr':
                 _, img_encoded = cv2.imencode(".png", processed)
                 result = self.ocr_instance.classification(img_encoded.tobytes())
                 return result.strip()
             
             elif self.engine_type == 'pytesseract':
                 import pytesseract
-                # pytesseract 支援 numpy 陣列
                 config = '--psm 7' if is_captcha else '--psm 3'
                 result = pytesseract.image_to_string(processed, config=config, lang='eng+chi_sim+chi_tra')
                 return result.strip()
@@ -141,7 +208,33 @@ class OCRTrigger:
             return None
 
         try:
-            if self.engine_type == 'pytesseract':
+            if self.engine_type == 'cnocr':
+                res_list = self.ocr_instance.ocr(snapshot)
+                for item in res_list:
+                    text = item.get('text', '').strip()
+                    if not text:
+                        continue
+                        
+                    is_match = False
+                    if match_mode == "exact":
+                        is_match = (text == target_text)
+                    elif match_mode == "contains":
+                        is_match = (target_text in text)
+                        
+                    if is_match:
+                        pos = item.get('position')
+                        if pos is not None and len(pos) == 4:
+                            x_coords = [p[0] for p in pos]
+                            y_coords = [p[1] for p in pos]
+                            res_x = int(sum(x_coords) / 4)
+                            res_y = int(sum(y_coords) / 4)
+                            
+                            if region:
+                                res_x += region[0]
+                                res_y += region[1]
+                            return (res_x, res_y)
+
+            elif self.engine_type == 'pytesseract':
                 import pytesseract
                 from pytesseract import Output
                 

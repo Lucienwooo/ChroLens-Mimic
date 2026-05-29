@@ -1,21 +1,13 @@
-# ChroLens-Mimic 依賴套件
-# 自動生成於 2026-01-19
-
-ChroLens_Mimic
-Pillow
-asyncio
-ctypes
-editor_utils
-keyboard
-keyboard_handler
-math
-mouse
-numpy
-opencv-python
-packaging
-pynput
-pytesseract
-pywin32
-requests
+# ChroLens-Mimic Production Dependencies
 ttkbootstrap
-webbrowser
+keyboard
+mouse
+pynput
+pywin32
+pillow
+pystray
+opencv-python
+numpy
+mss
+pyglet
+packaging

@@ -1,12 +1,11 @@
-import keyboard
-import mouse
 import time
 import threading
 import ctypes
 import ctypes.wintypes
-from pynput.mouse import Controller, Listener
-import pynput  # 加入這行
-import win32gui  # 新增：用於視窗檢測
+import pynput
+from pynput.mouse import Controller as MouseController, Listener as MouseListener
+from pynput.keyboard import Controller as KeyboardController, Listener as KeyboardListener, Key
+import win32gui
 import win32api
 import win32con
 import os
@@ -48,6 +47,8 @@ class OCRFloatWindow:
         self.window = tk.Toplevel(root)
         self.window.title("OCR 診斷")
         self.window.attributes('-topmost', True)
+        from utils import set_window_icon
+        set_window_icon(self.window)
         self.label = tk.Label(self.window)
         self.label.pack()
         self.text_label = tk.Label(self.window, text="", font=("Arial", 12))
@@ -252,10 +253,12 @@ class TriggerManager:
                 match = re.match(r'>(左鍵點擊|右鍵點擊|移動至)\((\d+),(\d+)\)', action_text)
                 if match:
                     cmd, x, y = match.group(1), int(match.group(2)), int(match.group(3))
-                    import mouse
-                    mouse.move(x, y)
+                    # 使用 win32api 替代 legacy mouse 庫
+                    ctypes.windll.user32.SetCursorPos(x, y)
                     if '點擊' in cmd:
-                        mouse.click('left' if '左鍵' in cmd else 'right')
+                        self.recorder._mouse_event_enhanced('down', button='left' if '左鍵' in cmd else 'right')
+                        time.sleep(0.02)
+                        self.recorder._mouse_event_enhanced('up', button='left' if '左鍵' in cmd else 'right')
                     return 'success'
             
             # 4. 圖片偵測邏輯
@@ -610,6 +613,10 @@ class CoreRecorder:
         self._bezier_mover = BezierMouseMover() if BEZIER_AVAILABLE else None
         self._use_bezier = False  # 預設關閉（保持向下相容）
         
+        # v2.9.0: 鍵盤監聽器 (pynput)
+        self._keyboard_listener = None
+        self._keyboard_events = []
+        
         self.ocr_diagnostic_window = None
 
     def show_ocr_diagnostic(self, image_np, text):
@@ -710,6 +717,7 @@ class CoreRecorder:
 
     def _name_to_vk(self, key_name):
         """將按鍵名稱轉換為虛擬鍵碼"""
+        key_name = key_name.lower()
         # 常用按鍵映射
         key_map = {
             'enter': win32con.VK_RETURN,
@@ -719,26 +727,42 @@ class CoreRecorder:
             'delete': win32con.VK_DELETE,
             'esc': win32con.VK_ESCAPE,
             'shift': win32con.VK_SHIFT,
+            'shift_l': win32con.VK_LSHIFT,
+            'shift_r': win32con.VK_RSHIFT,
             'ctrl': win32con.VK_CONTROL,
+            'ctrl_l': win32con.VK_LCONTROL,
+            'ctrl_r': win32con.VK_RCONTROL,
             'alt': win32con.VK_MENU,
+            'alt_l': win32con.VK_LMENU,
+            'alt_r': win32con.VK_RMENU,
             'left': win32con.VK_LEFT,
             'right': win32con.VK_RIGHT,
             'up': win32con.VK_UP,
             'down': win32con.VK_DOWN,
+            'caps_lock': win32con.VK_CAPITAL,
+            'num_lock': win32con.VK_NUMLOCK,
+            'scroll_lock': win32con.VK_SCROLL,
+            'insert': win32con.VK_INSERT,
+            'home': win32con.VK_HOME,
+            'end': win32con.VK_END,
+            'page_up': win32con.VK_PRIOR,
+            'page_down': win32con.VK_NEXT,
+            'cmd': win32con.VK_LWIN,
+            'win': win32con.VK_LWIN,
         }
         
         # F1-F12
-        for i in range(1, 13):
+        for i in range(1, 25): # 支援到 F24
             key_map[f'f{i}'] = win32con.VK_F1 + i - 1
         
         # 字母和數字
         if len(key_name) == 1:
-            if key_name.isalpha():
+            if 'a' <= key_name <= 'z':
                 return ord(key_name.upper())
-            elif key_name.isdigit():
+            elif '0' <= key_name <= '9':
                 return ord(key_name)
         
-        return key_map.get(key_name.lower(), 0)
+        return key_map.get(key_name, 0)
 
     def start_record(self):
         """開始錄製（v2.6.5 - 參考2.5簡化機制）"""
@@ -918,9 +942,52 @@ class CoreRecorder:
                 self.logger("[錄製] keyboard 模組已啟動")
             except Exception as e:
                 self._keyboard_recording = False
-                self.logger(f"[警告] keyboard 模組啟動失敗（可能需要管理員權限）: {e}")
+                self.logger(f"[錄製] keyboard 模組啟動失敗（預期行為）: {e}")
 
-            mouse_ctrl = Controller()
+            # v2.9.0: 同時啟動 pynput 鍵盤監聽（更穩定）
+            self._keyboard_events = []
+            def on_press(key):
+                if self.recording and not self.paused:
+                    try:
+                        name = ""
+                        if hasattr(key, 'char') and key.char:
+                            name = key.char
+                        else:
+                            name = str(key).replace('Key.', '')
+                        
+                        self._keyboard_events.append({
+                            'type': 'keyboard',
+                            'event': 'down',
+                            'name': name.lower(),
+                            'time': time.time()
+                        })
+                    except: pass
+
+            def on_release(key):
+                if self.recording and not self.paused:
+                    try:
+                        name = ""
+                        if hasattr(key, 'char') and key.char:
+                            name = key.char
+                        else:
+                            name = str(key).replace('Key.', '')
+                        
+                        self._keyboard_events.append({
+                            'type': 'keyboard',
+                            'event': 'up',
+                            'name': name.lower(),
+                            'time': time.time()
+                        })
+                    except: pass
+
+            try:
+                self._keyboard_listener = KeyboardListener(on_press=on_press, on_release=on_release)
+                self._keyboard_listener.start()
+                self.logger("[錄製] pynput.keyboard.Listener 已啟動")
+            except Exception as e:
+                self.logger(f"[警告] pynput.keyboard.Listener 啟動失敗: {e}")
+
+            mouse_ctrl = MouseController()
             last_pos = mouse_ctrl.position
 
             def on_click(x, y, button, pressed):
@@ -1017,34 +1084,42 @@ class CoreRecorder:
                 except Exception as e:
                     self.logger(f"[警告] 停止 mouse listener 時發生錯誤: {e}")
 
-            # 處理鍵盤事件（添加錯誤處理）
-            if self._keyboard_recording:
+            # 停止鍵盤監聽
+            if self._keyboard_listener:
                 try:
-                    k_events = keyboard.stop_recording()
-                    self.logger("[錄製] keyboard 錄製已停止")
+                    self._keyboard_listener.stop()
+                    self.logger("[錄製] pynput.keyboard.Listener 已停止")
+                except Exception as e:
+                    self.logger(f"[警告] 停止 keyboard listener 時發生錯誤: {e}")
+
+            # 處理鍵盤事件（混合模式：優先使用 pynput 事件，若無則嘗試 keyboard 庫）
+            k_events_data = []
+            if self._keyboard_events:
+                # 已經在監聽器中轉換為 dict 格式
+                k_events_data = self._keyboard_events
+                self.logger(f"[錄製] 使用 pynput 收集到 {len(k_events_data)} 個鍵盤事件")
+            elif self._keyboard_recording:
+                try:
+                    raw_k_events = keyboard.stop_recording()
+                    k_events_data = [{'type': 'keyboard', 'event': e.event_type, 'name': e.name, 'time': e.time} for e in raw_k_events]
+                    self.logger(f"[錄製] 使用 keyboard 庫收集到 {len(k_events_data)} 個鍵盤事件")
                 except Exception as e:
                     self.logger(f"[警告] 停止 keyboard 錄製時發生錯誤: {e}")
-                    k_events = []
-            else:
-                k_events = []
-
-            # 合併暫停期間的事件
-            all_k_events = []
-            if hasattr(self, "_paused_k_events"):
-                all_k_events.extend(self._paused_k_events)
-            all_k_events.extend(k_events)
+            
+            # 合併暫停期間的事件（若有）
+            if hasattr(self, "_paused_k_events") and self._paused_k_events:
+                # 這裡需要根據來源轉換格式，假設暫停期間也是 dict
+                k_events_data.extend(self._paused_k_events)
 
             # 過濾掉快捷鍵事件 (F9, F10, F11, F12)
             filtered_k_events = [
-                e for e in all_k_events
-                if not (e.name in ('f9', 'f10', 'f11', 'f12') and e.event_type in ('down', 'up'))
+                e for e in k_events_data
+                if not (e.get('name') in ('f9', 'f10', 'f11', 'f12') and e.get('event') in ('down', 'up'))
             ]
 
             # 合併所有事件並排序
             self.events = sorted(
-                [{'type': 'keyboard', 'event': e.event_type, 'name': e.name, 'time': e.time} 
-                 for e in filtered_k_events] +
-                self._mouse_events,
+                filtered_k_events + self._mouse_events,
                 key=lambda e: e['time']
             )
 
@@ -1912,7 +1987,7 @@ class CoreRecorder:
             # 鍵盤事件執行
             try:
                 if event['event'] == 'down':
-                    keyboard.press(event['name'])
+                    self._keyboard_event_enhanced('down', event['name'])
                     try:
                         self._pressed_keys.add(event['name'])
                     except Exception:
@@ -1920,7 +1995,7 @@ class CoreRecorder:
                     #  2.5 風格：即時輸出鍵盤事件
                     self.logger(f"[鍵盤] {event['event']} {event['name']}")
                 elif event['event'] == 'up':
-                    keyboard.release(event['name'])
+                    self._keyboard_event_enhanced('up', event['name'])
                     try:
                         if event['name'] in self._pressed_keys:
                             self._pressed_keys.discard(event['name'])
@@ -2339,6 +2414,49 @@ class CoreRecorder:
                     
             except Exception as e:
                 self.logger(f"[OCR] 錯誤: {e}")
+
+        # 等待圖片出現：wait_image
+        elif event['type'] == 'wait_image':
+            try:
+                image_name = event.get('image', '')
+                confidence = event.get('confidence', 0.75)
+                timeout = event.get('timeout', 10.0)
+                step = event.get('step', 0.5)
+                show_border = event.get('show_border', False)
+                region = event.get('region', None)
+
+                # 全域範圍設定回退
+                if region is None and self._current_region is not None:
+                    region = self._current_region
+
+                self.logger(f"[圖片等待] 開始等待圖片: {image_name} (最長 {timeout}s, 步長 {step}s)")
+                
+                start_time = time.time()
+                found = False
+                while time.time() - start_time < timeout:
+                    # 隨時檢查播放狀態，如果被停下則立即中斷
+                    if not self.playing:
+                        self.logger("[圖片等待] 偵測到播放停止，終止等待。")
+                        break
+                    
+                    pos = self.find_image_on_screen(
+                        image_name,
+                        threshold=confidence,
+                        fast_mode=True,
+                        show_border=show_border,
+                        region=region
+                    )
+                    if pos:
+                        self.logger(f"[圖片等待]  成功找到圖片於 ({pos[0]}, {pos[1]})")
+                        found = True
+                        break
+                    
+                    time.sleep(step)
+
+                if not found and self.playing:
+                    self.logger(f"[圖片等待] ️ 等待圖片 '{image_name}' 逾時")
+            except Exception as e:
+                self.logger(f"[圖片等待] 執行失敗: {e}")
         
         # OCR 點擊文字位置：click_text
         elif event['type'] == 'click_text':
@@ -2375,9 +2493,9 @@ class CoreRecorder:
                     self.logger(f"[OCR]  目標文字座標: {pos}, 最終點擊座標: ({x}, {y})")
                     win32api.SetCursorPos((x, y))
                     time.sleep(0.05)
-                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, x, y, 0, 0)
+                    self._mouse_event_enhanced('down', button='left')
                     time.sleep(0.05)
-                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, x, y, 0, 0)
+                    self._mouse_event_enhanced('up', button='left')
                     return 'success'
                 else:
                     self.logger(f"[OCR]  未找到文字: {target_text}")
@@ -2444,9 +2562,9 @@ class CoreRecorder:
                     # 4. 自動點擊輸入框 (假設輸入框在辨識區域內或錨點旁)
                     # 為了保險，我們先點擊錨點右側的區域確保焦點
                     win32api.SetCursorPos((ax + dx + 10, ay + dy + 10))
-                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+                    self._mouse_event_enhanced('down', button='left')
                     time.sleep(0.05)
-                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+                    self._mouse_event_enhanced('up', button='left')
                     time.sleep(0.1)
                     
                     # 5. 輸入文字
@@ -2476,9 +2594,9 @@ class CoreRecorder:
                     self.logger(f"[視覺]  找到圖片，點擊座標: ({x}, {y})")
                     win32api.SetCursorPos((x, y))
                     time.sleep(0.05)
-                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, x, y, 0, 0)
+                    self._mouse_event_enhanced('down', button='left')
                     time.sleep(0.05)
-                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, x, y, 0, 0)
+                    self._mouse_event_enhanced('up', button='left')
                     return 'success'
                 else:
                     self.logger(f"[視覺]  找不到圖片錨點: {image_name}")
@@ -2525,9 +2643,9 @@ class CoreRecorder:
                     
                     win32api.SetCursorPos((input_x, input_y))
                     time.sleep(0.05)
-                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+                    self._mouse_event_enhanced('down', button='left')
                     time.sleep(0.05)
-                    win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+                    self._mouse_event_enhanced('up', button='left')
                     time.sleep(0.2)
                     
                     # 4. 輸入文字
@@ -2545,39 +2663,96 @@ class CoreRecorder:
                 self.logger(f"[AI] 自動搜尋錯誤: {e}")
                 return 'failure'
 
-        # OCR 辨識並輸入：ocr_input (CAPTCHA 專用)
+        # OCR 辨識並輸入：ocr_input (CAPTCHA 專用) — v2.7.9 升級：使用 Beta 高精度預處理管道
         elif event['type'] == 'ocr_input':
             try:
-                from ocr_trigger import OCRTrigger
-                import keyboard
-                
+                import cv2
+                import numpy as np
+
                 region = event.get('region')
                 if not region:
                     self.logger("[OCR] ️ 錯誤: 未指定 OCR 辨識區域")
                     return None
-                
+
                 self.logger(f"[OCR] 正在辨識區域 {region} 的驗證碼...")
-                
-                # 截取目標區域
+
+                # 1. 截取目標區域
                 snapshot = self._capture_screen_fast(region)
                 if snapshot is None:
                     self.logger("[OCR] ️ 截圖失敗")
                     return None
-                
-                # 初始化 OCR 並辨識
-                ocr = OCRTrigger(ocr_engine="auto", logger=self.logger)
-                captcha_text = ocr.recognize(snapshot, is_captcha=True)
-                
+
+                # 2. Beta 高精度去噪預處理管道
+                # A. 雙倍放大（雙立方插值）
+                resized = cv2.resize(snapshot, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+                # B. 已是灰階，直接使用
+                gray = resized
+                # C. 雙邊濾波去噪（保留字體邊緣）
+                denoised = cv2.bilateralFilter(gray, 9, 75, 75)
+                # D. 大津法自適應二值化
+                _, thresh = cv2.threshold(denoised, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+                # E. 形態學膨脹填補字體空隙
+                kernel = np.ones((2, 2), np.uint8)
+                dilated = cv2.dilate(thresh, kernel, iterations=1)
+                # F. 連通區域分析抹除小噪點（< 15px）
+                num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(dilated)
+                cleaned = np.zeros_like(dilated)
+                for _i in range(1, num_labels):
+                    if stats[_i, cv2.CC_STAT_AREA] > 15:
+                        cleaned[labels == _i] = 255
+                # G. 反色→白底黑字（ddddocr/Tesseract 最佳輸入格式）
+                processed = cv2.bitwise_not(cleaned)
+
+                # 3. OCR 辨識
+                captcha_text = ""
+                try:
+                    import ddddocr
+                    if not hasattr(self, '_ddddocr_instance') or self._ddddocr_instance is None:
+                        self._ddddocr_instance = ddddocr.DdddOcr(show_ad=False)
+                    success, encoded = cv2.imencode('.png', processed)
+                    if success:
+                        captcha_text = self._ddddocr_instance.classification(encoded.tobytes())
+                except Exception:
+                    # 降級：嘗試 OCRTrigger（Tesseract）
+                    try:
+                        from ocr_trigger import OCRTrigger
+                        ocr = OCRTrigger(ocr_engine="tesseract", logger=self.logger)
+                        captcha_text = ocr.recognize(processed, is_captcha=False)
+                    except Exception as e2:
+                        self.logger(f"[OCR] 所有辨識引擎均失敗: {e2}")
+
+                captcha_text = captcha_text.strip() if captcha_text else ""
+
                 if captcha_text:
-                    self.logger(f"[OCR]  辨識成功: {captcha_text}")
-                    # 輸入文字
-                    keyboard.write(captcha_text)
-                    self.logger(f"[OCR]  已自動輸入文字")
+                    self.logger(f"[OCR] ✅ 辨識成功: {captcha_text}")
+
+                    # 4. 儲存到共享變數（供後續指令重複使用，如 >取得OCR結果）
+                    self._last_ocr_text = captcha_text
+                    if hasattr(self, 'variables') and isinstance(self.variables, dict):
+                        self.variables['_ocr_result'] = captcha_text
+
+                    # 5. 輸入文字：優先用剪貼簿貼上（支援中英數所有字元，避免 keyboard.write 的 IME 問題）
+                    try:
+                        import pyperclip
+                        pyperclip.copy(captcha_text)
+                        import keyboard as kb
+                        import time as _time
+                        _time.sleep(0.05)
+                        kb.send('ctrl+a')   # 先全選輸入框內現有內容
+                        _time.sleep(0.03)
+                        kb.send('ctrl+v')   # 貼上辨識結果
+                        self.logger(f"[OCR] ✅ 已透過剪貼簿貼上: {captcha_text}")
+                    except Exception:
+                        # 降級：直接 keyboard.write
+                        import keyboard as kb
+                        kb.write(captcha_text, delay=0.03)
+                        self.logger(f"[OCR] ✅ 已直接輸入: {captcha_text}")
+
                     return 'success'
                 else:
                     self.logger("[OCR] ️ 辨識失敗，未獲得文字內容")
                     return 'failure'
-                    
+
             except Exception as e:
                 self.logger(f"[OCR] 執行錯誤: {e}")
                 return 'failure'
@@ -2793,7 +2968,10 @@ class CoreRecorder:
             import random
             min_ms = event.get('min_ms', 100)
             max_ms = event.get('max_ms', 500)
-            delay = random.randint(min_ms, max_ms) / 1000.0
+            # 自動修正 min/max 避免 ValueError: empty range in randrange
+            actual_min = min(min_ms, max_ms)
+            actual_max = max(min_ms, max_ms)
+            delay = random.randint(actual_min, actual_max) / 1000.0
             self.logger(f"[隨機延遲] {delay:.3f}s")
             time.sleep(delay)
         
@@ -3104,7 +3282,7 @@ class CoreRecorder:
         """增強版滑鼠事件執行（更精確穩定）"""
         user32 = ctypes.windll.user32
         
-        # 定義 MOUSEINPUT 和 INPUT 結構
+        # 100% 規格相容的 Win32 INPUT 結構定義 (防止 64 位元對齊錯誤)
         class MOUSEINPUT(ctypes.Structure):
             _fields_ = [
                 ("dx", ctypes.c_long),
@@ -3115,10 +3293,33 @@ class CoreRecorder:
                 ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))
             ]
             
+        class KEYBDINPUT(ctypes.Structure):
+            _fields_ = [
+                ("wVk", ctypes.c_ushort),
+                ("wScan", ctypes.c_ushort),
+                ("dwFlags", ctypes.c_ulong),
+                ("time", ctypes.c_ulong),
+                ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))
+            ]
+            
+        class HARDWAREINPUT(ctypes.Structure):
+            _fields_ = [
+                ("uMsg", ctypes.c_ulong),
+                ("wParamL", ctypes.c_ushort),
+                ("wParamH", ctypes.c_ushort)
+            ]
+            
+        class INPUT_UNION(ctypes.Union):
+            _fields_ = [
+                ("mi", MOUSEINPUT),
+                ("ki", KEYBDINPUT),
+                ("hi", HARDWAREINPUT)
+            ]
+            
         class INPUT(ctypes.Structure):
             _fields_ = [
                 ("type", ctypes.c_ulong),
-                ("mi", MOUSEINPUT)
+                ("u", INPUT_UNION)
             ]
         
         try:
@@ -3133,7 +3334,7 @@ class CoreRecorder:
                 
                 inp = INPUT()
                 inp.type = 0  # INPUT_MOUSE
-                inp.mi = MOUSEINPUT(0, 0, 0, flag, 0, None)
+                inp.u.mi = MOUSEINPUT(0, 0, 0, flag, 0, None)
                 
                 # 使用 SendInput 發送輸入（硬體級別）
                 result = user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
@@ -3145,7 +3346,7 @@ class CoreRecorder:
                 # 滾輪事件
                 inp = INPUT()
                 inp.type = 0  # INPUT_MOUSE
-                inp.mi = MOUSEINPUT(0, 0, int(delta * 120), 0x0800, 0, None)  # MOUSEEVENTF_WHEEL
+                inp.u.mi = MOUSEINPUT(0, 0, int(delta * 120), 0x0800, 0, None)  # MOUSEEVENTF_WHEEL
                 
                 result = user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
                 
@@ -3154,6 +3355,87 @@ class CoreRecorder:
                     
         except Exception as e:
             self.logger(f"滑鼠事件發送失敗: {e}")
+
+    def _keyboard_event_enhanced(self, event, key_name):
+        """增強版鍵盤事件執行（使用 SendInput）"""
+        try:
+            vk = self._name_to_vk(key_name)
+            if vk == 0:
+                # 回退到 keyboard 庫
+                import keyboard
+                if event == 'down':
+                    keyboard.press(key_name)
+                else:
+                    keyboard.release(key_name)
+                return
+
+            user32 = ctypes.windll.user32
+            
+            # 100% 規格相容的 Win32 INPUT 結構定義 (防止 64 位元對齊錯誤)
+            class MOUSEINPUT(ctypes.Structure):
+                _fields_ = [
+                    ("dx", ctypes.c_long),
+                    ("dy", ctypes.c_long),
+                    ("mouseData", ctypes.c_ulong),
+                    ("dwFlags", ctypes.c_ulong),
+                    ("time", ctypes.c_ulong),
+                    ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))
+                ]
+                
+            class KEYBDINPUT(ctypes.Structure):
+                _fields_ = [
+                    ("wVk", ctypes.c_ushort),
+                    ("wScan", ctypes.c_ushort),
+                    ("dwFlags", ctypes.c_ulong),
+                    ("time", ctypes.c_ulong),
+                    ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))
+                ]
+                
+            class HARDWAREINPUT(ctypes.Structure):
+                _fields_ = [
+                    ("uMsg", ctypes.c_ulong),
+                    ("wParamL", ctypes.c_ushort),
+                    ("wParamH", ctypes.c_ushort)
+                ]
+                
+            class INPUT_UNION(ctypes.Union):
+                _fields_ = [
+                    ("mi", MOUSEINPUT),
+                    ("ki", KEYBDINPUT),
+                    ("hi", HARDWAREINPUT)
+                ]
+                
+            class INPUT(ctypes.Structure):
+                _fields_ = [
+                    ("type", ctypes.c_ulong),
+                    ("u", INPUT_UNION)
+                ]
+
+            inp = INPUT()
+            inp.type = 1  # INPUT_KEYBOARD
+            
+            # KEYEVENTF_KEYUP = 0x0002
+            flags = 0x0002 if event == 'up' else 0
+            
+            # 智慧型映射虛擬鍵碼至掃描碼，100% 相容 DirectX/DirectInput 遊戲與各類輸入框
+            scan_code = user32.MapVirtualKeyW(vk, 0)
+            if scan_code:
+                flags |= 0x0008  # KEYEVENTF_SCANCODE
+                # 判斷是否為擴展鍵 (如方向鍵、Insert/Delete、Home/End、PageUp/PageDown 等)
+                extended_vks = [0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x2C, 0x2D, 0x2E, 0x5B, 0x5C, 0xA3, 0xA5]
+                if vk in extended_vks:
+                    flags |= 0x0001  # KEYEVENTF_EXTENDEDKEY
+
+            inp.u.ki = KEYBDINPUT(vk, scan_code, flags, 0, None)
+            user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
+            
+        except Exception as e:
+            # 最後的回退
+            try:
+                import keyboard
+                if event == 'down': keyboard.press(key_name)
+                else: keyboard.release(key_name)
+            except: pass
 
     def _release_pressed_keys(self):
         """釋放在執行期間可能被 press 但未 release 的按鍵集合"""
@@ -3506,7 +3788,7 @@ class CoreRecorder:
                     if strict_mode:
                         verified = self._verify_match_strict(
                             screen_cv, template_gray, max_loc, 
-                            threshold=0.92  # 嚴格驗證使用更高閾值
+                            threshold=0.85  # 嚴格驗證閾值由0.92放寬至0.85，提升不同DPI/抗鋸齒容錯度
                         )
                         if not verified:
                             self.logger(f"[圖片辨識][嚴格模式] ️ 匹配位置驗證失敗，可能是相似但不同的圖片")
@@ -3570,14 +3852,14 @@ class CoreRecorder:
                 scales = [0.95, 1.0, 1.05]  #  優化：僅保留3個尺度，目標0.5秒內完成
                 for scale in scales:
                     if scale != 1.0:
-                        width = int(template.shape[1] * scale)
-                        height = int(template.shape[0] * scale)
+                        width = int(template_gray.shape[1] * scale)
+                        height = int(template_gray.shape[0] * scale)
                         if width < 10 or height < 10 or width > screen_cv.shape[1] or height > screen_cv.shape[0]:
                             continue
-                        scaled_template = cv2.resize(template, (width, height), interpolation=cv2.INTER_LINEAR)  #  使用INTER_LINEAR加快速度
+                        scaled_template = cv2.resize(template_gray, (width, height), interpolation=cv2.INTER_LINEAR)  #  使用INTER_LINEAR加快速度
                         scaled_mask = cv2.resize(mask, (width, height), interpolation=cv2.INTER_NEAREST) if mask is not None else None
                     else:
-                        scaled_template = template
+                        scaled_template = template_gray
                         scaled_mask = mask
                     
                     #  根據是否有遮罩選擇演算法
@@ -3604,20 +3886,20 @@ class CoreRecorder:
             else:
                 #  單一尺度匹配（支援遮罩）
                 if mask is not None:
-                    result = cv2.matchTemplate(screen_cv, template, cv2.TM_CCORR_NORMED, mask=mask)
+                    result = cv2.matchTemplate(screen_cv, template_gray, cv2.TM_CCORR_NORMED, mask=mask)
                 else:
-                    result = cv2.matchTemplate(screen_cv, template, cv2.TM_CCOEFF_NORMED)
+                    result = cv2.matchTemplate(screen_cv, template_gray, cv2.TM_CCOEFF_NORMED)
                 min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
                 best_match_val = max_val
                 best_match_loc = max_loc
-                best_template_size = (template.shape[1], template.shape[0])
+                best_template_size = (template_gray.shape[1], template_gray.shape[0])
             
             self.logger(f"[圖片辨識] 模板匹配度：{best_match_val:.3f} (尺度:{best_scale:.2f}, 閾值：{threshold})")
             
             #  如果模板匹配失敗但接近閾值，嘗試特徵點匹配
             if use_features_fallback and best_match_val < threshold and best_match_val >= threshold * 0.7:
                 self.logger(f"[圖片辨識] 模板匹配未達閾值，嘗試特徵點匹配...")
-                feature_x, feature_y, match_count = self.find_image_by_features(template, screen_cv)
+                feature_x, feature_y, match_count = self.find_image_by_features(template_gray, screen_cv)
                 
                 if feature_x is not None and match_count >= 15:  # 需要足夠的特徵點
                     if region:
@@ -3638,17 +3920,17 @@ class CoreRecorder:
                     
                     # 調整模板大小以匹配找到的區域
                     if best_scale != 1.0:
-                        template_resized = cv2.resize(template, (w, h), interpolation=cv2.INTER_LINEAR)  #  使用INTER_LINEAR加快速度
+                        template_resized = cv2.resize(template_gray, (w, h), interpolation=cv2.INTER_LINEAR)  #  使用INTER_LINEAR加快速度
                     else:
-                        template_resized = template
+                        template_resized = template_gray
                     
                     verification_score = 0
                     verification_count = 0
                     
                     try:
                         #  優化：只使用快速的直方圖驗證（移除耗時的SSIM和邊緣檢測）
-                        hist_template = cv2.calcHist([template_resized], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
-                        hist_matched = cv2.calcHist([matched_region], [0, 1, 2], None, [8, 8, 8], [0, 256, 0, 256, 0, 256])
+                        hist_template = cv2.calcHist([template_resized], [0], None, [8], [0, 256])
+                        hist_matched = cv2.calcHist([matched_region], [0], None, [8], [0, 256])
                         
                         cv2.normalize(hist_template, hist_template)
                         cv2.normalize(hist_matched, hist_matched)
@@ -3788,7 +4070,7 @@ class CoreRecorder:
             traceback.print_exc()
             return None, None
     
-    def _verify_match_strict(self, screen_cv, template_gray, match_loc, threshold=0.92):
+    def _verify_match_strict(self, screen_cv, template_gray, match_loc, threshold=0.85):
         """ v2.8.2 嚴格驗證匹配區域
         
         用於區分相似但不同的按鈕（如 Accept vs Accept all）
@@ -3819,7 +4101,7 @@ class CoreRecorder:
             max_diff = np.max(diff)
             
             # 如果平均差異太大，驗證失敗
-            if mean_diff > 15:  # 平均像素差異超過15
+            if mean_diff > 28:  # 平均像素差異門檻由15放寬至28，防止不同DPI/抗鋸齒誤判
                 self.logger(f"[嚴格驗證] 像素差異過大: 平均={mean_diff:.2f}, 最大={max_diff}")
                 return False
             
@@ -3829,7 +4111,7 @@ class CoreRecorder:
             right_edge_matched = matched_region[:, -5:]
             right_diff = np.mean(cv2.absdiff(right_edge_template, right_edge_matched))
             
-            if right_diff > 20:  # 右邊緣差異太大
+            if right_diff > 35:  # 右邊緣差異門檻由20放寬至35
                 self.logger(f"[嚴格驗證] 右邊緣差異過大: {right_diff:.2f}")
                 return False
             
@@ -3890,7 +4172,7 @@ class CoreRecorder:
                     break  # 沒有更多高分候選
                 
                 # 驗證這個位置
-                if self._verify_match_strict(screen_cv, template_gray, max_loc, threshold=0.92):
+                if self._verify_match_strict(screen_cv, template_gray, max_loc, threshold=0.85):
                     # 計算中心點
                     center_x = max_loc[0] + w // 2
                     center_y = max_loc[1] + h // 2

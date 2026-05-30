@@ -1547,7 +1547,7 @@ class RecorderApp(tb.Window):
         self.log_text.config(yscrollcommand=log_scroll.set)
 
         # --- 右側群組播放佇列 ---
-        self.playlist_frame = tb.LabelFrame(self.log_page_frame, text=" [ 群組播放佇列 ] ")
+        self.playlist_frame = tb.Labelframe(self.log_page_frame, text=" [ 群組播放佇列 ] ")
         self.playlist_frame.grid(row=0, column=1, sticky="nsew")
         
         # 播放佇列按鈕區
@@ -3393,7 +3393,7 @@ class RecorderApp(tb.Window):
                  font=font_tuple(9), foreground="#aaaaaa").pack(anchor="w", pady=(0, 6))
 
         # 狀態燈 Frame
-        status_lf = tb.LabelFrame(f, text=" 元件狀態（綠色=正常，紅色=未安裝）")
+        status_lf = tb.Labelframe(f, text=" 元件狀態（綠色=正常，紅色=未安裝）")
         status_lf.pack(fill="x", padx=4, pady=(0, 4))
         status_grid = tb.Frame(status_lf)
         status_grid.pack(fill="x", padx=8, pady=6)
@@ -3454,7 +3454,7 @@ class RecorderApp(tb.Window):
         # ════════════════════════════════════
         # 區塊二：主開關 + 一鍵測試
         # ════════════════════════════════════
-        ctrl_lf = tb.LabelFrame(f, text=" 主要控制 ")
+        ctrl_lf = tb.Labelframe(f, text=" 主要控制 ")
         ctrl_lf.pack(fill="x", padx=4, pady=4)
         ctrl_inner = tb.Frame(ctrl_lf); ctrl_inner.pack(fill="x", padx=8, pady=6)
 
@@ -3474,7 +3474,7 @@ class RecorderApp(tb.Window):
         # ════════════════════════════════════
         # 區塊三：精細度參數（改為 Scale 滑桿）
         # ════════════════════════════════════
-        param_lf = tb.LabelFrame(f, text=" 精細度設定（不確定的話保持預設即可）")
+        param_lf = tb.Labelframe(f, text=" 精細度設定（不確定的話保持預設即可）")
         param_lf.pack(fill="x", padx=4, pady=4)
         param_inner = tb.Frame(param_lf); param_inner.pack(fill="x", padx=8, pady=6)
 
@@ -3512,7 +3512,7 @@ class RecorderApp(tb.Window):
         # ════════════════════════════════════
         # 區塊四：已記憶的按鈕圖案
         # ════════════════════════════════════
-        tmpl_lf = tb.LabelFrame(f, text=" 📂 已記憶的按鈕圖案（用於智慧點擊修正）")
+        tmpl_lf = tb.Labelframe(f, text=" 📂 已記憶的按鈕圖案（用於智慧點擊修正）")
         tmpl_lf.pack(fill="both", expand=True, padx=4, pady=4)
 
         tmpl_hint = tb.Label(tmpl_lf,
@@ -3541,7 +3541,7 @@ class RecorderApp(tb.Window):
         # ════════════════════════════════════
         # 區塊五：即時 Log（獨立於主日誌）
         # ════════════════════════════════════
-        log_lf = tb.LabelFrame(f, text=" 📋 視覺偵測運作紀錄（即時）")
+        log_lf = tb.Labelframe(f, text=" 📋 視覺偵測運作紀錄（即時）")
         log_lf.pack(fill="x", padx=4, pady=4)
         self.vde_log_text = tk.Text(log_lf, height=5, state="disabled",
                                     bg="#0d1117", fg="#c9d1d9",
@@ -4523,7 +4523,7 @@ class RecorderApp(tb.Window):
         main_content.pack(fill="both", expand=True, padx=10, pady=5)
         
         # 可用腳本列表（左側）
-        left_frame = tb.LabelFrame(main_content, text=lang_map.get("所有Script", "所有腳本"))
+        left_frame = tb.Labelframe(main_content, text=lang_map.get("所有Script", "所有腳本"))
         left_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
         
         available_list = tk.Listbox(left_frame, height=12, selectmode=tk.EXTENDED, font=("微軟正黑體", 10))
@@ -4685,7 +4685,7 @@ class RecorderApp(tb.Window):
         down_btn.pack(pady=5)
         
         # 合併列表（右側）
-        right_frame = tb.LabelFrame(main_content, text="待合併腳本（執行順序）")
+        right_frame = tb.Labelframe(main_content, text="待合併腳本（執行順序）")
         right_frame.pack(side="left", fill="both", expand=True, padx=(5, 0))
         
         merge_list = tk.Listbox(right_frame, height=12, selectmode=tk.EXTENDED, font=("微軟正黑體", 10))

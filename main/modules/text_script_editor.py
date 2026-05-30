@@ -9759,6 +9759,9 @@ class TextCommandEditor(tk.Toplevel):
             if "time_label" in r and r["time_label"].winfo_exists():
                 r["time_label"].config(text=f"T={t_val}")
                 
+            if r.get("is_add_row"):
+                continue
+                
             # 累加延遲
             cat = r["category_var"].get()
             sub = r["sub_var"].get() if "sub_var" in r else ""
@@ -10005,6 +10008,8 @@ class TextCommandEditor(tk.Toplevel):
         for idx, r in enumerate(self.grid_rows):
             if idx == current_idx:
                 continue
+            if r.get("is_add_row"):
+                continue
             f = r["frame"]
             if not f.winfo_exists():
                 continue
@@ -10027,7 +10032,20 @@ class TextCommandEditor(tk.Toplevel):
                 w.configure(bg="#252526")
         self._sync_and_reload()
 
-    def _add_grid_row(self, data, index=None):
+    def _add_action_at_end(self):
+        # 找出當前 is_add_row 的列的 index（通常是最後一個）
+        add_row_idx = len(self.grid_rows) - 1
+        for idx, r in enumerate(self.grid_rows):
+            if r.get("is_add_row"):
+                add_row_idx = idx
+                break
+        
+        # 在新增列之前插入一個新的空白動作列
+        empty_data = {"category": "空白", "sub_action": "", "target": "", "delay": 0, "timestamp": "0s000"}
+        self._add_grid_row(empty_data, index=add_row_idx)
+        self._sync_and_reload()
+
+    def _add_grid_row(self, data, index=None, is_add_row=False):
         row_frame = tk.Frame(self.grid_inner, bd=1, relief="solid", highlightthickness=0)
         
         # 類別高亮系統 (VS Code 語法高亮前景配色)
@@ -10047,13 +10065,18 @@ class TextCommandEditor(tk.Toplevel):
         row_frame.configure(bg=row_bg)
         
         # 1. 最左邊拖曳手把 Grip (彩色的功能提示手把)
-        grip_label = tk.Label(row_frame, text="☰", bg=row_bg, fg=row_fg, font=font_tuple(10, "bold"), cursor="fleur", width=3)
+        if is_add_row:
+            grip_label = tk.Label(row_frame, text="   ", bg=row_bg, fg=row_fg, font=font_tuple(10, "bold"), width=3)
+        else:
+            grip_label = tk.Label(row_frame, text="☰", bg=row_bg, fg=row_fg, font=font_tuple(10, "bold"), cursor="fleur", width=3)
         grip_label.pack(side="left", padx=5)
         
         # 2. 類別下拉
         cat_var = tk.StringVar(value=category)
         cat_combo = ttk.Combobox(row_frame, textvariable=cat_var, values=["影像辨識", "滑鼠鍵盤", "流程控制", "變數系統", "註解", "空白"], width=10, state="readonly", font=font_tuple(9))
         cat_combo.pack(side="left", padx=5, pady=5)
+        if is_add_row:
+            cat_combo.configure(state="disabled")
         
         # 3. 參數框
         param_frame = tk.Frame(row_frame, bg=row_bg)
@@ -10067,21 +10090,18 @@ class TextCommandEditor(tk.Toplevel):
         delay_entry = tk.Entry(row_frame, textvariable=delay_var, width=5, justify="center", font=font_tuple(9),
                                bg="#1e1e1e", fg="#ffffff", insertbackground="#ffffff", bd=1, relief="solid", highlightthickness=0)
         delay_entry.pack(side="left", padx=2)
-        delay_entry.bind("<FocusOut>", lambda e: self._sync_and_reload())
-        delay_entry.bind("<Return>", lambda e: self._sync_and_reload())
+        if is_add_row:
+            delay_entry.configure(state="disabled")
+        else:
+            delay_entry.bind("<FocusOut>", lambda e: self._sync_and_reload())
+            delay_entry.bind("<Return>", lambda e: self._sync_and_reload())
         
         ms_label = tk.Label(row_frame, text="ms", bg=row_bg, fg="#d4d4d4", font=font_tuple(9))
         ms_label.pack(side="left", padx=2)
         
-        # 5. 右側控制區 (將 ❌ 放在最邊緣防誤觸)
+        # 5. 右側控制區 (原本動作的最右邊只保留"x"的關閉按鈕，特殊新增列只保留"+"按鈕)
         right_btn_frame = tk.Frame(row_frame, bg=row_bg)
         right_btn_frame.pack(side="right", padx=5)
-        
-        del_btn = tk.Button(right_btn_frame, text="❌", bd=0, bg=row_bg, fg="#ef4444", activebackground="#2d2d30", font=font_tuple(8), cursor="hand2")
-        del_btn.pack(side="right", padx=2)
-        
-        add_btn = tk.Button(right_btn_frame, text="➕", bd=0, bg=row_bg, fg="#10b981", activebackground="#2d2d30", font=font_tuple(8), cursor="hand2")
-        add_btn.pack(side="right", padx=5)
         
         time_var = tk.StringVar(value=data.get("timestamp", "0s000"))
         time_label = tk.Label(right_btn_frame, text=f"T={time_var.get()}", bg=row_bg, fg=row_fg, width=10, font=font_tuple(9, monospace=True))
@@ -10096,18 +10116,34 @@ class TextCommandEditor(tk.Toplevel):
             "time_var": time_var,
             "time_label": time_label,
             "grip_label": grip_label,
-            "widgets_to_bg": [row_frame, right_btn_frame, del_btn, add_btn, delay_label, ms_label, time_label, param_frame, grip_label]
+            "is_add_row": is_add_row,
+            "widgets_to_bg": [row_frame, right_btn_frame, delay_label, ms_label, time_label, param_frame, grip_label]
         }
         
-        del_btn.config(command=lambda: self._delete_grid_row(row_data))
-        add_btn.config(command=lambda: self._insert_grid_row_after(row_data))
+        if is_add_row:
+            add_btn = tk.Label(right_btn_frame, text="＋", bg=row_bg, fg="#16a34a", font=font_tuple(10, "bold"), cursor="hand2", width=3)
+            add_btn.pack(side="right", padx=5)
+            add_btn.bind("<Enter>", lambda e, w=add_btn: w.configure(fg="#22c55e"))
+            add_btn.bind("<Leave>", lambda e, w=add_btn: w.configure(fg="#16a34a"))
+            add_btn.bind("<Button-1>", lambda e: self._add_action_at_end())
+            row_data["widgets_to_bg"].append(add_btn)
+        else:
+            del_btn = tk.Label(right_btn_frame, text="✕", bg=row_bg, fg="#b91c1c", font=font_tuple(10, "bold"), cursor="hand2", width=3)
+            del_btn.pack(side="right", padx=2)
+            del_btn.bind("<Enter>", lambda e, w=del_btn: w.configure(fg="#ef4444"))
+            del_btn.bind("<Leave>", lambda e, w=del_btn: w.configure(fg="#b91c1c"))
+            del_btn.bind("<Button-1>", lambda e, rd=row_data: self._delete_grid_row(rd))
+            row_data["widgets_to_bg"].append(del_btn)
         
         # 綁定拖曳事件
-        grip_label.bind("<ButtonPress-1>", lambda e, rd=row_data: self._on_grip_press(e, rd))
-        grip_label.bind("<B1-Motion>", lambda e, rd=row_data: self._on_grip_motion(e, rd))
-        grip_label.bind("<ButtonRelease-1>", lambda e, rd=row_data: self._on_grip_release(e, rd))
+        if not is_add_row:
+            grip_label.bind("<ButtonPress-1>", lambda e, rd=row_data: self._on_grip_press(e, rd))
+            grip_label.bind("<B1-Motion>", lambda e, rd=row_data: self._on_grip_motion(e, rd))
+            grip_label.bind("<ButtonRelease-1>", lambda e, rd=row_data: self._on_grip_release(e, rd))
         
         def on_category_changed(event):
+            if is_add_row:
+                return
             new_cat = cat_var.get()
             new_fg = fg_colors.get(new_cat, "#ffffff")
             grip_label.configure(fg=new_fg)
@@ -10361,14 +10397,16 @@ class TextCommandEditor(tk.Toplevel):
             data = self._parse_line_to_data(line)
             self._add_grid_row(data)
             
-        if not self.grid_rows:
-            self._add_grid_row({"category": "空白", "sub_action": "", "target": "", "delay": 0, "timestamp": "0s000"})
+        # 永遠在最後面新增一個「新動作的下一個空行」作為新增按鈕列
+        self._add_grid_row({"category": "空白", "sub_action": "", "target": "", "delay": 0, "timestamp": "0s000"}, is_add_row=True)
 
     def _save_grid_to_text(self):
         lines = []
         current_time_ms = 0
         
         for r in self.grid_rows:
+            if r.get("is_add_row"):
+                continue
             cat = r["category_var"].get()
             sub = r["sub_var"].get() if "sub_var" in r else ""
             target = r["target_var"].get() if "target_var" in r else ""

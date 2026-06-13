@@ -3749,19 +3749,8 @@ class TextCommandEditor(tk.Toplevel):
                 event_name = event.get("event")
                 current_time = event.get("time", 0)
                 
-                # --- 改良版整合式時間解析 ---
-                # 不再在此處插入 standalone >延遲，改由各指令內部判定
-                # gap_ms = round((current_time - last_event_time) * 1000)
-                # if gap_ms > 0:
-                #     lines.append(f">延遲{gap_ms}ms\n")
-                
-                # Heuristic: 如果當前時間與「上一個動作結束時間」一致，則顯示 T=0s000
-                is_relative_time = idx > 0 and abs(current_time - last_event_time) < 0.005
-                time_val_str = "T=0s000" if is_relative_time else f"T={self._format_time(current_time)}"
-                
-                # 預設此行延遲 (如果 JSON 中有儲存原始行延遲則優先使用)
+                # 取消時間後綴，改用獨立行
                 line_delay_ms = event.get("_delay_after", 0)
-                time_suffix = f", 延遲{line_delay_ms}ms, {time_val_str}"
                 
                 # 2. 處理當前事件指令
                 if event_type == "label":
@@ -3785,42 +3774,48 @@ class TextCommandEditor(tk.Toplevel):
                     is_press = event.get("_is_press", False)
                     is_release = event.get("_is_release", False)
                     auto_pair = event.get("_auto_pair", False)
-                    time_suffix = f", 延遲0ms, T={self._format_time(current_time)}"
+                    
                     
                     if event_name == "down":
                         if is_press:
                             press_delay_ms = event.get("_press_delay", 0)
-                            lines.append(f">按下{key_name}, 延遲{press_delay_ms}ms, {time_val_str}\n")
+                            lines.append(f">按下{key_name}\n")
+                            if press_delay_ms > 0: lines.append(f">等待 {press_delay_ms}ms\n")
                             last_event_time = current_time + (press_delay_ms/1000.0)
                         elif auto_pair:
                             pressed_keys[key_name] = current_time
                         else:
                             pressed_keys[key_name] = current_time
-                            lines.append(f">按下{key_name}{time_suffix}\n")
-                            last_event_time = current_time + (line_delay_ms/1000.0)
+                            lines.append(f">按下{key_name}\n")
+                        if line_delay_ms > 0: lines.append(f">等待 {line_delay_ms}ms\n")
+                        last_event_time = current_time + (line_delay_ms/1000.0)
                     elif event_name == "up":
                         if is_release:
-                            lines.append(f">放開{key_name}{time_suffix}\n")
+                            lines.append(f">放開{key_name}\n")
+                            if line_delay_ms > 0: lines.append(f">等待 {line_delay_ms}ms\n")
                             last_event_time = current_time
                         elif key_name in pressed_keys:
                             press_time = pressed_keys[key_name]
                             duration_ms = round((current_time - press_time) * 1000)
-                            lines.append(f">按{key_name}, 延遲{duration_ms}ms, T={self._format_time(press_time)}\n")
+                            lines.append(f">{key_name}\n")
+                            if duration_ms > 0: lines.append(f">等待 {duration_ms}ms\n")
                             del pressed_keys[key_name]
                             last_event_time = current_time
                     continue
 
                 if event_type == "mouse":
                     x, y = event.get("x", 0), event.get("y", 0)
-                    time_suffix = f", 延遲0ms, T={self._format_time(current_time)}"
+                    
                     
                     if event_name == "move":
                         duration = event.get("duration", 0)
                         dur_ms = int(duration * 1000)
-                        lines.append(f">移動至({x},{y}), 延遲{dur_ms}ms, T={self._format_time(current_time)}\n")
+                        lines.append(f">移動至({x},{y})\n")
+                        if dur_ms > 0: lines.append(f">等待 {dur_ms}ms\n")
                         last_event_time = current_time + duration
                     elif event_name == "wheel":
-                        lines.append(f">滾輪({event.get('delta', 1)}){time_suffix}\n")
+                        lines.append(f">滾輪({event.get('delta', 1)})\n")
+                        if line_delay_ms > 0: lines.append(f">等待 {line_delay_ms}ms\n")
                         last_event_time = current_time
                     elif event_name == "down":
                         button = event.get("button", "left")
@@ -3841,36 +3836,57 @@ class TextCommandEditor(tk.Toplevel):
                             next_event.get("event") == "up" and next_event.get("button") == button):
                             # 注意：這裡如果是點擊序列，延遲通常由 Up 事件貢獻
                             duration_ms = round((next_event["time"] - current_time) * 1000)
-                            lines.append(f">{btn_name}點擊({x},{y}), 延遲{duration_ms}ms, {time_val_str}\n")
+                            lines.append(f">{btn_name}點擊({x},{y})\n")
+                            if duration_ms > 0: lines.append(f">等待 {duration_ms}ms\n")
                             next_event["_skip_next"] = True
                             last_event_time = next_event["time"] + (next_event.get("_delay_after", 0)/1000.0)
                         else:
                             coord_str = f"({x},{y})" if x is not None else ""
-                            lines.append(f">按下{btn_name}{coord_str}{time_suffix}\n")
+                            lines.append(f">按下{btn_name}{coord_str}\n")
+                            if line_delay_ms > 0: lines.append(f">等待 {line_delay_ms}ms\n")
                             last_event_time = current_time + (line_delay_ms/1000.0)
                     elif event_name == "up":
                         btn_name = "左鍵" if event.get("button") == "left" else "右鍵" if event.get("button") == "right" else "中鍵"
                         coord_str = f"({x},{y})" if x is not None else ""
-                        lines.append(f">放開{btn_name}{coord_str}{time_suffix}\n")
+                        lines.append(f">放開{btn_name}{coord_str}\n")
+                        if line_delay_ms > 0: lines.append(f">等待 {line_delay_ms}ms\n")
                         last_event_time = current_time + (line_delay_ms/1000.0)
                     continue
 
-                if event_type == "click_image":
-                    pic_name = event.get("image", "")
-                    btn = "左鍵點擊" if event.get("button", "left") == "left" else "右鍵點擊"
-                    lines.append(f">{btn}>{pic_name}{time_suffix}\n")
+                if event_type in ["click_image", "wait_image", "move_to_image", "recognize_image", "if_image_exists", "yolo_detect"]:
+                    region_str = f", 範圍({event['region'][0]},{event['region'][1]},{event['region'][2]},{event['region'][3]})" if event.get("region") else ""
+                    border_str = ", 邊框" if event.get("show_border") else ""
+                    time_suffix = f", T={self._format_time(current_time)}"
+                    
+                    if event_type == "click_image":
+                        pic_name = event.get("image", "")
+                        btn = "點擊圖片" if event.get("button", "left") == "left" else "右鍵點擊"
+                        lines.append(f">{btn}>{pic_name}{border_str}{region_str}{time_suffix}\n")
+                    elif event_type == "wait_image":
+                        pic_name = event.get("image", "")
+                        lines.append(f">等待圖片>{pic_name}{border_str}{region_str}{time_suffix}\n")
+                    elif event_type == "move_to_image":
+                        pic_name = event.get("image", "")
+                        lines.append(f">移動至>{pic_name}{border_str}{region_str}{time_suffix}\n")
+                    elif event_type == "recognize_image":
+                        lines.append(f">辨識>{event.get('image', '')}{border_str}{region_str}{time_suffix}\n")
+                    elif event_type == "if_image_exists":
+                        lines.append(f">if>{event.get('image', '')}{border_str}{region_str}{time_suffix}\n")
+                        if event.get("on_success"): lines.append(f">>{self._format_branch_action(event['on_success'])}\n")
+                        if event.get("on_failure"): lines.append(f">>>{self._format_branch_action(event['on_failure'])}\n")
+                    elif event_type == "yolo_detect":
+                        cls_name = event.get('class_name', '')
+                        conf = event.get('confidence', 0.5)
+                        lines.append(f">辨識>AI:{cls_name}, 門檻({conf}){border_str}{region_str}{time_suffix}\n")
+                        if event.get("on_success"): lines.append(f">>{self._format_branch_action(event['on_success'])}\n")
+                        if event.get("on_failure"): lines.append(f">>>{self._format_branch_action(event['on_failure'])}\n")
+                    
+                    if line_delay_ms > 0: lines.append(f">等待 {line_delay_ms}ms\n")
                     last_event_time = current_time + (line_delay_ms/1000.0)
                     continue
 
-                if event_type == "recognize_image":
-                    lines.append(f">辨識>{event.get('image', '')}{time_suffix}\n")
-                    last_event_time = current_time + (line_delay_ms/1000.0)
-                    continue
-
-                if event_type == "if_image_exists":
-                    lines.append(f">if>{event.get('image', '')}, T={self._format_time(current_time)}\n")
-                    if event.get("on_success"): lines.append(f">>{self._format_branch_action(event['on_success'])}\n")
-                    if event.get("on_failure"): lines.append(f">>>{self._format_branch_action(event['on_failure'])}\n")
+                if event_type == "region_end":
+                    lines.append(f">範圍結束, T={self._format_time(current_time)}\n")
                     last_event_time = current_time
                     continue
 
@@ -3894,24 +3910,23 @@ class TextCommandEditor(tk.Toplevel):
 
                 if event_type == "loop_start":
                     if event.get("loop_type") == "repeat":
-                        lines.append(f">重複>{event.get('max_count', 1)}次, T={self._format_time(current_time)}\n")
+                        lines.append(f">重複>{event.get('max_count', 1)}次\n")
                     elif event.get("loop_type") == "while":
                         cond = event.get("condition", {})
                         if cond.get("type") == "image_exists":
-                            lines.append(f">當圖片存在>{cond.get('image', '')}, T={self._format_time(current_time)}\n")
+                            lines.append(f">當圖片存在>{cond.get('image', '')}\n")
                     last_event_time = current_time
                     continue
 
                 if event_type == "loop_end":
                     loop_name = ">重複結束" if event.get("loop_type") == "repeat" else ">迴圈結束"
-                    lines.append(f"{loop_name}, T={self._format_time(current_time)}\n")
+                    lines.append(f"{loop_name}\n")
                     last_event_time = current_time
                     continue
 
                 if event_type == "delay":
                     ms = int(event.get("duration", 0) * 1000)
-                    time_val_str = f"T={self._format_time(current_time)}"
-                    if ms > 0: lines.append(f">延遲{ms}ms, {time_val_str}\n")
+                    if ms > 0: lines.append(f">等待 {ms}ms\n")
                     last_event_time = current_time + event.get("duration", 0)
                     continue
 
@@ -3945,7 +3960,7 @@ class TextCommandEditor(tk.Toplevel):
                     off_x = event.get("offset_x", 0)
                     off_y = event.get("offset_y", 0)
                     suffix = f", 偏移({off_x},{off_y})" if (off_x != 0 or off_y != 0) else ""
-                    lines.append(f">點擊文字>{target}{suffix}, T={self._format_time(current_time)}\n")
+                    lines.append(f">點擊文字>{target}{suffix}\n")
                     last_event_time = current_time
                     continue
 
@@ -3958,7 +3973,7 @@ class TextCommandEditor(tk.Toplevel):
 
                 if event_type == "if_text_exists":
                     target = event.get("target_text", "")
-                    lines.append(f">if文字>{target}, T={self._format_time(current_time)}\n")
+                    lines.append(f">if文字>{target}\n")
                     if event.get("on_success"): lines.append(f">>{self._format_branch_action(event['on_success'])}\n")
                     if event.get("on_failure"): lines.append(f">>>{self._format_branch_action(event['on_failure'])}\n")
                     last_event_time = current_time
@@ -3978,6 +3993,7 @@ class TextCommandEditor(tk.Toplevel):
                 # 使用通用格式化
                 line = self._format_generic_event(event)
                 if line: lines.append(f">{line}\n")
+                if line_delay_ms > 0: lines.append(f">等待 {line_delay_ms}ms\n")
                 last_event_time = current_time
 
             except Exception as e:
@@ -4410,6 +4426,13 @@ class TextCommandEditor(tk.Toplevel):
                         "if文字>", "等待文字>", "點擊文字>", "自動辨識輸入驗證碼",
                         "OCR辨識輸入範圍", "相對OCR辨識輸入"  # OCR指令
                     ]) or line.startswith(">延遲"):
+                        
+                        line_delay_ms = 0
+                        delay_match = re.search(r'(?:,\s*)?延遲(\d+)ms', line)
+                        if delay_match:
+                            line_delay_ms = int(delay_match.group(1))
+                            line = line.replace(delay_match.group(0), "").strip()
+                            
                         # 圖片指令和OCR指令處理
                         #  v2.8.2+: 使用 cumulative_offset 作為基準，偵測 T 回溯
                         time_str = line.split(",")[-1].strip() if "," in line and "T=" in line else "T=0s000"
@@ -4420,6 +4443,7 @@ class TextCommandEditor(tk.Toplevel):
                         
                         event = self._parse_image_command_to_json(line, lines[i+1:i+6], cumulative_offset)
                         if event:
+                            event["_delay_after"] = line_delay_ms
                             if event.get("time", 0) == 0:
                                 event["time"] = cumulative_offset + local_T
                             
@@ -4519,7 +4543,14 @@ class TextCommandEditor(tk.Toplevel):
                         
                         coords = re.search(r'\((-?\d+),(-?\d+)\)', action)
                         
-                        if ("左鍵點擊" in action or "右鍵點擊" in action or "中鍵點擊" in action) and not coords:
+                        # 攔截獨立等待指令
+                        wait_match = re.match(r'^(?:等待|延遲)\s*(\d+)ms$', action)
+                        if wait_match:
+                            wait_ms = int(wait_match.group(1))
+                            events.append({"type": "delay", "duration": wait_ms/1000.0, "time": abs_time, "_line_number": line_number})
+                            running_time += wait_ms/1000.0
+                            
+                        elif ("左鍵點擊" in action or "右鍵點擊" in action or "中鍵點擊" in action) and not coords:
                             button = "right" if "右鍵" in action else "middle" if "中鍵" in action else "left"
                             events.append({"type": "mouse", "event": "down", "button": button, "x": None, "y": None, "time": abs_time, "in_target": True, "relative_to_window": True, "_line_number": line_number})
                             events.append({"type": "mouse", "event": "up", "button": button, "x": None, "y": None, "time": abs_time + (delay_ms/1000.0), "in_target": True, "relative_to_window": True, "_line_number": line_number, "_delay_after": delay_ms})
@@ -4575,6 +4606,17 @@ class TextCommandEditor(tk.Toplevel):
                             key = action.replace("按", "").strip()
                             events.append({"type": "keyboard", "event": "down", "name": key, "time": abs_time, "_line_number": line_number, "_auto_pair": True})
                             events.append({"type": "keyboard", "event": "up", "name": key, "time": abs_time + delay_s, "_line_number": line_number, "_auto_pair": True})
+                            
+                        elif action.startswith("鍵入"):
+                            key = action.replace("鍵入", "").strip()
+                            events.append({"type": "keyboard", "event": "down", "name": key, "time": abs_time, "_line_number": line_number, "_auto_pair": True})
+                            events.append({"type": "keyboard", "event": "up", "name": key, "time": abs_time + delay_s, "_line_number": line_number, "_auto_pair": True})
+                            
+                        elif not any(k in action for k in ["左鍵", "右鍵", "中鍵", "滾輪", "按下", "放開"]):
+                            key = action.strip()
+                            if key:
+                                events.append({"type": "keyboard", "event": "down", "name": key, "time": abs_time, "_line_number": line_number, "_auto_pair": True})
+                                events.append({"type": "keyboard", "event": "up", "name": key, "time": abs_time + delay_s, "_line_number": line_number, "_auto_pair": True})
                         
                         running_time += delay_s
                 
@@ -4815,11 +4857,11 @@ class TextCommandEditor(tk.Toplevel):
                 result["region"] = region
             return result
         
-        # 點擊圖片指令（>左鍵點擊>pic01, 邊框, 範圍(x1,y1,x2,y2), 半徑(60), 隨機, T=1s200）
-        click_pattern = r'>(左鍵|右鍵)點擊>(.+?)(?:,\s*T=(\d+)s(\d+))?$'
+        # 點擊圖片指令（>左鍵點擊>pic01 或 >點擊圖片>pic01）
+        click_pattern = r'>(?:(左鍵|右鍵)點擊|點擊圖片)>(.+?)(?:,\s*T=(\d+)s(\d+))?$'
         match = re.match(click_pattern, command_line)
         if match:
-            button = "left" if match.group(1) == "左鍵" else "right"
+            button = "right" if match.group(1) == "右鍵" else "left"
             content = match.group(2).strip()
             seconds = int(match.group(3)) if match.group(3) else 0
             millis = int(match.group(4)) if match.group(4) else 0
@@ -4892,7 +4934,7 @@ class TextCommandEditor(tk.Toplevel):
                 result["click_radius"] = click_radius
                 result["click_offset_mode"] = click_offset_mode
             return result        # 等待圖片指令（>等待圖片>pic01, 逾時(10s), 步長(500ms), T=1s500）
-        wait_pic_pattern = r'>等待圖片>(.+?)(?:,\s*T=(\d+)s(\d+))?'
+        wait_pic_pattern = r'>等待圖片>(.+?)(?:,\s*T=(\d+)s(\d+))?$'
         match = re.match(wait_pic_pattern, command_line)
         if match:
             content = match.group(1).strip()
@@ -5009,7 +5051,7 @@ class TextCommandEditor(tk.Toplevel):
             return result
         
         # 新增：如果存在圖片（條件判斷）>如果存在>pic01, T=0s100
-        if_exists_pattern = r'>如果存在>(.+?)(?:,\s*T=(\d+)s(\d+))?'
+        if_exists_pattern = r'>如果存在>(.+?)(?:,\s*T=(\d+)s(\d+))?$'
         match = re.match(if_exists_pattern, command_line)
         if match:
             pic_name = match.group(1).strip().rstrip(',').strip()
@@ -5118,7 +5160,7 @@ class TextCommandEditor(tk.Toplevel):
             }
         
         # 新增：辨識任一圖片（多圖同時辨識）>辨識任一>pic01|pic02|pic03, T=0s100
-        recognize_any_pattern = r'>辨識任一>(.+?)(?:,\s*T=(\d+)s(\d+))?'
+        recognize_any_pattern = r'>辨識任一>(.+?)(?:,\s*T=(\d+)s(\d+))?$'
         match = re.match(recognize_any_pattern, command_line)
         if match:
             pic_names = match.group(1).strip().split('|')
@@ -9781,6 +9823,7 @@ class TextCommandEditor(tk.Toplevel):
         self._save_grid_to_text()
 
     def _parse_line_to_data(self, line):
+        import re
         line = line.strip()
         if not line:
             return {"category": "空白", "sub_action": "", "target": "", "delay": 0, "timestamp": "0s000"}
@@ -9797,7 +9840,7 @@ class TextCommandEditor(tk.Toplevel):
                 line = line[:-1].strip()
                 
         # 優先判斷是否為獨立的延遲指令，防止被通用延遲後置移除 (Bug 修復)
-        standalone_delay_match = re.match(r'^>?延遲(\d+)ms$', line)
+        standalone_delay_match = re.match(r'^>?(?:延遲|等待)\s*(\d+)ms$', line)
         if standalone_delay_match:
             delay_ms = int(standalone_delay_match.group(1))
             return {
@@ -9810,7 +9853,6 @@ class TextCommandEditor(tk.Toplevel):
 
         # 移除 延遲Xms 後置並解析
         delay_ms = 0
-        import re
         delay_match = re.search(r'(?:,\s*)?延遲(\d+)ms', line)
         if delay_match:
             delay_ms = int(delay_match.group(1))
@@ -10188,7 +10230,7 @@ class TextCommandEditor(tk.Toplevel):
             tk.Label(param_frame, text="( 空白行 )", bg=row_bg, fg="#888888", font=font_tuple(9)).pack(side="left", padx=5)
             
         elif category == "註解":
-            tk.Label(param_frame, text="#", bg=row_bg, fg=row_fg, font=font_tuple(9, bold=True)).pack(side="left", padx=2)
+            tk.Label(param_frame, text="#", bg=row_bg, fg=row_fg, font=font_tuple(9, weight='bold')).pack(side="left", padx=2)
             comment_entry = tk.Entry(param_frame, textvariable=target_var, width=50, 
                                      bg="#1e1e1e", fg="#ffffff", insertbackground="#ffffff", bd=1, relief="solid", highlightthickness=0, font=font_tuple(9))
             comment_entry.pack(side="left", fill="x", expand=True, padx=5)
@@ -10395,7 +10437,23 @@ class TextCommandEditor(tk.Toplevel):
             if not line:
                 continue
             data = self._parse_line_to_data(line)
+            
+            # 智慧收合邏輯 (Smart Collapse):
+            # 如果解析出來是純粹的「延遲等待」，且上一列有意義(非空白)且延遲為 0，則收合進上一列
+            if data["category"] == "流程控制" and data["sub_action"] == "延遲等待":
+                if len(self.grid_rows) > 0:
+                    prev_row = self.grid_rows[-1]
+                    if prev_row["category_var"].get() not in ["空白", "註解"]:
+                        prev_delay = prev_row["delay_var"].get()
+                        if prev_delay == "" or prev_delay == "0":
+                            prev_row["delay_var"].set(str(data["delay"]))
+                            continue  # 成功收合，不新增此列
+                            
             self._add_grid_row(data)
+            
+        # 如果目前沒有任何指令，預設新增一行可編輯的空白行，避免第一行只剩下無法編輯的 "+" 列
+        if len(self.grid_rows) == 0:
+            self._add_grid_row({"category": "空白", "sub_action": "", "target": "", "delay": 0, "timestamp": "0s000"})
             
         # 永遠在最後面新增一個「新動作的下一個空行」作為新增按鈕列
         self._add_grid_row({"category": "空白", "sub_action": "", "target": "", "delay": 0, "timestamp": "0s000"}, is_add_row=True)
@@ -10428,44 +10486,47 @@ class TextCommandEditor(tk.Toplevel):
             action_line = ""
             if cat == "影像辨識":
                 if sub == "圖片辨識":
-                    action_line = f">辨識>{target}, 延遲{delay_ms}ms, T={t_val}"
+                    action_line = f">辨識>{target}"
                 elif sub in ["等待圖片", "點擊圖片", "如果存在"]:
-                    action_line = f">{sub}>{target}, 延遲{delay_ms}ms, T={t_val}"
+                    action_line = f">{sub}>{target}"
                 elif sub == "辨識任一":
-                    action_line = f">辨識任一>{target}, T={t_val}"
+                    action_line = f">辨識任一>{target}"
                 elif sub == "自動辨識輸入驗證碼":
-                    action_line = f">自動辨識輸入驗證碼, T={t_val}"
+                    action_line = f">自動辨識輸入驗證碼"
                 elif sub == "OCR辨識輸入範圍":
-                    action_line = f">OCR辨識輸入範圍({target}), T={t_val}"
+                    action_line = f">OCR辨識輸入範圍({target})"
                 elif sub == "相對OCR辨識輸入":
-                    action_line = f">相對OCR辨識輸入>{target}, T={t_val}"
+                    action_line = f">相對OCR辨識輸入>{target}"
             elif cat == "滑鼠鍵盤":
                 if sub in ["左鍵點擊", "右鍵點擊", "滑鼠移動", "雙擊", "連點"]:
                     if "," in target and all(p.strip().isdigit() for p in target.split(",")):
-                        action_line = f">{sub}({target}), 延遲{delay_ms}ms, T={t_val}"
+                        action_line = f">{sub}({target})"
                     else:
-                        action_line = f">{sub}>{target}, 延遲{delay_ms}ms, T={t_val}"
+                        action_line = f">{sub}>{target}"
                 elif sub in ["按鍵按下", "按鍵放開", "按鍵鍵入", "鍵入"]:
                     kw = "按下" if sub == "按鍵按下" else "放開" if sub == "按鍵放開" else "鍵入"
-                    action_line = f">{kw}{target}, 延遲{delay_ms}ms, T={t_val}"
+                    action_line = f">{kw}{target}"
                 elif sub == "鍵盤按鍵":
-                    action_line = f">{target}, 延遲{delay_ms}ms, T={t_val}"
+                    action_line = f">{target}"
             elif cat == "流程控制":
                 if sub == "延遲等待":
-                    action_line = f">延遲{target}ms, T={t_val}"
+                    action_line = f">等待 {target}ms"
                     if target.isdigit():
                         delay_ms = int(target)
                 elif sub == "重複N次":
-                    action_line = f">重複>{target}, T={t_val}"
+                    action_line = f">重複>{target}"
                 elif sub == "迴圈結束":
-                    action_line = f">重複結束, T={t_val}"
+                    action_line = f">重複結束"
                 elif sub in ["新增迴圈標籤", "跳轉迴圈標籤", "條件失敗跳轉"]:
-                    action_line = f">{sub}>{target}, T={t_val}"
+                    action_line = f">{sub}>{target}"
             elif cat == "變數系統":
-                action_line = f">{sub}>{target}, T={t_val}"
+                action_line = f">{sub}>{target}"
                 
             if action_line:
                 lines.append(action_line + "\n")
+                # 如果這不是獨立的延遲列，且帶有延遲數值，則額外新增一行等待
+                if not (cat == "流程控制" and sub == "延遲等待") and delay_ms > 0:
+                    lines.append(f">等待 {delay_ms}ms\n")
                 
             current_time_ms += delay_ms
             

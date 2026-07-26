@@ -29,7 +29,10 @@ def show_about(parent):
     frm.pack(fill="both", expand=True)
 
     # 文字使用簡單設定（視主程式字型設定而定）
-    tb.Label(frm, text="可理解為按鍵精靈/操作錄製/掛機工具\n解決重複性高的表單填入等動作", font=("Microsoft JhengHei", 11)).pack(anchor="w", pady=(0, 6))
+    import webbrowser
+    baha_link = tk.Label(frm, text="請點擊此處開啟簡易教學網頁(巴哈)", font=("Microsoft JhengHei", 11, "underline"), fg="#1E90FF", cursor="hand2")
+    baha_link.pack(anchor="w", pady=(0, 6))
+    baha_link.bind("<Button-1>", lambda e: webbrowser.open_new("https://home.gamer.com.tw/artwork.php?sn=6329425"))
     link = tk.Label(frm, text="任何問題歡迎加入DC伺服器詢問(點我)", font=("Microsoft JhengHei", 10, "underline"), fg="#5865F2", cursor="hand2")
     link.pack(anchor="w")
     link.bind("<Button-1>", lambda e: os.startfile("https://discord.gg/72Kbs4WPPn"))
@@ -47,7 +50,12 @@ def show_about(parent):
     qr_frame = tb.Frame(frm)
     qr_frame.pack(fill="x", pady=(10, 0))
     
-    qr_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "images", "qr_code.png")
+    import sys
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    qr_path = os.path.join(base_path, "images", "qr_code.png")
     if os.path.exists(qr_path):
         try:
             # 儲存參考避免被 GC

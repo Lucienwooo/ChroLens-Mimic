@@ -53,6 +53,19 @@ COMMAND_MAP_EN = {
     "if全部存在": "ifAllExist",
     "YOLO偵測": "YOLODetect",
     "自動辨識輸入驗證碼": "AutoCaptcha",
+    "等待圖像": "WaitImage",
+    "尋找圖像": "FindImage",
+    "辨識(beta)": "RecognizeBeta",
+    "座標左點擊": "CoordLeftClick",
+    "座標右點擊": "CoordRightClick",
+    "輸入字": "InputText",
+    "拖曳": "Drag",
+    "滾動": "Scroll",
+    "等待": "Wait",
+    "尋找": "Find",
+    "模組內容": "ModuleContent",
+    "儲存修改": "SaveChanges",
+    "更新網格": "UpdateGrid",
 }
 
 # 建立反向對照表

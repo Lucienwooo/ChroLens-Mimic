@@ -3824,7 +3824,7 @@ class CoreRecorder:
                 self._hybrid_matcher.threshold = threshold
                 search_region = region
 
-                if enable_tracking or self._tracking_mode.get(image_name_or_path, False):
+                if (enable_tracking or self._tracking_mode.get(image_name_or_path, False)) and region is None:
                     import ctypes
                     user32 = ctypes.windll.user32
                     screen_size = (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
@@ -3910,7 +3910,7 @@ class CoreRecorder:
             
             #  智能追蹤：如果啟用追蹤模式且有歷史位置，使用預測式搜尋
             search_region = region
-            if enable_tracking or self._tracking_mode.get(image_name_or_path, False):
+            if (enable_tracking or self._tracking_mode.get(image_name_or_path, False)) and region is None:
                 # 獲取螢幕尺寸
                 import ctypes
                 user32 = ctypes.windll.user32

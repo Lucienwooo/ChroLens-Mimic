@@ -849,25 +849,23 @@ class TextCommandEditor(tk.Toplevel):
             pady=5
         ).pack(side="right", padx=5)
         
-        # 主編輯區 - 使用左右兩欄佈局
+        # 主編輯區 - 使用 2x2 Grid 佈局
         main_frame = tk.Frame(self)
         main_frame.pack(fill="both", expand=True, padx=10, pady=5)
         
-        # 左側大區: 按鈕區 + 模組預覽（對調後）
-        left_big_frame = tk.Frame(main_frame, width=450)
-        left_big_frame.pack(side="left", fill="both", expand=False)
-        left_big_frame.pack_propagate(False)
+        main_frame.columnconfigure(0, weight=0, minsize=450) # 左側固定寬度
+        main_frame.columnconfigure(1, weight=1)              # 右側自動延展
+        main_frame.rowconfigure(0, weight=1)                 # 上方自動延展
+        main_frame.rowconfigure(1, weight=0, minsize=380)    # 下方固定高度
         
-        # 左上: 快速指令按鈕區（移到左側）
-        left_frame = tk.Frame(left_big_frame)
-        left_frame.pack(fill="both", expand=True)
-        
-        # 快速指令按鈕區
+        # ==================== 左上: 快速指令按鈕區 ====================
+        left_frame = tk.Frame(main_frame, relief="groove", bd=2)
+        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5), pady=(0, 5))
         self._create_command_buttons_in_frame(left_frame)
         
-        # 左下: 自訂模組管理（移到左側下方）
-        left_bottom_frame = tk.Frame(left_big_frame, bg="#f5f5f5", relief="groove", bd=2, height=380)
-        left_bottom_frame.pack(fill="both", expand=False, pady=(5, 0))
+        # ==================== 左下: 自訂模組管理 ====================
+        left_bottom_frame = tk.Frame(main_frame, bg="#f5f5f5", relief="groove", bd=2)
+        left_bottom_frame.grid(row=1, column=0, sticky="nsew", padx=(0, 5), pady=(5, 0))
         left_bottom_frame.pack_propagate(False)
         
         tk.Label(
@@ -946,13 +944,9 @@ class TextCommandEditor(tk.Toplevel):
         # 載入模組列表
         self._load_modules_inline()
         
-        # 右側大區: 編輯器 + 模組管理（對調後）
-        right_big_frame = tk.Frame(main_frame)
-        right_big_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
-        
-        # 右上: 文字編輯器（移到右側）
-        right_frame = tk.Frame(right_big_frame)
-        right_frame.pack(fill="both", expand=True)
+        # ==================== 右上: 文字編輯器 ====================
+        right_frame = tk.Frame(main_frame, relief="groove", bd=2)
+        right_frame.grid(row=0, column=1, sticky="nsew", padx=(5, 0), pady=(0, 5))
         
         # 新增：摺疊軌跡顯示勾選框和圖形模式開關
         trajectory_control = tk.Frame(right_frame)
@@ -1169,25 +1163,45 @@ class TextCommandEditor(tk.Toplevel):
         # 綁定右鍵選單
         self.text_editor.bind("<Button-3>", self._show_context_menu)
         
-        # 右下: 模組內容預覽（移到右側下方）
-        module_frame = tk.Frame(right_big_frame, bg="#f5f5f5", height=380)
-        module_frame.pack(fill="both", expand=False, pady=(5, 0))
+        # ==================== 右下: 模組內容 ====================
+        module_frame = tk.Frame(main_frame, bg="#f5f5f5", relief="groove", bd=2)
+        module_frame.grid(row=1, column=1, sticky="nsew", padx=(5, 0), pady=(5, 0))
         module_frame.pack_propagate(False)
         
+        # 模組標題與按鈕區
+        mod_top_frame = tk.Frame(module_frame, bg="#f5f5f5")
+        mod_top_frame.pack(fill="x", padx=5, pady=5)
+        
         tk.Label(
-            module_frame,
-            text="模組內容預覽",
+            mod_top_frame,
+            text="模組內容",
             font=font_tuple(10),
             bg="#f5f5f5"
-        ).pack(anchor="w", padx=5, pady=5)
+        ).pack(side="left")
+        
+        tk.Button(
+            mod_top_frame,
+            text="儲存修改",
+            command=self._save_module_edits_inline,
+            bg="#4CAF50",
+            fg="white",
+            font=font_tuple(9),
+            padx=10,
+            pady=2
+        ).pack(side="right")
         
         self.module_preview = scrolledtext.ScrolledText(
             module_frame,
             font=font_tuple(10, monospace=True),
             wrap="none",
-            state="disabled",
+            state="normal",
             bg="#1e1e1e",
-            fg="#d4d4d4"
+            fg="#d4d4d4",
+            insertbackground="white",
+            selectbackground="#264f78",
+            selectforeground="white",
+            undo=True,
+            maxundo=-1
         )
         self.module_preview.pack(fill="both", expand=True, padx=5, pady=5)
         
@@ -3125,39 +3139,39 @@ class TextCommandEditor(tk.Toplevel):
             "滑鼠鍵盤": [
                 ("座標左鍵點擊", "#03A9F4", self._capture_left_click_coordinate, None),
                 ("座標右鍵點擊", "#00BCD4", self._capture_right_click_coordinate, None),
-                ("左鍵點擊", "#0288D1", None, ">左鍵點擊, T=0s000"),
-                ("右鍵點擊", "#0097A7", None, ">右鍵點擊, T=0s000"),
-                ("滑鼠移動", "#009688", None, ">移動至(0,0), T=0s000"),
+                ("左鍵點擊", "#0288D1", None, ">左鍵點擊, T=0s500"),
+                ("右鍵點擊", "#0097A7", None, ">右鍵點擊, T=0s500"),
+                ("滑鼠移動", "#009688", None, ">移動至(0,0), T=0s500"),
                 ("相對移動", "#FF5722", self._capture_relative_move, None),
-                ("滑鼠滾輪", "#4CAF50", None, ">滾輪(1), T=0s000"),
+                ("滑鼠滾輪", "#4CAF50", None, ">滾輪(1), T=0s500"),
                 ("按下按鍵", "#8BC34A", None, ">按下a, T=0s500"),
                 ("放開按鍵", "#CDDC39", None, ">放開a, T=0s500"),
-                ("輸入文字", "#9E9E9E", None, ">輸入文字>請輸入內容, T=0s000"),
+                ("輸入文字", "#9E9E9E", None, ">輸入文字>請輸入內容, T=0s500"),
                 ("拖曳 (捕捉起點與終點)", "#0288D1", self._capture_drag_coordinate, None),
             ],
             "流程控制": [
                 ("新增標籤", "#FFC107", None, "#標籤名稱"),
                 ("跳轉標籤", "#FF9800", None, ">>#標籤名稱"),
                 ("條件失敗跳轉", "#FF5722", None, ">>>#標籤名稱"),
-                ("延遲等待", "#795548", None, ">延遲1000ms, T=0s000"),
+                ("延遲等待", "#795548", None, ">延遲1000ms, T=0s500"),
             ],
             "迴圈控制": [
-                ("重複N次", "#1565C0", None, ">重複>10次, T=0s000\n  # 在此處添加要重複的指令\n>重複結束, T=0s000"),
-                ("條件迴圈", "#1976D2", None, ">當圖片存在>loading, T=0s000\n  # 在此處添加迴圈內的指令\n>迴圈結束, T=0s000"),
+                ("重複N次", "#1565C0", None, ">重複>10次, T=0s500\n  # 在此處添加要重複的指令\n>重複結束, T=0s500"),
+                ("條件迴圈", "#1976D2", None, ">當圖片存在>loading, T=0s500\n  # 在此處添加迴圈內的指令\n>迴圈結束, T=0s500"),
             ],
             "多條件與隨機": [
-                ("全部圖片存在", "#00695C", None, ">if全部存在>pic01,pic02,pic03, T=0s000\n>>#全部找到\n>>>#缺少某個"),
-                ("任一圖片存在", "#00796B", None, ">if任一存在>pic01,pic02,pic03, T=0s000\n>>#找到其中一個\n>>>#全部都沒有"),
-                ("隨機延遲", "#388E3C", None, ">隨機延遲>100ms,500ms, T=0s000"),
-                ("隨機分支", "#4CAF50", None, ">隨機執行>30%, T=0s000\n>>#執行A\n>>>#執行B"),
+                ("全部圖片存在", "#00695C", None, ">if全部存在>pic01,pic02,pic03, T=0s500\n>>#全部找到\n>>>#缺少某個"),
+                ("任一圖片存在", "#00796B", None, ">if任一存在>pic01,pic02,pic03, T=0s500\n>>#找到其中一個\n>>>#全部都沒有"),
+                ("隨機延遲", "#388E3C", None, ">隨機延遲>100ms,500ms, T=0s500"),
+                ("隨機分支", "#4CAF50", None, ">隨機執行>30%, T=0s500\n>>#執行A\n>>>#執行B"),
             ],
             "計時系統": [
-                ("計數器觸發", "#E65100", None, ">計數器>找圖失敗, 3次後, T=0s000\n>>#下一步"),
-                ("計時器觸發", "#F57C00", None, ">計時器>等待載入, 60秒後, T=0s000\n>>#逾時處理"),
-                ("重置計數器", "#FF6F00", None, ">重置計數器>找圖失敗, T=0s000"),
-                ("重置計時器", "#FF9800", None, ">重置計時器>等待載入, T=0s000"),
-                ("開始", "#4CAF50", None, ">開始>10秒後, T=0s000"),
-                ("結束", "#F44336", None, ">結束>60秒後, T=0s000"),
+                ("計數器觸發", "#E65100", None, ">計數器>找圖失敗, 3次後, T=0s500\n>>#下一步"),
+                ("計時器觸發", "#F57C00", None, ">計時器>等待載入, 60秒後, T=0s500\n>>#逾時處理"),
+                ("重置計數器", "#FF6F00", None, ">重置計數器>找圖失敗, T=0s500"),
+                ("重置計時器", "#FF9800", None, ">重置計時器>等待載入, T=0s500"),
+                ("開始", "#4CAF50", None, ">開始>10秒後, T=0s500"),
+                ("結束", "#F44336", None, ">結束>60秒後, T=0s500"),
             ]
         }
         
@@ -6631,12 +6645,36 @@ class TextCommandEditor(tk.Toplevel):
             #  為模組預覽套用語法高亮
             self._apply_syntax_highlighting_to_widget(self.module_preview)
             
-            self.module_preview.config(state="disabled")
+            # 不再設為 disabled，允許編輯
+            # self.module_preview.config(state="disabled")
         except Exception as e:
             self.module_preview.config(state="normal")
             self.module_preview.delete("1.0", tk.END)
             self.module_preview.insert("1.0", f"讀取失敗: {e}")
-            self.module_preview.config(state="disabled")
+            # self.module_preview.config(state="disabled")
+    
+    def _save_module_edits_inline(self):
+        """儲存對模組內容的修改"""
+        selection = self.module_listbox.curselection()
+        if not selection:
+            self._show_message("提示", "請先從左側選擇一個模組", "warning")
+            return
+            
+        module_name = self.module_listbox.get(selection[0])
+        module_path = os.path.join(self.modules_dir, f"{module_name}.txt")
+        
+        content = self.module_preview.get("1.0", tk.END).strip()
+        if not content:
+            self._show_message("提示", "模組內容不能為空", "warning")
+            return
+            
+        try:
+            with open(module_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            self._show_message("成功", f"模組 [{module_name}] 已儲存修改", "info")
+            self._apply_syntax_highlighting_to_widget(self.module_preview)
+        except Exception as e:
+            self._show_message("錯誤", f"儲存失敗: {e}", "error")
     
     def _save_new_module_inline(self):
         """儲存新模組（內嵌版，支援標記引用）"""
@@ -7040,9 +7078,68 @@ class TextCommandEditor(tk.Toplevel):
                         start_idx = f"{line_num}.{match.start()}"
                         end_idx = f"{line_num}.{match.end()}"
                         self.text_editor.tag_add(tag, start_idx, end_idx)
+            
+            # 呼叫 Linter 邏輯檢查器
+            self._validate_script(content)
         
         except Exception as e:
             pass
+
+    def _validate_script(self, content=None):
+        """腳本語法與邏輯檢查器 (Linter) - 僅作標示，不阻擋儲存"""
+        if content is None:
+            content = self.text_editor.get("1.0", "end-1c")
+            
+        # 清除舊的錯誤標籤
+        self.text_editor.tag_remove("syntax_error", "1.0", "end")
+        self.text_editor.tag_config("syntax_error", underline=True, underlinefg="red", background="#5a1d1d")
+        
+        lines = content.split('\n')
+        
+        # 1. 收集所有已定義的標籤
+        defined_labels = set()
+        for line in lines:
+            stripped = line.strip()
+            # 定義標籤如 #標籤, #b標籤, 但不是註解 # (帶空格) 或 >>#
+            if stripped.startswith('#') and not stripped.startswith('##') and not stripped.startswith('# '):
+                # 處理帶時間參數或後續字串的情況
+                lbl = stripped.split(',')[0].strip()
+                defined_labels.add(lbl)
+        
+        # 2. 狀態追蹤
+        pressed_keys = {} # 記錄按下的鍵: 行號
+        
+        import re
+        for offset, line in enumerate(lines):
+            line_num = offset + 1
+            stripped = line.strip()
+            
+            # 檢查缺少的跳轉目標標籤
+            if stripped.startswith('>>#') or stripped.startswith('>>>#'):
+                # 擷取跳轉目標 (>>#標籤名稱)
+                match = re.search(r'>>>(#\S+)|>>(#\S+)', stripped)
+                if match:
+                    target = (match.group(1) or match.group(2)).split(',')[0].strip()
+                    if target not in defined_labels:
+                        self.text_editor.tag_add("syntax_error", f"{line_num}.0", f"{line_num}.end")
+            
+            # 檢查按鍵是否成對
+            if stripped.startswith('>按下'):
+                # 提取按鍵名
+                match = re.search(r'>按下([^,]+)', stripped)
+                if match:
+                    key = match.group(1).strip()
+                    pressed_keys[key] = line_num
+            elif stripped.startswith('>放開'):
+                match = re.search(r'>放開([^,]+)', stripped)
+                if match:
+                    key = match.group(1).strip()
+                    if key in pressed_keys:
+                        del pressed_keys[key]
+                        
+        # 3. 標示所有未放開的按鍵
+        for key, line_num in pressed_keys.items():
+            self.text_editor.tag_add("syntax_error", f"{line_num}.0", f"{line_num}.end")
 
     def _toggle_eng_mode(self):
         if self.eng_mode_var.get():
@@ -10847,10 +10944,9 @@ class TextCommandEditor(tk.Toplevel):
                 action_line = f">{sub}>{target}"
                 
             if action_line:
+                if "T=" not in action_line:
+                    action_line += f", T={t_val}"
                 lines.append(action_line + "\n")
-                # 如果這不是獨立的延遲列，且帶有延遲數值，則額外新增一行等待
-                if not (cat == "流程控制" and sub == "延遲等待") and delay_ms > 0:
-                    lines.append(f">等待 {delay_ms}ms\n")
                 
             current_time_ms += delay_ms
             

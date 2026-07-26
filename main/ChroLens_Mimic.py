@@ -9,7 +9,7 @@
 # 該檔案包含所有開發規範、流程說明、版本管理規則和重要備註
 # ═══════════════════════════════════════════════════════════════════════════
 
-VERSION = "2.7.9"
+VERSION = "2.8.2"
 
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
@@ -82,32 +82,88 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════════════════
 # 【 Beta 新增 】視覺感知偵測套件
 # ═══════════════════════════════════════════════════════════════════════════
-try:
-    import cv2
-    import numpy as np
-    CV2_AVAILABLE = True
-    print("[OK] OpenCV 已載入（視覺偵測啟用）")
-except ImportError:
-    CV2_AVAILABLE = False
-    np = None
-    print("[提示] OpenCV 未安裝，視覺偵測功能停用。pip install opencv-python")
+cv2 = None
+np = None
+CV2_AVAILABLE = False
+_mss_module = None
+MSS_AVAILABLE = False
+_YOLOModel = None
+YOLO_AVAILABLE = False
 
-try:
-    import mss as _mss_module
-    MSS_AVAILABLE = True
-    print("[OK] MSS 高速截圖已載入")
-except ImportError:
-    MSS_AVAILABLE = False
-    print("[提示] MSS 未安裝，將使用 PIL 截圖備援。pip install mss")
+OCR_AVAILABLE = False
+OCR_ENGINE_TYPE = None
+CNOCR_AVAILABLE = False
+DDDDOCR_AVAILABLE = False
+TESSERACT_AVAILABLE = False
 
-try:
-    from ultralytics import YOLO as _YOLOModel
-    YOLO_AVAILABLE = True
-    print("[OK] YOLO 已載入")
-except ImportError:
-    _YOLOModel = None
-    YOLO_AVAILABLE = False
-    print("[提示] YOLO 未安裝，使用 OpenCV 模板比對。pip install ultralytics")
+def _bg_load_libraries():
+    global cv2, np, CV2_AVAILABLE, _mss_module, MSS_AVAILABLE, _YOLOModel, YOLO_AVAILABLE
+    global OCR_AVAILABLE, OCR_ENGINE_TYPE, CNOCR_AVAILABLE, DDDDOCR_AVAILABLE, TESSERACT_AVAILABLE
+    
+    try:
+        import cv2 as cv_mod
+        import numpy as np_mod
+        cv2 = cv_mod
+        np = np_mod
+        CV2_AVAILABLE = True
+        print("[OK] OpenCV 已載入（視覺偵測啟用）")
+    except ImportError:
+        CV2_AVAILABLE = False
+        np = None
+        print("[提示] OpenCV 未安裝，視覺偵測功能停用。pip install opencv-python")
+
+    try:
+        import mss as mss_mod
+        _mss_module = mss_mod
+        MSS_AVAILABLE = True
+        print("[OK] MSS 高速截圖已載入")
+    except ImportError:
+        MSS_AVAILABLE = False
+        print("[提示] MSS 未安裝，將使用 PIL 截圖備援。pip install mss")
+
+    try:
+        from ultralytics import YOLO as yolo_mod
+        _YOLOModel = yolo_mod
+        YOLO_AVAILABLE = True
+        print("[OK] YOLO 已載入")
+    except ImportError:
+        _YOLOModel = None
+        YOLO_AVAILABLE = False
+        print("[提示] YOLO 未安裝，使用 OpenCV 模板比對。pip install ultralytics")
+
+    try:
+        import cnocr
+        CNOCR_AVAILABLE = True
+        OCR_AVAILABLE = True
+        OCR_ENGINE_TYPE = 'cnocr'
+        print("[OK] cnocr 已載入 (中英文辨識優化)")
+    except ImportError:
+        pass
+
+    try:
+        import ddddocr
+        DDDDOCR_AVAILABLE = True
+        OCR_AVAILABLE = True
+        if OCR_ENGINE_TYPE is None:
+            OCR_ENGINE_TYPE = 'ddddocr'
+        print("[OK] ddddocr 已載入 (驗證碼辨識優化)")
+    except ImportError:
+        pass
+
+    try:
+        import pytesseract
+        TESSERACT_AVAILABLE = True
+        OCR_AVAILABLE = True
+        if OCR_ENGINE_TYPE is None:
+            OCR_ENGINE_TYPE = 'tesseract'
+        print("[OK] Tesseract OCR 已載入")
+    except ImportError:
+        pass
+
+    if not OCR_AVAILABLE:
+        print("[提示] OCR 套件未安裝 (cnocr, ddddocr 或 pytesseract)，文字辨識功能將無法使用")
+
+threading.Thread(target=_bg_load_libraries, daemon=True).start()
 
 # ==================== OCR 診斷懸浮窗 (v2.8.8) ====================
 class OCRFloatWindow:
@@ -227,46 +283,7 @@ class ScreenHighlighter:
         if self._hide_timer: self.window.after_cancel(self._hide_timer)
         self._hide_timer = self.window.after(3000, self.window.withdraw)
 
-# ═══════════════════════════════════════════════════════════════════════════
-# 【 Beta 新增 】OCR 文字辨識套件 (用於驗證碼)
-# ═══════════════════════════════════════════════════════════════════════════
-OCR_AVAILABLE = False
-OCR_ENGINE_TYPE = None # 'cnocr' or 'ddddocr' or 'tesseract' or None
-CNOCR_AVAILABLE = False
-DDDDOCR_AVAILABLE = False
-TESSERACT_AVAILABLE = False
-
-try:
-    import cnocr
-    CNOCR_AVAILABLE = True
-    OCR_AVAILABLE = True
-    OCR_ENGINE_TYPE = 'cnocr'
-    print("[OK] cnocr 已載入 (中英文辨識優化)")
-except ImportError:
-    pass
-
-try:
-    import ddddocr
-    DDDDOCR_AVAILABLE = True
-    OCR_AVAILABLE = True
-    if OCR_ENGINE_TYPE is None:
-        OCR_ENGINE_TYPE = 'ddddocr'
-    print("[OK] ddddocr 已載入 (驗證碼辨識優化)")
-except ImportError:
-    pass
-
-try:
-    import pytesseract
-    TESSERACT_AVAILABLE = True
-    OCR_AVAILABLE = True
-    if OCR_ENGINE_TYPE is None:
-        OCR_ENGINE_TYPE = 'tesseract'
-    print("[OK] Tesseract OCR 已載入")
-except ImportError:
-    pass
-
-if not OCR_AVAILABLE:
-    print("[提示] OCR 套件未安裝 (cnocr, ddddocr 或 pytesseract)，文字辨識功能將無法使用")
+# OCR 套件已於啟動時由背景執行緒進行載入
 
 
 
@@ -608,6 +625,11 @@ class VisualDetectionEngine:
         if not CV2_AVAILABLE:
             return None
         try:
+            if MSS_AVAILABLE and not self._sct:
+                try:
+                    self._sct = _mss_module.mss()
+                except Exception as e:
+                    self.logger(f"[VDE] MSS 延遲初始化失敗: {e}")
             if MSS_AVAILABLE and self._sct:
                 monitor = (
                     {"left": region[0], "top": region[1],
@@ -1176,6 +1198,11 @@ class RecorderApp(tb.Window):
         lang = self.user_config.get("language", "繁體中文")
         super().__init__(themename=skin)
         
+        # 初始化非同步日誌隊列 (必須在 super().__init__ 後，否則 self.after 會遞迴崩潰)
+        import queue
+        self.log_queue = queue.Queue()
+        self.after(100, self._process_log_queue_loop)
+        
         # 如果不是管理員，顯示警告對話視窗
         if not is_admin():
             self.after(1000, self._show_admin_warning)
@@ -1352,10 +1379,10 @@ class RecorderApp(tb.Window):
         self.auto_mini_var = tk.BooleanVar(value=self.user_config.get("auto_mini_mode", False))
         lang_map = LANG_MAP.get(saved_lang, LANG_MAP["繁體中文"])
         self.main_auto_mini_check = tb.Checkbutton(
-            frm_top, text=lang_map["自動切換"], variable=self.auto_mini_var, style="My.TCheckbutton"
+            frm_top, text=lang_map.get("自動切換", "自動切換"), variable=self.auto_mini_var, style="My.TCheckbutton"
         )
         self.main_auto_mini_check.grid(row=0, column=8, padx=4)
-        Tooltip(self.main_auto_mini_check, lang_map["勾選時，程式錄製/執行將自動轉換"])
+        Tooltip(self.main_auto_mini_check, lang_map.get("勾選時，程式錄製/執行將自動轉換", "勾選時，程式錄製/執行將自動轉換"))
         
         # ====== 隱藏到系統匣勾選框 ======
         self.hide_to_tray_var = tk.BooleanVar(value=self.user_config.get("hide_to_tray", False))
@@ -1547,48 +1574,81 @@ class RecorderApp(tb.Window):
         self.log_text.config(yscrollcommand=log_scroll.set)
 
         # --- 右側群組播放佇列 ---
-        self.playlist_frame = tb.Labelframe(self.log_page_frame, text=" [ 群組播放佇列 ] ")
+        self.playlist_frame = tb.Labelframe(self.log_page_frame, text=f" [ {lang_map.get('群組播放佇列', '群組播放佇列')} ] ")
         self.playlist_frame.grid(row=0, column=1, sticky="nsew")
         
         # 播放佇列按鈕區
         pl_btn_frame = tb.Frame(self.playlist_frame)
         pl_btn_frame.pack(fill="x", padx=5, pady=5)
         
-        # Buttons: "讀取腳本", "清除", "取消/恢復", "儲存組合", "▲", "▼"
-        self.pl_load_btn = tb.Button(pl_btn_frame, text="讀取腳本", bootstyle="info-outline", command=self.pl_load_scripts)
+        # Buttons: "讀取腳本", "清除", "取消/恢復", "儲存組合", "隨機"
+        self.pl_load_btn = tb.Button(pl_btn_frame, text=lang_map.get("讀取腳本", "讀取腳本"), bootstyle="info-outline", command=self.pl_load_scripts)
         self.pl_load_btn.pack(side="left", padx=2)
         
-        self.pl_clear_btn = tb.Button(pl_btn_frame, text="清除", bootstyle="danger-outline", command=self.pl_clear)
+        self.pl_clear_btn = tb.Button(pl_btn_frame, text=lang_map.get("清除", "清除"), bootstyle="danger-outline", command=self.pl_clear)
         self.pl_clear_btn.pack(side="left", padx=2)
         
-        self.pl_toggle_btn = tb.Button(pl_btn_frame, text="取消/恢復", bootstyle="warning-outline", command=self.pl_toggle)
+        self.pl_toggle_btn = tb.Button(pl_btn_frame, text=lang_map.get("取消/恢復", "取消/恢復"), bootstyle="warning-outline", command=self.pl_toggle)
         self.pl_toggle_btn.pack(side="left", padx=2)
         
-        self.pl_save_btn = tb.Button(pl_btn_frame, text="儲存組合", bootstyle="success-outline", command=self.pl_save)
+        self.pl_save_btn = tb.Button(pl_btn_frame, text=lang_map.get("儲存組合", "儲存組合"), bootstyle="success-outline", command=self.pl_save)
         self.pl_save_btn.pack(side="left", padx=2)
         
-        self.pl_shuffle_btn = tb.Button(pl_btn_frame, text="隨機", bootstyle="info-outline", command=self.pl_shuffle)
-        self.pl_shuffle_btn.pack(side="left", padx=2)
+        self.pl_sync_btn = tb.Button(pl_btn_frame, text=lang_map.get("同步", "同步"), bootstyle="info-outline", command=self.pl_sync_all)
+        self.pl_sync_btn.pack(side="left", padx=2)
         
         # (已移除上下移動按鈕，因清單支援直接拖曳)
         
         # 模式與提示
         pl_info_frame = tb.Frame(self.playlist_frame)
         pl_info_frame.pack(fill="x", padx=5, pady=(0, 2))
-        self.pl_mode_label = tb.Label(pl_info_frame, text="模式: 單一載入", font=font_tuple(8), foreground="#888888")
+        self.pl_mode_label = tb.Label(pl_info_frame, text=lang_map.get("模式: 單一載入", "模式: 單一載入"), font=font_tuple(8), foreground="#888888")
         self.pl_mode_label.pack(side="left")
-        tb.Label(pl_info_frame, text="[ 拖曳調整順序 ]", font=font_tuple(8), foreground="#888888").pack(side="right")
+        self.pl_drag_hint_label = tb.Label(pl_info_frame, text=lang_map.get("[ 拖曳調整順序 ]", "[ 拖曳調整順序 ]"), font=font_tuple(8), foreground="#888888")
+        self.pl_drag_hint_label.pack(side="right")
         
-        # 佇列 Listbox
-        self.playlist_listbox = tk.Listbox(self.playlist_frame, font=font_tuple(10), selectmode="extended", activestyle="none", bg="#1a1a1a", fg="#e0e0e0")
-        self.playlist_listbox.pack(fill="both", expand=True, padx=5, pady=(0, 5))
+        # 佇列 Treeview
+        tree_frame = tb.Frame(self.playlist_frame)
+        tree_frame.pack(fill="both", expand=True, padx=5, pady=(0, 5))
         
-        # 綁定拖曳事件
-        self.playlist_listbox.bind("<Button-1>", self.pl_drag_start)
-        self.playlist_listbox.bind("<B1-Motion>", self.pl_drag_motion)
-        self.playlist_listbox.bind("<ButtonRelease-1>", self.pl_drag_end)
-        # 綁定右鍵設定延遲事件
-        self.playlist_listbox.bind("<Button-3>", self.pl_on_right_click)
+        # 建立並設定字體大小
+        style = tb.Style()
+        style.configure("Playlist.Treeview", font=font_tuple(10, "bold"), rowheight=28)
+        
+        columns = ("name", "repeats", "interval", "delay")
+        self.playlist_tree = tb.Treeview(tree_frame, columns=columns, show="tree", selectmode="extended", bootstyle="info", style="Playlist.Treeview")
+        self.playlist_tree.column("#0", width=0, stretch=False)  # 隱藏預設的樹狀結構標題欄位
+        
+        self.playlist_tree.heading("name", text=lang_map.get("腳本名稱", "腳本名稱"))
+        self.playlist_tree.heading("repeats", text=lang_map.get("次數", "次數"))
+        self.playlist_tree.heading("interval", text=lang_map.get("間隔(s)", "間隔(s)"))
+        self.playlist_tree.heading("delay", text=lang_map.get("延遲(s)", "延遲(s)"))
+        
+        self.playlist_tree.column("name", width=180, anchor="w")
+        self.playlist_tree.column("repeats", width=40, anchor="center")
+        self.playlist_tree.column("interval", width=50, anchor="center")
+        self.playlist_tree.column("delay", width=50, anchor="center")
+        
+        tree_vscroll = tb.Scrollbar(tree_frame, orient="vertical", command=self.playlist_tree.yview, bootstyle="round")
+        tree_hscroll = tb.Scrollbar(tree_frame, orient="horizontal", command=self.playlist_tree.xview, bootstyle="round")
+        self.playlist_tree.configure(yscrollcommand=tree_vscroll.set, xscrollcommand=tree_hscroll.set)
+        
+        self.playlist_tree.grid(row=0, column=0, sticky="nsew")
+        tree_vscroll.grid(row=0, column=1, sticky="ns")
+        tree_hscroll.grid(row=1, column=0, sticky="ew")
+        
+        tree_frame.grid_rowconfigure(0, weight=1)
+        tree_frame.grid_columnconfigure(0, weight=1)
+        
+        self.playlist_tree.tag_configure('disabled', foreground='#555555')
+        self.playlist_tree.tag_configure('playing', foreground='#00ff00', background='#2a4d2a')
+        
+        # 綁定拖曳與右鍵/雙擊事件
+        self.playlist_tree.bind("<Button-1>", self.pl_drag_start)
+        self.playlist_tree.bind("<B1-Motion>", self.pl_drag_motion)
+        self.playlist_tree.bind("<ButtonRelease-1>", self.pl_drag_end)
+        self.playlist_tree.bind("<Button-3>", self.pl_on_right_click)
+        self.playlist_tree.bind("<Double-1>", self.pl_on_right_click)
 
         # 腳本設定區（彈性調整）
         self.script_setting_frame = tb.Frame(self.page_content_frame)
@@ -1717,7 +1777,7 @@ class RecorderApp(tb.Window):
         self.del_script_btn.pack(anchor="w", pady=2)
         
         # d) 排程按鈕：設定腳本定時執行
-        self.schedule_btn = tb.Button(self.script_right_frame, text="排程", width=16, bootstyle=INFO, command=self.open_schedule_settings)
+        self.schedule_btn = tb.Button(self.script_right_frame, text=lang_map.get("定時", "排程"), width=16, bootstyle=INFO, command=self.open_schedule_settings)
         self.schedule_btn.pack(anchor="w", pady=2)
         
         # e) 合併腳本按鈕：將多個腳本合併為一個
@@ -1767,6 +1827,7 @@ class RecorderApp(tb.Window):
         self.show_page(0)
 
         self.refresh_script_list()
+        self._load_autosaved_playlist()
         if self.script_var.get():
             self.on_script_selected()
         # self._init_language(saved_lang)  # 此方法不存在，已移除
@@ -2474,15 +2535,76 @@ class RecorderApp(tb.Window):
             self.page_menu.insert(0, lang_map["1.日誌顯示"])
             self.page_menu.insert(1, lang_map["2.腳本設定"])
             self.page_menu.insert(2, lang_map["3.指令編輯器beta"])
+
+        # ====== 更新群組播放佇列 UI 多語系 ======
+        if hasattr(self, 'playlist_frame'):
+            self.playlist_frame.config(text=f" [ {lang_map.get('群組播放佇列', '群組播放佇列')} ] ")
+        if hasattr(self, 'pl_load_btn'):
+            self.pl_load_btn.config(text=lang_map.get("讀取腳本", "讀取腳本"))
+        if hasattr(self, 'pl_clear_btn'):
+            self.pl_clear_btn.config(text=lang_map.get("清除", "清除"))
+        if hasattr(self, 'pl_toggle_btn'):
+            self.pl_toggle_btn.config(text=lang_map.get("取消/恢復", "取消/恢復"))
+        if hasattr(self, 'pl_save_btn'):
+            self.pl_save_btn.config(text=lang_map.get("儲存組合", "儲存組合"))
+        if hasattr(self, 'pl_shuffle_btn'):
+            self.pl_sync_btn.config(text=lang_map.get("同步", "同步"))
+        if hasattr(self, 'pl_drag_hint_label'):
+            self.pl_drag_hint_label.config(text=lang_map.get("[ 拖曳調整順序 ]", "[ 拖曳調整順序 ]"))
+        if hasattr(self, 'schedule_btn'):
+            self.schedule_btn.config(text=lang_map.get("定時", "排程"))
+        if hasattr(self, 'img_threshold_label'):
+            self.img_threshold_label.config(text=lang_map.get("容錯率：", "容錯率："))
+            
+        # 更新 Treeview 中的 "容錯率" 欄位標題
+        if hasattr(self, 'script_treeview'):
+            self.script_treeview.heading("threshold", text=lang_map.get("容錯率：", "容錯率：").rstrip("：").rstrip(":"))
+
+        # 刷新播放清單列表內容（以支援 [已停用] 與 秒 等語系切換）
+        if hasattr(self, '_update_playlist_ui'):
+            try:
+                self._update_playlist_ui()
+            except Exception:
+                pass
+
         self.user_config["language"] = lang
         self.save_config()
         self.update_idletasks()
 
     def log(self, msg):
-        self.log_text.configure(state="normal")
-        self.log_text.insert("end", msg + "\n")
-        self.log_text.see("end")
-        self.log_text.configure(state="disabled")
+        # 僅將訊息放進執行緒安全的隊列，背景執行緒無需等待 UI 繪製
+        if hasattr(self, 'log_queue'):
+            self.log_queue.put(msg)
+        else:
+            # Fallback 避免尚未初始化完成時崩潰
+            try:
+                self.log_text.configure(state="normal")
+                self.log_text.insert("end", msg + "\n")
+                self.log_text.see("end")
+                self.log_text.configure(state="disabled")
+            except:
+                pass
+
+    def _process_log_queue_loop(self):
+        """定時批量取出隊列中的日誌一次性寫入，大幅提升重播流暢度（腳本優先）"""
+        try:
+            if hasattr(self, 'log_queue') and not self.log_queue.empty():
+                lines = []
+                while not self.log_queue.empty():
+                    try:
+                        lines.append(self.log_queue.get_nowait())
+                    except:
+                        break
+                if lines:
+                    msg_block = "\n".join(lines) + "\n"
+                    self.log_text.configure(state="normal")
+                    self.log_text.insert("end", msg_block)
+                    self.log_text.see("end")
+                    self.log_text.configure(state="disabled")
+        except Exception:
+            pass
+        # 每 100ms 輪詢一次
+        self.after(100, self._process_log_queue_loop)
 
     def update_time_label(self, seconds):
         """更新錄製時間顯示（動態顏色：非零數字顯示 #FF95CA）"""
@@ -2552,8 +2674,35 @@ class RecorderApp(tb.Window):
             if not getattr(self.core_recorder, 'playing', False):
                 # 執行已結束，同步狀態
                 if self._is_playlist_playing:
-                    self._play_next_in_playlist()
-                    return
+                    # 檢查是否有剩餘重複次數
+                    repeats = getattr(self, '_current_pl_repeats', 1)
+                    count = getattr(self, '_current_pl_repeat_count', 1)
+                    
+                    if count < repeats:
+                        self._current_pl_repeat_count += 1
+                        interval = self.playlist_data[self._current_pl_index].get('repeat_interval', 0)
+                        path = self.playlist_data[self._current_pl_index]['path']
+                        
+                        if interval > 0:
+                            self.log(f"[{format_time(time.time())}] 等待 {interval} 秒後執行第 {self._current_pl_repeat_count} 次重複")
+                            if getattr(self, '_playlist_delay_job', None):
+                                self.after_cancel(self._playlist_delay_job)
+                            self._playlist_delay_job = self.after(int(interval * 1000), self._do_play_loaded_script, path)
+                        else:
+                            self.log(f"[{format_time(time.time())}] 開始執行第 {self._current_pl_repeat_count} 次重複")
+                            self._do_play_loaded_script(path)
+                        return
+                    else:
+                        # 腳本所有重複次數已結束，處理結束後延遲
+                        delay_after = self.playlist_data[self._current_pl_index].get('delay_after', self.playlist_data[self._current_pl_index].get('delay', 0))
+                        if delay_after > 0:
+                            self.log(f"[{format_time(time.time())}] 腳本執行完畢，等待 {delay_after} 秒後執行下一個腳本")
+                            if getattr(self, '_playlist_delay_job', None):
+                                self.after_cancel(self._playlist_delay_job)
+                            self._playlist_delay_job = self.after(int(delay_after * 1000), self._play_next_in_playlist)
+                        else:
+                            self._play_next_in_playlist()
+                        return
                 else:
                     self.playing = False
                     # ── Beta: 執行自然完成，移除視覺錨點 Hook ──
@@ -2883,24 +3032,19 @@ class RecorderApp(tb.Window):
         self._update_playlist_ui()
         
         path = self.playlist_data[found_idx]['path']
-        delay = self.playlist_data[found_idx].get('delay', 0)
+        
+        # 初始化重複計數器
+        self._current_pl_repeats = self.playlist_data[found_idx].get('repeats', 1)
+        self._current_pl_repeat_count = 1
         
         try:
             # 載入腳本
             data = sio_load_script(path)
             self.events = data.get("events", [])
             
-            if delay > 0:
-                self.log(f"[{format_time(time.time())}] 佇列等待: {delay} 秒後執行 {os.path.basename(path)}")
-                
-                # 若已有倒數計時工作，先取消防禦
-                if getattr(self, '_playlist_delay_job', None):
-                    self.after_cancel(self._playlist_delay_job)
-                    
-                self._playlist_delay_job = self.after(int(delay * 1000), self._do_play_loaded_script, path)
-            else:
-                self._do_play_loaded_script(path)
-                
+            # 直接執行，延遲移至 _update_play_time 處理 (腳本結束後)
+            self.log(f"[{format_time(time.time())}] 佇列開始執行: {os.path.basename(path)}")
+            self._do_play_loaded_script(path)
             return True
         except Exception as e:
             self.log(f"佇列腳本載入失敗: {e}，跳過此腳本。")
@@ -2921,9 +3065,11 @@ class RecorderApp(tb.Window):
 
         # 【 Beta 】播放前先掃描並清除廣告/彈窗
         self._pre_play_error_check()
-            
+        script_val = self.script_var.get()
+        is_group_selected = ("[ 群組播放佇列 ]" in script_val or "群組" in script_val)
         has_enabled_pl = any(item.get('enabled', True) for item in self.playlist_data)
-        if has_enabled_pl:
+        
+        if is_group_selected and has_enabled_pl:
             self.playing = True
             self._is_playlist_playing = True
             self._current_pl_index = -1
@@ -5626,6 +5772,22 @@ class RecorderApp(tb.Window):
         idx = self.page_menu.curselection()
         if not idx:
             return
+            
+        # 防止點擊左側選單最下方的空白處誤觸發最後一項
+        try:
+            # 計算滑鼠相對 Listbox 的實體 Y 座標
+            mouse_y = self.page_menu.winfo_pointery() - self.page_menu.winfo_rooty()
+            nearest_idx = self.page_menu.nearest(mouse_y)
+            bbox = self.page_menu.bbox(nearest_idx)
+            if bbox:
+                # bbox 格式為 (x, y, width, height)
+                # 若相對滑鼠位置大於 nearest 項目的下緣 Y 座標，判定點選在空白處
+                if mouse_y > (bbox[1] + bbox[3]):
+                    self.page_menu.selection_clear(0, "end")
+                    return
+        except Exception as e:
+            pass
+            
         self.show_page(idx[0])
 
     def show_page(self, idx):
@@ -6493,45 +6655,90 @@ class RecorderApp(tb.Window):
     # ==========================================
     # 群組播放佇列 (Playlist) 相關邏輯
     # ==========================================
+    
+    def _autosave_playlist(self):
+        try:
+            path = os.path.join(self.script_dir, "_autosave_playlist.json")
+            if not self.playlist_data:
+                if os.path.exists(path):
+                    os.remove(path)
+                return
+            group_data = {
+                "is_group": True,
+                "playlist": self.playlist_data
+            }
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(group_data, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    def _load_autosaved_playlist(self):
+        try:
+            path = os.path.join(self.script_dir, "_autosave_playlist.json")
+            if os.path.exists(path):
+                with open(path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                if data.get("is_group") and isinstance(data.get("playlist"), list):
+                    self.playlist_data = data["playlist"]
+                    self._update_playlist_ui()
+                    self.log("已自動載入上次未完成的播放佇列")
+        except Exception:
+            pass
+            
     def _update_playlist_ui(self):
-        self.playlist_listbox.delete(0, "end")
-        for idx, item in enumerate(self.playlist_data):
-            prefix = "" if item.get('enabled', True) else "[已停用] "
-            pointer = "▶ " if self._is_playlist_playing and idx == self._current_pl_index else "  "
+        # 取得目前語系對照表
+        lang = getattr(self, "actual_language", "繁體中文")
+        lang_map = LANG_MAP.get(lang, LANG_MAP["繁體中文"])
+
+        for item in self.playlist_tree.get_children():
+            self.playlist_tree.delete(item)
             
-            delay = item.get('delay', 0)
-            delay_str = f"  ({delay}秒)" if delay > 0 else ""
+        for idx, item_data in enumerate(self.playlist_data):
+            prefix = "" if item_data.get('enabled', True) else lang_map.get("[已停用] ", "[已停用] ")
+            pointer = "▶ " if self._is_playlist_playing and idx == self._current_pl_index else ""
             
-            name_disp = item['name']
+            delay_after = item_data.get('delay_after', item_data.get('delay', 0))
+            repeats = item_data.get('repeats', 1)
+            repeat_interval = item_data.get('repeat_interval', 0)
+            
+            name_disp = item_data['name']
             if name_disp.endswith('.json'):
                 name_disp = name_disp[:-5]
+                
+            full_name = f"{pointer}{idx+1:2d} {prefix}{name_disp}"
             
-            display_text = f"{pointer}{idx+1:2d} {prefix}{name_disp}{delay_str}"
-            self.playlist_listbox.insert("end", display_text)
-            
-            if not item.get('enabled', True):
-                self.playlist_listbox.itemconfig(idx, {'fg': '#555555'})
+            tags = ()
+            if not item_data.get('enabled', True):
+                tags = ('disabled',)
             elif self._is_playlist_playing and idx == self._current_pl_index:
-                self.playlist_listbox.itemconfig(idx, {'fg': '#00ff00', 'bg': '#2a4d2a'})
-        
+                tags = ('playing',)
+                
+            self.playlist_tree.insert("", "end", iid=str(idx), values=(full_name, repeats, repeat_interval, delay_after), tags=tags)
+            
         if len(self.playlist_data) > 0:
-            self.pl_mode_label.config(text="狀態: 群組播放待命", foreground="#00ff00")
+            self.pl_mode_label.config(text=lang_map.get("狀態: 群組播放待命", "狀態: 群組播放待命"), foreground="#00ff00")
             # 有群組播放佇列時，禁用開始錄製按鈕避免誤觸
             try:
                 self.btn_start.config(state="disabled")
             except Exception:
                 pass
         else:
-            self.pl_mode_label.config(text="模式: 單一載入", foreground="#888888")
+            self.pl_mode_label.config(text=lang_map.get("模式: 單一載入", "模式: 單一載入"), foreground="#888888")
             # 佇列清空且未播放時，恢復開始錄製按鈕
             try:
                 if not getattr(self, '_is_playlist_playing', False):
                     self.btn_start.config(state="normal")
             except Exception:
                 pass
+                
+        self._autosave_playlist()
 
     def pl_load_scripts(self):
         """開啟自訂的加入群組播放清單視窗"""
+        # 取得目前語系對照表
+        lang = getattr(self, "actual_language", "繁體中文")
+        lang_map = LANG_MAP.get(lang, LANG_MAP["繁體中文"])
+
         try:
             # 確保腳本目錄存在且為絕對路徑
             script_path = os.path.abspath(self.script_dir)
@@ -6543,7 +6750,7 @@ class RecorderApp(tb.Window):
             
             # 開啟視窗
             dialog = tk.Toplevel(self)
-            dialog.title("腳本列表")
+            dialog.title(lang_map.get("腳本列表", "腳本列表"))
             dialog.geometry("400x600")
             dialog.grab_set()
             dialog.transient(self)
@@ -6559,12 +6766,12 @@ class RecorderApp(tb.Window):
             main_frame.pack(fill="both", expand=True)
             
             # 標題
-            tb.Label(main_frame, text="請選擇要加入的腳本 (可多選)", font=("Microsoft JhengHei", 10, "bold")).pack(anchor="w", pady=(0, 10))
+            tb.Label(main_frame, text=lang_map.get("請選擇要加入的腳本 (可多選)", "請選擇要加入的腳本 (可多選)"), font=("Microsoft JhengHei", 10, "bold")).pack(anchor="w", pady=(0, 10))
             
             # 搜尋框
             search_frame = tb.Frame(main_frame)
             search_frame.pack(fill="x", pady=(0, 10))
-            tb.Label(search_frame, text="搜尋：", font=("Microsoft JhengHei", 10)).pack(side="left")
+            tb.Label(search_frame, text=lang_map.get("搜尋：", "搜尋："), font=("Microsoft JhengHei", 10)).pack(side="left")
             search_var = tk.StringVar()
             search_entry = tb.Entry(search_frame, textvariable=search_var, font=("Microsoft JhengHei", 10))
             search_entry.pack(side="left", fill="x", expand=True)
@@ -6594,7 +6801,7 @@ class RecorderApp(tb.Window):
                 term = search_var.get().lower()
                 listbox.delete(0, tk.END)
                 for s in scripts:
-                    if term in s.lower():
+                     if term in s.lower():
                         listbox.insert(tk.END, s)
             
             # 監聽搜尋
@@ -6623,12 +6830,13 @@ class RecorderApp(tb.Window):
                     added_count += 1
                 
                 self._update_playlist_ui()
-                self.log(f"已成功加入 {added_count} 個腳本至佇列")
+                success_fmt = lang_map.get("已成功加入 {} 個腳本至佇列", "已成功加入 {} 個腳本至佇列")
+                self.log(success_fmt.format(added_count))
                 dialog.destroy()
             
             # 確認與取消按鈕
-            tb.Button(btn_frame, text=" 確認新增 ", bootstyle="success", command=on_confirm).pack(side="right", padx=(5, 0))
-            tb.Button(btn_frame, text=" 取消 ", bootstyle="secondary-outline", command=dialog.destroy).pack(side="right")
+            tb.Button(btn_frame, text=lang_map.get(" 確認新增 ", " 確認新增 "), bootstyle="success", command=on_confirm).pack(side="right", padx=(5, 0))
+            tb.Button(btn_frame, text=lang_map.get(" 取消 ", " 取消 "), bootstyle="secondary-outline", command=dialog.destroy).pack(side="right")
             
             # 點擊 Enter 也可以確認
             dialog.bind("<Return>", lambda e: on_confirm())
@@ -6647,20 +6855,27 @@ class RecorderApp(tb.Window):
         self._update_playlist_ui()
 
     def pl_toggle(self):
-        selections = self.playlist_listbox.curselection()
-        for idx in selections:
+        selections = self.playlist_tree.selection()
+        for iid in selections:
+            idx = int(iid)
             self.playlist_data[idx]['enabled'] = not self.playlist_data[idx].get('enabled', True)
         self._update_playlist_ui()
         # 重新選取
-        for idx in selections:
-            self.playlist_listbox.selection_set(idx)
+        for iid in selections:
+            self.playlist_tree.selection_add(iid)
     def pl_save(self):
+        # 取得目前語系對照表
+        lang = getattr(self, "actual_language", "繁體中文")
+        lang_map = LANG_MAP.get(lang, LANG_MAP["繁體中文"])
+
         if not self.playlist_data:
-            self.log("播放佇列為空，無法儲存。")
+            self.log(lang_map.get("播放佇列為空，無法儲存。", "播放佇列為空，無法儲存。"))
             return
         # 使用自訂對話框輸入名稱
         import tkinter.simpledialog as simpledialog
-        name = simpledialog.askstring("儲存群組", "請輸入群組名稱（將自動加上 '群組-' 前綴）：", parent=self)
+        title = lang_map.get("儲存群組", "儲存群組")
+        prompt = lang_map.get("請輸入群組名稱（將自動加上 '群組-' 前綴）：", "請輸入群組名稱（將自動加上 '群組-' 前綴）：")
+        name = simpledialog.askstring(title, prompt, parent=self)
         if not name or not name.strip():
             return
             
@@ -6680,83 +6895,236 @@ class RecorderApp(tb.Window):
             }
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(group_data, f, ensure_ascii=False, indent=2)
-            self.log(f"群組播放佇列已儲存: {name}")
+            
+            save_success_fmt = lang_map.get("群組播放佇列已儲存: {}", "群組播放佇列已儲存: {}")
+            self.log(save_success_fmt.format(name))
             self.refresh_script_list()
         except Exception as e:
-            self.log(f"儲存失敗: {e}")
+            fail_fmt = lang_map.get("儲存失敗", "儲存失敗")
+            self.log(f"{fail_fmt}: {e}")
 
     def pl_move_up(self):
-        selections = self.playlist_listbox.curselection()
-        if not selections or selections[0] == 0:
+        selections = self.playlist_tree.selection()
+        if not selections:
             return
-        idx = selections[0]
+        idx = int(selections[0])
+        if idx == 0:
+            return
         self.playlist_data[idx - 1], self.playlist_data[idx] = self.playlist_data[idx], self.playlist_data[idx - 1]
         self._is_playlist_modified = True
         self._update_playlist_ui()
-        self.playlist_listbox.selection_set(idx - 1)
+        self.playlist_tree.selection_set(str(idx - 1))
 
     def pl_move_down(self):
-        selections = self.playlist_listbox.curselection()
-        if not selections or selections[0] == len(self.playlist_data) - 1:
+        selections = self.playlist_tree.selection()
+        if not selections:
             return
-        idx = selections[0]
+        idx = int(selections[0])
+        if idx == len(self.playlist_data) - 1:
+            return
         self.playlist_data[idx + 1], self.playlist_data[idx] = self.playlist_data[idx], self.playlist_data[idx + 1]
         self._is_playlist_modified = True
         self._update_playlist_ui()
-        self.playlist_listbox.selection_set(idx + 1)
+        self.playlist_tree.selection_set(str(idx + 1))
 
     def pl_drag_start(self, event):
-        self._drag_start_index = self.playlist_listbox.nearest(event.y)
+        iid = self.playlist_tree.identify_row(event.y)
+        if iid:
+            self._drag_start_index = int(iid)
+        else:
+            self._drag_start_index = None
 
     def pl_drag_motion(self, event):
         if not hasattr(self, '_drag_start_index') or self._drag_start_index is None:
             return
-        current_idx = self.playlist_listbox.nearest(event.y)
+        iid = self.playlist_tree.identify_row(event.y)
+        if not iid:
+            return
+        current_idx = int(iid)
         if current_idx != self._drag_start_index and 0 <= current_idx < len(self.playlist_data):
             item = self.playlist_data.pop(self._drag_start_index)
             self.playlist_data.insert(current_idx, item)
             self._is_playlist_modified = True
             self._update_playlist_ui()
             self._drag_start_index = current_idx
-            self.playlist_listbox.selection_clear(0, "end")
-            self.playlist_listbox.selection_set(current_idx)
+            self.playlist_tree.selection_set(str(current_idx))
 
     def pl_drag_end(self, event):
         self._drag_start_index = None
         self._is_playlist_modified = True
 
     def pl_on_right_click(self, event):
-        idx = self.playlist_listbox.nearest(event.y)
-        if idx >= 0 and idx < len(self.playlist_data):
-            item = self.playlist_data[idx]
-            from tkinter import simpledialog
-            delay_str = simpledialog.askstring(
-                "延遲設定", 
-                f"請輸入在執行「{item['name']}」前的等待秒數：\n\n(輸入 0 代表無延遲)",
-                initialvalue=str(item.get('delay', 0)),
-                parent=self
-            )
-            if delay_str is not None:
-                try:
-                    delay = int(delay_str)
-                    if delay >= 0:
-                        self.playlist_data[idx]['delay'] = delay
-                        self._is_playlist_modified = True
-                        self._update_playlist_ui()
-                    else:
-                        self.log("輸入的延遲秒數不能為負數")
-                except ValueError:
-                    self.log("延遲秒數格式錯誤，請輸入整數")
+        iid = self.playlist_tree.identify_row(event.y)
+        if iid:
+            idx = int(iid)
+            if 0 <= idx < len(self.playlist_data):
+                item = self.playlist_data[idx]
+                self._show_playlist_config_window(idx, item)
 
-    def pl_shuffle(self):
-        """隨機打亂播放佇列"""
+    def _show_playlist_config_window(self, idx, item):
+        dialog = tk.Toplevel(self)
+        dialog.title("腳本設定")
+        dialog.geometry("450x300")
+        dialog.grab_set()
+        dialog.transient(self)
+        try:
+            set_window_icon(dialog)
+        except:
+            pass
+            
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
+        y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
+        
+        main_frame = tb.Frame(dialog, padding=20)
+        main_frame.pack(fill="both", expand=True)
+        
+        # 腳本名稱
+        name_disp = item['name']
+        if name_disp.endswith('.json'):
+            name_disp = name_disp[:-5]
+        tb.Label(main_frame, text=f"腳本名稱: {name_disp}", font=("Microsoft JhengHei", 12, "bold"), foreground="#00aaff").pack(anchor="w", pady=(0, 15))
+        
+        # 重複執行次數
+        frame_repeats = tb.Frame(main_frame)
+        frame_repeats.pack(fill="x", pady=5)
+        tb.Label(frame_repeats, text="重複執行次數:", width=15).pack(side="left")
+        var_repeats = tk.StringVar(value=str(item.get('repeats', 1)))
+        tb.Entry(frame_repeats, textvariable=var_repeats, width=10).pack(side="left")
+        
+        # 每次重複間隔
+        frame_interval = tb.Frame(main_frame)
+        frame_interval.pack(fill="x", pady=5)
+        tb.Label(frame_interval, text="每次重複間隔 (秒):", width=15).pack(side="left")
+        var_interval = tk.StringVar(value=str(item.get('repeat_interval', 0)))
+        tb.Entry(frame_interval, textvariable=var_interval, width=10).pack(side="left")
+        
+        # 執行完畢後延遲
+        frame_delay = tb.Frame(main_frame)
+        frame_delay.pack(fill="x", pady=5)
+        tb.Label(frame_delay, text="執行完畢後延遲 (秒):", width=15).pack(side="left")
+        # 為了相容舊存檔，若有 delay_after 優先，否則使用 delay
+        default_delay = item.get('delay_after', item.get('delay', 0))
+        var_delay = tk.StringVar(value=str(default_delay))
+        tb.Entry(frame_delay, textvariable=var_delay, width=10).pack(side="left")
+        
+        def save_config():
+            try:
+                repeats = int(var_repeats.get())
+                interval = int(var_interval.get())
+                delay_after = int(var_delay.get())
+                
+                if repeats < 1:
+                    repeats = 1
+                if interval < 0:
+                    interval = 0
+                if delay_after < 0:
+                    delay_after = 0
+                    
+                self.playlist_data[idx]['repeats'] = repeats
+                self.playlist_data[idx]['repeat_interval'] = interval
+                self.playlist_data[idx]['delay_after'] = delay_after
+                # 為了舊存檔相容，也同步寫入 delay
+                self.playlist_data[idx]['delay'] = delay_after
+                
+                self._is_playlist_modified = True
+                self._update_playlist_ui()
+                dialog.destroy()
+            except ValueError:
+                self.log("格式錯誤，請輸入整數")
+                
+        btn_frame = tb.Frame(main_frame)
+        btn_frame.pack(fill="x", pady=(15, 0))
+        tb.Button(btn_frame, text="儲存", bootstyle="success", command=save_config).pack(side="right", padx=5)
+        tb.Button(btn_frame, text="取消", bootstyle="secondary", command=dialog.destroy).pack(side="right")
+
+    def pl_sync_all(self):
+        """同步設定套用至所有播放佇列腳本"""
         if not self.playlist_data:
+            self.log("播放佇列為空，無法同步")
             return
-        import random
-        random.shuffle(self.playlist_data)
-        self._is_playlist_modified = True
-        self._update_playlist_ui()
-        self.log("已隨機打亂播放佇列順序")
+            
+        dialog = tk.Toplevel(self)
+        dialog.title("同步所有腳本設定")
+        dialog.geometry("450x300")
+        dialog.grab_set()
+        dialog.transient(self)
+        try:
+            set_window_icon(dialog)
+        except:
+            pass
+            
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
+        y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
+        
+        main_frame = tb.Frame(dialog, padding=20)
+        main_frame.pack(fill="both", expand=True)
+        
+        tb.Label(main_frame, text="批次同步設定至所有腳本", font=("Microsoft JhengHei", 12, "bold"), foreground="#00aaff").pack(anchor="w", pady=(0, 15))
+        
+        # 重複執行次數
+        frame_repeats = tb.Frame(main_frame)
+        frame_repeats.pack(fill="x", pady=5)
+        var_sync_repeats = tk.BooleanVar(value=True)
+        tb.Checkbutton(frame_repeats, variable=var_sync_repeats, bootstyle="round-toggle").pack(side="left", padx=(0, 10))
+        tb.Label(frame_repeats, text="重複執行次數:", width=15).pack(side="left")
+        var_repeats = tk.StringVar(value="1")
+        tb.Entry(frame_repeats, textvariable=var_repeats, width=10).pack(side="left")
+        
+        # 每次重複間隔
+        frame_interval = tb.Frame(main_frame)
+        frame_interval.pack(fill="x", pady=5)
+        var_sync_interval = tk.BooleanVar(value=True)
+        tb.Checkbutton(frame_interval, variable=var_sync_interval, bootstyle="round-toggle").pack(side="left", padx=(0, 10))
+        tb.Label(frame_interval, text="每次重複間隔 (秒):", width=15).pack(side="left")
+        var_interval = tk.StringVar(value="0")
+        tb.Entry(frame_interval, textvariable=var_interval, width=10).pack(side="left")
+        
+        # 執行完畢後延遲
+        frame_delay = tb.Frame(main_frame)
+        frame_delay.pack(fill="x", pady=5)
+        var_sync_delay = tk.BooleanVar(value=True)
+        tb.Checkbutton(frame_delay, variable=var_sync_delay, bootstyle="round-toggle").pack(side="left", padx=(0, 10))
+        tb.Label(frame_delay, text="執行完畢後延遲 (秒):", width=15).pack(side="left")
+        var_delay = tk.StringVar(value="0")
+        tb.Entry(frame_delay, textvariable=var_delay, width=10).pack(side="left")
+        
+        def save_config():
+            try:
+                repeats = int(var_repeats.get())
+                interval = int(var_interval.get())
+                delay_after = int(var_delay.get())
+                
+                if repeats < 1:
+                    repeats = 1
+                if interval < 0:
+                    interval = 0
+                if delay_after < 0:
+                    delay_after = 0
+                    
+                for idx in range(len(self.playlist_data)):
+                    if var_sync_repeats.get():
+                        self.playlist_data[idx]['repeats'] = repeats
+                    if var_sync_interval.get():
+                        self.playlist_data[idx]['repeat_interval'] = interval
+                    if var_sync_delay.get():
+                        self.playlist_data[idx]['delay_after'] = delay_after
+                        self.playlist_data[idx]['delay'] = delay_after
+                
+                self._is_playlist_modified = True
+                self._update_playlist_ui()
+                self.log("已同步設定至所有佇列腳本")
+                dialog.destroy()
+            except ValueError:
+                self.log("格式錯誤，請輸入整數")
+                
+        btn_frame = tb.Frame(main_frame)
+        btn_frame.pack(fill="x", pady=(15, 0))
+        tb.Button(btn_frame, text="儲存同步", bootstyle="success", command=save_config).pack(side="right", padx=5)
+        tb.Button(btn_frame, text="取消", bootstyle="secondary", command=dialog.destroy).pack(side="right")
 
     def skip_current_script(self):
         """跳過目前正在執行的佇列腳本，直接執行下一個"""

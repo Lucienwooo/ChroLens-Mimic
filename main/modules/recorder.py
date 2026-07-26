@@ -40,6 +40,19 @@ except ImportError:
     get_detector = None
     print("️ YOLO 模組未載入，物件偵測功能不可用")
 
+#  v2.9.0: 匯入強化圖片辨識模組
+try:
+    from modules.image_matcher import get_matcher, HybridMatcher
+    IMAGE_MATCHER_AVAILABLE = True
+except ImportError:
+    try:
+        from image_matcher import get_matcher, HybridMatcher
+        IMAGE_MATCHER_AVAILABLE = True
+    except ImportError:
+        IMAGE_MATCHER_AVAILABLE = False
+        print("️ 強化圖片辨識模組未載入")
+
+
 
 # ==================== OCR 診斷懸浮窗 ====================
 class OCRFloatWindow:
@@ -210,6 +223,11 @@ class TriggerManager:
     def _execute_action_text(self, action_text):
         """執行單行動作文字（統一邏輯版）"""
         try:
+            try:
+                from modules.command_lang import translate_script_line_to_canonical
+                action_text = translate_script_line_to_canonical(action_text)
+            except ImportError:
+                pass
             # 1. 鍵盤動作
             if action_text.startswith('>按下'):
                 key = action_text[3:].strip()
@@ -227,6 +245,11 @@ class TriggerManager:
                 import keyboard
                 keyboard.press_and_release(key)
                 return 'success'
+            elif action_text.startswith('>輸入文字>'):
+                text_part = action_text[6:].split(',')[0].strip()
+                import keyboard
+                keyboard.write(text_part)
+                return 'success'
                 
             # 2. 延遲動作
             elif action_text.startswith('>延遲'):
@@ -240,33 +263,77 @@ class TriggerManager:
                 return 'success'
             elif action_text.startswith('>隨機延遲'):
                 import re, random
-                match = re.match(r'>隨機延遲>(\d+)ms,\s*(\d+)ms', action_text)
+                match = re.match(r'>隨機延遲>([^,]+?),\s*([^,]+)', action_text)
                 if match:
-                    v1, v2 = int(match.group(1)), int(match.group(2))
+                    def to_ms(s_val):
+                        s_val = s_val.strip()
+                        if s_val.endswith("ms"):
+                            return int(s_val[:-2])
+                        m = re.match(r'^(\d+)s(\d+)$', s_val)
+                        if m:
+                            return int(m.group(1)) * 1000 + int(m.group(2))
+                        m = re.match(r'^(\d+)s$', s_val)
+                        if m:
+                            return int(m.group(1)) * 1000
+                        try:
+                            if s_val.endswith("s"):
+                                return int(float(s_val[:-1]) * 1000)
+                            return int(s_val)
+                        except:
+                            return 0
+                    
+                    v1 = to_ms(match.group(1))
+                    v2 = to_ms(match.group(2))
                     delay = random.randint(min(v1, v2), max(v1, v2)) / 1000.0
                     time.sleep(delay)
                 return 'success'
                 
-            # 3. 座標滑鼠動作
-            elif any(cmd in action_text for cmd in ['>左鍵點擊', '>右鍵點擊', '>移動至']):
+            # 3. 座標或無座標滑鼠動作 (相容 (None,None) 或無座標點擊)
+            elif any(cmd in action_text for cmd in ['>左鍵點擊', '>右鍵點擊', '>移動至', '>相對移動']):
                 import re
-                match = re.match(r'>(左鍵點擊|右鍵點擊|移動至)\((\d+),(\d+)\)', action_text)
+                
+                # 處理相對移動
+                match_rel = re.match(r'>相對移動\((-?\d+),(-?\d+)\)', action_text)
+                if match_rel:
+                    dx, dy = int(match_rel.group(1)), int(match_rel.group(2))
+                    x, y = win32gui.GetCursorPos()
+                    ctypes.windll.user32.SetCursorPos(x + dx, y + dy)
+                    return 'success'
+                    
+                # 優先匹配含有數字座標的格式，例如：>左鍵點擊(100,200)
+                match = re.match(r'>(左鍵點擊|右鍵點擊|移動至)\((-?\d+),(-?\d+)\)', action_text)
                 if match:
                     cmd, x, y = match.group(1), int(match.group(2)), int(match.group(3))
-                    # 使用 win32api 替代 legacy mouse 庫
                     ctypes.windll.user32.SetCursorPos(x, y)
                     if '點擊' in cmd:
                         self.recorder._mouse_event_enhanced('down', button='left' if '左鍵' in cmd else 'right')
                         time.sleep(0.02)
                         self.recorder._mouse_event_enhanced('up', button='left' if '左鍵' in cmd else 'right')
                     return 'success'
+                else:
+                    # 匹配無座標點擊，例如：>左鍵點擊(None,None)、>右鍵點擊(None,None) 或無後置括號的 >左鍵點擊
+                    cmd_match = re.match(r'>(左鍵點擊|右鍵點擊)', action_text)
+                    if cmd_match:
+                        cmd = cmd_match.group(1)
+                        self.recorder._mouse_event_enhanced('down', button='left' if '左鍵' in cmd else 'right')
+                        time.sleep(0.02)
+                        self.recorder._mouse_event_enhanced('up', button='left' if '左鍵' in cmd else 'right')
+                        return 'success'
             
-            # 4. 圖片偵測邏輯
-            elif action_text.startswith('>if>'):
-                target = action_text[4:].split(',')[0].strip()
-                if self.recorder._images_dir:
-                    found = self.recorder._find_image_on_screen(target)
-                    return 'success' if found else 'failure'
+            # 4. 圖片偵測邏輯 (支援 >點擊圖片> 與 >左鍵點擊> 格式，統一對應)
+            elif action_text.startswith('>if>') or action_text.startswith('>點擊圖片>') or action_text.startswith('>左鍵點擊>'):
+                # 擷取目標圖片名稱
+                target_part = action_text.split('>')
+                if len(target_part) >= 2:
+                    target = target_part[-1].split(',')[0].strip()
+                    if action_text.startswith('>if>'):
+                        if self.recorder._images_dir:
+                            found = self.recorder._find_image_on_screen(target)
+                            return 'success' if found else 'failure'
+                    else:
+                        # 這是執行圖片點擊指令 (>點擊圖片>pic 或 >左鍵點擊>pic)
+                        success = self.execute_image_action("click", target, button="left")
+                        return 'success' if success else 'failure'
                 return 'failure'
                 
             # 5. YOLO偵測邏輯
@@ -618,6 +685,19 @@ class CoreRecorder:
         self._keyboard_events = []
         
         self.ocr_diagnostic_window = None
+
+        # v2.9.0: 初始化強化圖片辨識比對器
+        if IMAGE_MATCHER_AVAILABLE:
+            self._hybrid_matcher = HybridMatcher(
+                threshold=0.80,
+                logger=lambda msg: self._log(msg, "info")
+            )
+        else:
+            self._hybrid_matcher = None
+
+    def _find_image_on_screen(self, *args, **kwargs):
+        """轉發給 find_image_on_screen，避免 AttributeError 歷史 Bug"""
+        return self.find_image_on_screen(*args, **kwargs)
 
     def show_ocr_diagnostic(self, image_np, text):
         """顯示 OCR 診斷結果"""
@@ -2270,18 +2350,18 @@ class CoreRecorder:
                                     self.logger(f"[彈性點擊] 追蹤預測偏移 ({offset_x}, {offset_y})")
                         # center 模式不偏移，直接使用中心點
                     
-                    #  修復點擊：增加擬真移動與合理延遲
-                    if self._use_bezier and self._bezier_mover:
+                    # 修復點擊：快速模式下跳過貝茲曲線擬真移動，並將定位與按鍵延遲壓縮至極限
+                    is_fast = event.get('fast_mode', True)
+                    if self._use_bezier and self._bezier_mover and not is_fast:
                         self._bezier_mover.move_to(x, y, duration=0.2)
                     else:
                         ctypes.windll.user32.SetCursorPos(x, y)
                     
-                    # 增加微小延遲確保系統更新位置狀態
-                    time.sleep(0.02)
+                    # 快速模式下使用 5ms 定位休眠與 10ms 按鍵休眠
+                    time.sleep(0.005 if is_fast else 0.02)
                     
                     self._mouse_event_enhanced('down', button=button)
-                    # 增加 Down 和 Up 之間的延遲，解決部分 App 不響應點擊的問題
-                    time.sleep(0.05) 
+                    time.sleep(0.01 if is_fast else 0.05) 
                     self._mouse_event_enhanced('up', button=button)
                     
                     self.logger(f"[點擊圖片] 已點擊 {button} 於 ({x}, {y})")
@@ -2954,6 +3034,10 @@ class CoreRecorder:
                         img_name = condition.get('image', '')
                         pos = self.find_image_on_screen(img_name, threshold=0.75, fast_mode=True)
                         should_continue = bool(pos)
+                    elif condition.get('type') == 'image_missing':
+                        img_name = condition.get('image', '')
+                        pos = self.find_image_on_screen(img_name, threshold=0.75, fast_mode=True)
+                        should_continue = not bool(pos)
                 
                 if should_continue:
                     self.logger(f"[迴圈] 繼續迴圈 ({loop_info['counter']}/{loop_info['max_count']})")
@@ -3715,12 +3799,92 @@ class CoreRecorder:
             del self._motion_history[image_name]
         self.logger(f"[追蹤] 已停用 {image_name} 的追蹤模式")
     
-    def find_image_on_screen(self, image_name_or_path, threshold=0.9, region=None, multi_scale=True, fast_mode=False, use_features_fallback=True, show_border=False, enable_tracking=False, strict_mode=True):
+    def find_image_on_screen(self, image_name_or_path, threshold=0.8, region=None, multi_scale=True, fast_mode=False, use_features_fallback=True, show_border=False, enable_tracking=False, strict_mode=True):
         # 讀取單獨腳本指定的辨識容錯率
         global_th = getattr(self, "image_threshold", 0)
         if global_th > 0:
             threshold = global_th
-            
+
+        # v2.9.1: 若有選定目標視窗且呼叫端未指定 region，自動將截圖範圍限縮至該視窗
+        if region is None and getattr(self, "_target_hwnd", None):
+            try:
+                import win32gui as _w32g
+                _hwnd = self._target_hwnd
+                if _w32g.IsWindow(_hwnd) and _w32g.IsWindowVisible(_hwnd):
+                    _left, _top, _right, _bottom = _w32g.GetWindowRect(_hwnd)
+                    if _right > _left and _bottom > _top:
+                        region = (_left, _top, _right, _bottom)
+                        self.logger(f"[圖片辨識] 自動使用視窗範圍截圖: {region}")
+            except Exception as _re:
+                self.logger(f"[圖片辨識] 取得視窗範圍失敗，使用全螢幕: {_re}")
+
+        # v2.9.0 整合全新 HybridMatcher 強化辨識模組
+        if IMAGE_MATCHER_AVAILABLE and self._hybrid_matcher:
+            try:
+                self._hybrid_matcher.threshold = threshold
+                search_region = region
+
+                if enable_tracking or self._tracking_mode.get(image_name_or_path, False):
+                    import ctypes
+                    user32 = ctypes.windll.user32
+                    screen_size = (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
+                    predicted_region = self._predict_search_region(image_name_or_path, screen_size)
+                    if predicted_region:
+                        search_region = predicted_region
+                        self.logger(f"[追蹤] 預測搜尋範圍: {predicted_region}")
+
+                pos = self._hybrid_matcher.find(
+                    image_name=image_name_or_path,
+                    images_dir=self._images_dir or "",
+                    region=search_region,
+                    threshold=threshold,
+                    exact_mode=strict_mode,
+                    fast_mode=fast_mode,
+                    use_features=use_features_fallback,
+                    show_border=show_border
+                )
+
+                if pos:
+                    if enable_tracking or self._tracking_mode.get(image_name_or_path, False):
+                        self._update_motion_history(image_name_or_path, pos[0], pos[1])
+                    self.logger(f"[圖片辨識] 強化辨識成功於 ({pos[0]}, {pos[1]})")
+                    if show_border:
+                        img_path = self._hybrid_matcher._resolve_path(image_name_or_path, self._images_dir or "")
+                        if img_path:
+                            img_data = self._hybrid_matcher.load_image(img_path)
+                            if img_data:
+                                _, tmpl_gray, _ = img_data
+                                h, w = tmpl_gray.shape[:2]
+                                x1 = pos[0] - w // 2
+                                y1 = pos[1] - h // 2
+                                self.show_match_border(x1, y1, w, h)
+                    return pos
+
+                if enable_tracking and search_region != region and region is None:
+                    self.logger(f"[追蹤] 預測區域未找到，嘗試全螢幕搜尋")
+                    pos = self._hybrid_matcher.find(
+                        image_name=image_name_or_path,
+                        images_dir=self._images_dir or "",
+                        region=None,
+                        threshold=threshold,
+                        exact_mode=strict_mode,
+                        fast_mode=fast_mode,
+                        use_features=use_features_fallback,
+                        show_border=show_border
+                    )
+                    if pos:
+                        self._update_motion_history(image_name_or_path, pos[0], pos[1])
+                        self.logger(f"[追蹤] 全螢幕找到於 ({pos[0]}, {pos[1]})")
+                        return pos
+
+                self.logger(f"[圖片辨識] 強化辨識未找到圖片 (閾值: {threshold:.3f})")
+                return None
+            except Exception as e:
+                self.logger(f"[圖片辨識] 強化辨識模組異常: {e}，回退至舊版圖片辨識機制")
+                import traceback
+                traceback.print_exc()
+
+        # ── 以下為舊版圖片辨識機制 (Fallback) ──
         """在螢幕上尋找圖片（ 極速優化版 + 智能追蹤 + 精確比對）
         
         Args:
@@ -4575,8 +4739,8 @@ class CoreRecorder:
         timeout = kwargs.get('timeout', 5.0)
         
         if action_type == "move_to":
-            # 移動滑鼠到圖片位置
-            pos = self.find_image_on_screen(target_name, threshold, region)
+            # 移動滑鼠到圖片位置 (啟用快速模式)
+            pos = self.find_image_on_screen(target_name, threshold, region, fast_mode=True)
             if pos:
                 mouse.move(pos[0], pos[1])
                 self.logger(f"[圖片辨識] 已移動滑鼠至 {target_name}")
@@ -4586,19 +4750,17 @@ class CoreRecorder:
                 return False
         
         elif action_type == "click":
-            # 點擊圖片位置
-            pos = self.find_image_on_screen(target_name, threshold, region)
+            # 點擊圖片位置 (啟用快速模式)
+            pos = self.find_image_on_screen(target_name, threshold, region, fast_mode=True)
             if pos:
-                # 移動並點擊
-                mouse.move(pos[0], pos[1])
-                time.sleep(0.05)
+                # 移動至圖片實體座標並稍微延遲確保系統定位
+                ctypes.windll.user32.SetCursorPos(pos[0], pos[1])
+                time.sleep(0.005)
                 
-                if button == "left":
-                    mouse.click()
-                elif button == "right":
-                    mouse.right_click()
-                elif button == "middle":
-                    mouse.click(button='middle')
+                # 採用硬體級別的 SendInput 發送點擊，防止在遊戲中失效
+                self._mouse_event_enhanced('down', button=button)
+                time.sleep(0.01)
+                self._mouse_event_enhanced('up', button=button)
                 
                 self.logger(f"[圖片辨識] 已{button}鍵點擊 {target_name}")
                 return True
@@ -4607,14 +4769,14 @@ class CoreRecorder:
                 return False
         
         elif action_type == "wait_for":
-            # 等待圖片出現
+            # 等待圖片出現 (啟用快速模式)
             start_time = time.time()
             while time.time() - start_time < timeout:
-                pos = self.find_image_on_screen(target_name, threshold, region)
+                pos = self.find_image_on_screen(target_name, threshold, region, fast_mode=True)
                 if pos:
                     self.logger(f"[圖片辨識] 已找到 {target_name}")
                     return True
-                time.sleep(0.5)
+                time.sleep(0.1)  # 縮短等待輪詢間隔為 100ms 提高即時性
             
             self.logger(f"[圖片辨識] 等待逾時：{target_name} 未出現")
             return False

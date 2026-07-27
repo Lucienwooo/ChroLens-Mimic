@@ -7684,32 +7684,83 @@ class TextCommandEditor(tk.Toplevel):
         # ========== 分隔線 ==========
         tk.Frame(main_frame, height=1, bg="#e0e0e0").pack(fill="x", pady=10)
         
-        # ========== 預覽區域 ==========
+        # ========== 預覽與去背區域 ==========
         preview_frame = tk.Frame(main_frame, bg="white")
         preview_frame.pack(fill="both", expand=True)
         
         tk.Label(
             preview_frame,
-            text="圖片預覽",
+            text="圖片預覽與去背",
             font=font_tuple(11, "bold"),
             bg="white",
             fg="#1976d2"
-        ).pack(anchor="w", pady=(0, 10))
+        ).pack(anchor="w", pady=(0, 5))
         
-        # 圖片預覽（調整大小以適應對話視窗）
-        max_width, max_height = 500, 350
-        img_width, img_height = screenshot.size
+        # 二值化控制區
+        bin_frame = tk.Frame(preview_frame, bg="#f5f5f5", relief="solid", bd=1)
+        bin_frame.pack(fill="x", pady=(0, 10), padx=5)
         
-        scale = min(max_width / img_width, max_height / img_height, 1.0)
-        new_width = int(img_width * scale)
-        new_height = int(img_height * scale)
+        enable_bin_var = tk.BooleanVar(value=False)
+        invert_bin_var = tk.BooleanVar(value=False)
+        threshold_var = tk.IntVar(value=200)
         
-        resized_img = screenshot.resize((new_width, new_height), Image.Resampling.LANCZOS)
-        photo = ImageTk.PhotoImage(resized_img)
+        # 儲存處理後的圖片狀態
+        processed_img_ref = [screenshot]
         
-        img_label = tk.Label(preview_frame, image=photo, bg="white", relief="solid", borderwidth=1)
-        img_label.image = photo  # 保持引用
+        def update_preview(*args):
+            img_width, img_height = screenshot.size
+            max_width, max_height = 500, 350
+            scale = min(max_width / img_width, max_height / img_height, 1.0)
+            new_width = int(img_width * scale)
+            new_height = int(img_height * scale)
+            
+            if enable_bin_var.get():
+                import cv2
+                import numpy as np
+                # 轉成 numpy array (RGB)
+                cv_img = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
+                
+                # 轉灰階
+                gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
+                
+                # 二值化
+                thresh_val = threshold_var.get()
+                if invert_bin_var.get():
+                    _, mask = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY_INV)
+                else:
+                    _, mask = cv2.threshold(gray, thresh_val, 255, cv2.THRESH_BINARY)
+                
+                # 建立 RGBA 圖片，將黑色背景變成透明
+                b, g, r = cv2.split(cv_img)
+                rgba = cv2.merge([b, g, r, mask])
+                
+                processed_pil = Image.fromarray(cv2.cvtColor(rgba, cv2.COLOR_BGRA2RGBA))
+                processed_img_ref[0] = processed_pil
+            else:
+                processed_img_ref[0] = screenshot
+                
+            resized_img = processed_img_ref[0].resize((new_width, new_height), Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(resized_img)
+            img_label.configure(image=photo)
+            img_label.image = photo
+
+        ctrl_top = tk.Frame(bin_frame, bg="#f5f5f5")
+        ctrl_top.pack(fill="x", padx=10, pady=5)
+        
+        tk.Checkbutton(ctrl_top, text="啟用二值化去背", variable=enable_bin_var, command=update_preview, bg="#f5f5f5").pack(side="left")
+        tk.Checkbutton(ctrl_top, text="反轉黑白", variable=invert_bin_var, command=update_preview, bg="#f5f5f5").pack(side="left", padx=10)
+        
+        ctrl_bot = tk.Frame(bin_frame, bg="#f5f5f5")
+        ctrl_bot.pack(fill="x", padx=10, pady=(0, 5))
+        
+        tk.Label(ctrl_bot, text="亮度門檻:", bg="#f5f5f5").pack(side="left")
+        slider = tk.Scale(ctrl_bot, from_=0, to=255, orient="horizontal", variable=threshold_var, command=update_preview, bg="#f5f5f5", length=300)
+        slider.pack(side="left", padx=5)
+        
+        img_label = tk.Label(preview_frame, bg="gray", relief="solid", borderwidth=1)
         img_label.pack(pady=(0, 15))
+        
+        update_preview()
         
         # ========== 按鈕區域 ==========
         btn_frame = tk.Frame(main_frame, bg="white")
@@ -7720,6 +7771,7 @@ class TextCommandEditor(tk.Toplevel):
             if not custom_name:
                 custom_name = f"{self._pic_counter:02d}"
             result["name"] = f"pic{custom_name}"
+            result["screenshot"] = processed_img_ref[0]
             result["confirmed"] = True
             dialog.destroy()
         
@@ -7769,7 +7821,7 @@ class TextCommandEditor(tk.Toplevel):
         
         # 如果確認，儲存圖片並插入指令
         if result["confirmed"] and result["name"]:
-            self._save_and_insert_commands(screenshot, result["name"])
+            self._save_and_insert_commands(result.get("screenshot", screenshot), result["name"])
     
     def _save_and_insert_commands(self, screenshot, display_name):
         """儲存圖片並自動插入指令"""

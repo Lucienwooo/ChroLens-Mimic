@@ -221,7 +221,11 @@ class TriggerManager:
             time.sleep(0.3)  # 優先觸發偵測間隔
     
     def _execute_action_text(self, action_text):
+        scale_x = getattr(self.recorder, 'scale_x', 1.0)
+        scale_y = getattr(self.recorder, 'scale_y', 1.0)
         """執行單行動作文字（統一邏輯版）"""
+        scale_x = getattr(self.recorder, 'scale_x', 1.0)
+        scale_y = getattr(self.recorder, 'scale_y', 1.0)
         try:
             try:
                 from modules.command_lang import translate_script_line_to_canonical
@@ -295,7 +299,7 @@ class TriggerManager:
                 # 處理相對移動
                 match_rel = re.match(r'>相對移動\((-?\d+),(-?\d+)\)', action_text)
                 if match_rel:
-                    dx, dy = int(match_rel.group(1)), int(match_rel.group(2))
+                    dx, dy = int(int(match_rel.group(1)) * scale_x), int(int(match_rel.group(2)) * scale_y)
                     x, y = win32gui.GetCursorPos()
                     ctypes.windll.user32.SetCursorPos(x + dx, y + dy)
                     return 'success'
@@ -303,7 +307,7 @@ class TriggerManager:
                 # 優先匹配含有數字座標的格式，例如：>左鍵點擊(100,200)
                 match = re.match(r'>(左鍵點擊|右鍵點擊|移動至)\((-?\d+),(-?\d+)\)', action_text)
                 if match:
-                    cmd, x, y = match.group(1), int(match.group(2)), int(match.group(3))
+                    cmd, x, y = match.group(1), int(int(match.group(2)) * scale_x), int(int(match.group(3)) * scale_y)
                     ctypes.windll.user32.SetCursorPos(x, y)
                     if '點擊' in cmd:
                         self.recorder._mouse_event_enhanced('down', button='left' if '左鍵' in cmd else 'right')
@@ -354,7 +358,7 @@ class TriggerManager:
                 import re
                 match = re.search(r'範圍\((\d+),(\d+),(\d+),(\d+)\)', action_text)
                 if match:
-                    x, y, w, h = int(match.group(1)), int(match.group(2)), int(match.group(3)), int(match.group(4))
+                    x, y, w, h = int(int(match.group(1))*scale_x), int(int(match.group(2))*scale_y), int(int(match.group(3))*scale_x), int(int(match.group(4))*scale_y)
                     region = (x, y, x + w, y + h) # 轉換為 (x1, y1, x2, y2)
                     event = {
                         'type': 'ocr_input',
@@ -371,8 +375,8 @@ class TriggerManager:
                 match = re.search(r'>點擊文字>(.+?)(?:,\s*偏移\((\d+),(\d+)\))?$', action_text)
                 if match:
                     target = match.group(1).strip()
-                    off_x = int(match.group(2)) if match.group(2) else 0
-                    off_y = int(match.group(3)) if match.group(3) else 0
+                    off_x = int(int(match.group(2)) * scale_x) if match.group(2) else 0
+                    off_y = int(int(match.group(3)) * scale_y) if match.group(3) else 0
                     
                     event_type = 'click_text'
                     if target.startswith('圖片:'):
@@ -499,6 +503,8 @@ class ParallelExecutor:
     
     def _execute_action_text(self, action_text):
         """執行單行動作文字（統一邏輯版）"""
+        scale_x = getattr(self.recorder, 'scale_x', 1.0)
+        scale_y = getattr(self.recorder, 'scale_y', 1.0)
         return self.recorder._trigger_manager._execute_action_text(action_text)
     
     def stop(self):
@@ -581,6 +587,8 @@ class StateMachine:
     
     def _execute_action_text(self, action_text):
         """執行單行動作文字（統一邏輯版）"""
+        scale_x = getattr(self.recorder, 'scale_x', 1.0)
+        scale_y = getattr(self.recorder, 'scale_y', 1.0)
         return self.recorder._trigger_manager._execute_action_text(action_text)
     
     def stop(self):
@@ -618,6 +626,8 @@ class CoreRecorder:
         self._paused_k_events = []
         self._current_play_index = 0
         self._target_hwnd = None  # 新增：目標視窗 handle
+        self.scale_x = 1.0
+        self.scale_y = 1.0
         self._background_mode = "smart"  # 後台模式：smart, fast_switch, postmessage, foreground
         self._mouse_mode = False  # 新增：滑鼠模式（是否控制真實滑鼠）
         self._mouse_listener = None
@@ -1314,6 +1324,8 @@ class CoreRecorder:
             pass
 
     def _play_loop(self, speed, repeat, repeat_time_limit, repeat_interval, on_event):
+        self.scale_x = 1.0
+        self.scale_y = 1.0
         """執行主迴圈（強化版 - 支援時間限制優先，修復點擊其他視窗導致停止的問題）
         
         優先順序：重複時間 > 重複次數
@@ -1433,6 +1445,18 @@ class CoreRecorder:
             if event.get('type') == 'label':
                 label_name = event.get('name', '')
                 label_map[label_name] = idx
+                if label_name.startswith("基準解析度>"):
+                    try:
+                        res_str = label_name.split(">")[1].strip()
+                        bw, bh = map(int, res_str.lower().split("x"))
+                        import ctypes
+                        cw = ctypes.windll.user32.GetSystemMetrics(0)
+                        ch = ctypes.windll.user32.GetSystemMetrics(1)
+                        self.scale_x = cw / bw
+                        self.scale_y = ch / bh
+                        self.log_msg(f"[解析度自適應] 基準:{bw}x{bh}, 當前:{cw}x{ch}, 縮放: x={self.scale_x:.3f}, y={self.scale_y:.3f}")
+                    except Exception as e:
+                        self.log_msg(f"[解析度自適應] 解析錯誤: {e}")
         
         #  標籤重複計數器 {'label_name': {'count': N, 'start_idx': idx}}
         label_repeat_tracker = {}

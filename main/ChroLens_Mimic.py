@@ -1567,11 +1567,68 @@ class RecorderApp(tb.Window):
         log_inner_frame.grid_rowconfigure(0, weight=1)
         log_inner_frame.grid_columnconfigure(0, weight=1)
         
+        # --- 日誌控制區 ---
+        log_ctrl_frame = tb.Frame(log_inner_frame)
+        log_ctrl_frame.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 2))
+        
+        self.track_mode_var = tb.BooleanVar(value=False)
+        def _on_track_mode_toggle():
+            if self.track_mode_var.get():
+                try:
+                    script_file = self.script_var.get()
+                    if script_file and "請選擇" not in script_file:
+                        if not script_file.endswith('.json'):
+                            script_file += '.json'
+                        script_path = os.path.join(self.script_dir, script_file)
+                        
+                        import json
+                        with open(script_path, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                            
+                        # 使用 Dummy 轉換 JSON 回純文字
+                        from modules.text_script_editor import TextCommandEditor
+                        class DummyContext:
+                            def _format_time(self, t_seconds: float) -> str:
+                                s = int(t_seconds)
+                                ms = int(round((t_seconds - s) * 1000))
+                                return f"{s}s{ms:03d}"
+                                
+                        try:
+                            script_content = TextCommandEditor._json_to_text(DummyContext(), data)
+                            if not script_content.strip() or script_content.startswith("# "):
+                                has_mouse = any(e.get("type") == "mouse" for e in data.get("events", []))
+                                if has_mouse and len(script_content.splitlines()) <= 3:
+                                    script_content = "# [提示] 這是一個純滑鼠/鍵盤錄製的軌跡腳本。\n# 若要檢視詳細座標，請關閉「腳本追蹤模式」。\n" + script_content
+                        except Exception as e:
+                            script_content = f"# [無法還原文字腳本]\n# 錯誤: {e}"
+
+                        self.log_text.config(state="normal")
+                        self.log_text.delete("1.0", "end")
+                        self.log_text.insert("1.0", script_content + "\n")
+                        self.log_text.config(state="disabled")
+                except Exception as e:
+                    print("Track mode error:", e)
+                    
+        track_btn = tb.Checkbutton(log_ctrl_frame, text="腳本追蹤模式", variable=self.track_mode_var, bootstyle="success-round-toggle", command=_on_track_mode_toggle)
+        track_btn.pack(side="left", padx=5)
+        
+        def clear_log():
+            self.log_text.config(state="normal")
+            self.log_text.delete("1.0", "end")
+            self.log_text.config(state="disabled")
+            
+        clear_btn = tb.Button(log_ctrl_frame, text="清除日誌", bootstyle="secondary-outline", command=clear_log)
+        clear_btn.pack(side="right", padx=5)
+        
         self.log_text = tb.Text(log_inner_frame, state="disabled", font=font_tuple(9), width=45)
-        self.log_text.grid(row=0, column=0, sticky="nsew")
+        self.log_text.grid(row=1, column=0, sticky="nsew")
+        self.log_text.tag_config("highlight", background="#2d5a2d", foreground="white")
         log_scroll = tb.Scrollbar(log_inner_frame, command=self.log_text.yview)
-        log_scroll.grid(row=0, column=1, sticky="ns")
+        log_scroll.grid(row=1, column=1, sticky="ns")
         self.log_text.config(yscrollcommand=log_scroll.set)
+        
+        log_inner_frame.grid_rowconfigure(0, weight=0)
+        log_inner_frame.grid_rowconfigure(1, weight=1)
 
         # --- 右側群組播放佇列 ---
         self.playlist_frame = tb.Labelframe(self.log_page_frame, text=f" [ {lang_map.get('群組播放佇列', '群組播放佇列')} ] ")
@@ -2572,7 +2629,10 @@ class RecorderApp(tb.Window):
         self.update_idletasks()
 
     def log(self, msg):
-        # 僅將訊息放進執行緒安全的隊列，背景執行緒無需等待 UI 繪製
+        # 如果是追蹤模式，不將一般日誌放入 queue
+        if hasattr(self, 'track_mode_var') and self.track_mode_var.get() and not msg.startswith("---"):
+            return
+            
         if hasattr(self, 'log_queue'):
             self.log_queue.put(msg)
         else:
@@ -2586,9 +2646,17 @@ class RecorderApp(tb.Window):
                 pass
 
     def _process_log_queue_loop(self):
-        """定時批量取出隊列中的日誌一次性寫入，大幅提升重播流暢度（腳本優先）"""
+        """定時將佇列中的日誌一次寫入"""
         try:
             if hasattr(self, 'log_queue') and not self.log_queue.empty():
+                if hasattr(self, 'track_mode_var') and self.track_mode_var.get():
+                    while not self.log_queue.empty():
+                        try:
+                            self.log_queue.get_nowait()
+                        except:
+                            pass
+                    self.after(500, self._process_log_queue_loop)
+                    return
                 lines = []
                 while not self.log_queue.empty():
                     try:
@@ -2667,41 +2735,59 @@ class RecorderApp(tb.Window):
         self.countdown_label_m.config(text=f"{m:02d}", foreground=m_color)
         self.countdown_label_s.config(text=f"{s:02d}", foreground=s_color)
 
+    def _pl_poll_delay(self):
+        if not getattr(self, '_is_playlist_playing', False):
+            return
+        if getattr(self, 'paused', False):
+            # 暫停時不扣時間，繼續輪詢
+            self._playlist_delay_job = self.after(100, self._pl_poll_delay)
+            return
+            
+        self._pl_wait_time -= 0.1
+        if self._pl_wait_time <= 0:
+            if hasattr(self, '_pl_wait_action'):
+                self._pl_wait_action()
+        else:
+            self._playlist_delay_job = self.after(100, self._pl_poll_delay)
+
     def _update_play_time(self):
         """更新執行時間顯示（強化版 - 使用實際時間確保準確倒數）"""
         if self.playing:
             # 檢查 core_recorder 是否仍在播放
             if not getattr(self.core_recorder, 'playing', False):
-                # 執行已結束，同步狀態
                 if self._is_playlist_playing:
-                    # 檢查是否有剩餘重複次數
                     repeats = getattr(self, '_current_pl_repeats', 1)
                     count = getattr(self, '_current_pl_repeat_count', 1)
-                    
+
                     if count < repeats:
                         self._current_pl_repeat_count += 1
+                        self._update_playlist_ui()
                         interval = self.playlist_data[self._current_pl_index].get('repeat_interval', 0)
                         path = self.playlist_data[self._current_pl_index]['path']
-                        
+
                         if interval > 0:
-                            self.log(f"[{format_time(time.time())}] 等待 {interval} 秒後執行第 {self._current_pl_repeat_count} 次重複")
+                            self.log(f"[{format_time(time.time())}] 等待 {interval} 秒執行第 {self._current_pl_repeat_count} 次")
+                            self._pl_wait_time = interval
+                            self._pl_wait_action = lambda: self._do_play_loaded_script(path)
                             if getattr(self, '_playlist_delay_job', None):
                                 self.after_cancel(self._playlist_delay_job)
-                            self._playlist_delay_job = self.after(int(interval * 1000), self._do_play_loaded_script, path)
+                            self._playlist_delay_job = self.after(100, self._pl_poll_delay)
                         else:
-                            self.log(f"[{format_time(time.time())}] 開始執行第 {self._current_pl_repeat_count} 次重複")
+                            self.log(f"[{format_time(time.time())}] 開始執行第 {self._current_pl_repeat_count} 次")
                             self._do_play_loaded_script(path)
                         return
                     else:
-                        # 腳本所有重複次數已結束，處理結束後延遲
                         delay_after = self.playlist_data[self._current_pl_index].get('delay_after', self.playlist_data[self._current_pl_index].get('delay', 0))
                         if delay_after > 0:
-                            self.log(f"[{format_time(time.time())}] 腳本執行完畢，等待 {delay_after} 秒後執行下一個腳本")
+                            self.log(f"[{format_time(time.time())}] 群組腳本完成，等待 {delay_after} 秒後下一個腳本")
+                            self._pl_wait_time = delay_after
+                            self._pl_wait_action = self._play_next_in_playlist
                             if getattr(self, '_playlist_delay_job', None):
                                 self.after_cancel(self._playlist_delay_job)
-                            self._playlist_delay_job = self.after(int(delay_after * 1000), self._play_next_in_playlist)
+                            self._playlist_delay_job = self.after(100, self._pl_poll_delay)
                         else:
                             self._play_next_in_playlist()
+                        return
                         return
                 else:
                     self.playing = False
@@ -3383,6 +3469,17 @@ class RecorderApp(tb.Window):
             repeat = 1
         
         # 重複次數 = 0 表示無限重複，傳入 -1 給 core_recorder
+        try:
+            repeat = int(self.repeat_var.get())
+        except:
+            repeat = 1
+
+        # 若是群組播放，將重複次數交由群組管理，這裡強制為 1 次
+        if getattr(self, '_is_playlist_playing', False):
+            repeat = 1
+            self._repeat_time_limit = None
+            repeat_interval_sec = 0
+
         if repeat == 0:
             repeat = -1  # 無限重複
             self.log(f"[{format_time(time.time())}] 設定為無限重複模式")
@@ -3405,13 +3502,50 @@ class RecorderApp(tb.Window):
         self.update_total_time_label(self._total_play_time)
         self.playing = True
         self.paused = False
-
         # 初始化事件索引（用於 UI 更新）
         self._current_play_index = 0
+        
+        # 追蹤模式：載入文字腳本
+        if hasattr(self, 'track_mode_var') and self.track_mode_var.get():
+            try:
+                import json
+                with open(self.script_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                from modules.text_script_editor import TextCommandEditor
+                class DummyContext:
+                    def _format_time(self, t_seconds: float) -> str:
+                        s = int(t_seconds)
+                        ms = int(round((t_seconds - s) * 1000))
+                        return f"{s}s{ms:03d}"
+                script_content = TextCommandEditor._json_to_text(DummyContext(), data)
+                if not script_content.strip() or script_content.startswith("# "):
+                    has_mouse = any(e.get("type") == "mouse" for e in data.get("events", []))
+                    if has_mouse and len(script_content.splitlines()) <= 3:
+                        script_content = "# [提示] 這是一個純滑鼠/鍵盤錄製的軌跡腳本。\n# 若要檢視詳細座標，請關閉「腳本追蹤模式」。\n" + script_content
+                self.log_text.config(state="normal")
+                self.log_text.delete("1.0", "end")
+                self.log_text.insert("1.0", script_content + "\n")
+                self.log_text.config(state="disabled")
+            except Exception as e:
+                pass
+
+        def _highlight_line(line_num):
+            try:
+                self.log_text.config(state="normal")
+                self.log_text.tag_remove("highlight", "1.0", "end")
+                ln = line_num + 1
+                self.log_text.tag_add("highlight", f"{ln}.0", f"{ln}.end")
+                self.log_text.see(f"{ln}.0")
+                self.log_text.config(state="disabled")
+            except:
+                pass
 
         def on_event(event):
-            """執行事件的回調函數（確保索引同步更新）"""
-            # 從 core_recorder 獲取最新索引
+            if hasattr(self, 'track_mode_var') and self.track_mode_var.get():
+                if isinstance(event, dict) and '_line_number' in event:
+                    line_num = event['_line_number']
+                    self.after(0, lambda: _highlight_line(line_num))
+                    
             try:
                 idx = getattr(self.core_recorder, "_current_play_index", 0)
                 self._current_play_index = idx
@@ -6699,6 +6833,14 @@ class RecorderApp(tb.Window):
             
             delay_after = item_data.get('delay_after', item_data.get('delay', 0))
             repeats = item_data.get('repeats', 1)
+            
+            # 動態顯示剩餘次數
+            if self._is_playlist_playing and getattr(self, '_current_pl_index', -1) == idx:
+                curr_count = getattr(self, '_current_pl_repeat_count', 1)
+                repeats_display = f"{max(0, repeats - curr_count + 1)}"
+            else:
+                repeats_display = str(repeats)
+                
             repeat_interval = item_data.get('repeat_interval', 0)
             
             name_disp = item_data['name']
@@ -6713,7 +6855,7 @@ class RecorderApp(tb.Window):
             elif self._is_playlist_playing and idx == self._current_pl_index:
                 tags = ('playing',)
                 
-            self.playlist_tree.insert("", "end", iid=str(idx), values=(full_name, repeats, repeat_interval, delay_after), tags=tags)
+            self.playlist_tree.insert("", "end", iid=str(idx), values=(full_name, repeats_display, repeat_interval, delay_after), tags=tags)
             
         if len(self.playlist_data) > 0:
             self.pl_mode_label.config(text=lang_map.get("狀態: 群組播放待命", "狀態: 群組播放待命"), foreground="#00ff00")
@@ -6864,13 +7006,18 @@ class RecorderApp(tb.Window):
         for iid in selections:
             self.playlist_tree.selection_add(iid)
     def pl_save(self):
-        # 取得目前語系對照表
-        lang = getattr(self, "actual_language", "繁體中文")
-        lang_map = LANG_MAP.get(lang, LANG_MAP["繁體中文"])
-
         if not self.playlist_data:
-            self.log(lang_map.get("播放佇列為空，無法儲存。", "播放佇列為空，無法儲存。"))
+            self.log("[群組] 佇列為空，無須儲存")
             return
+        
+        default_name = getattr(self, '_current_loaded_playlist_name', "")
+        name = simpledialog.askstring("儲存組合", "請輸入組合名稱：", initialvalue=default_name)
+        if not name:
+            return
+        
+        self._current_loaded_playlist_name = name
+        
+        pl_dir = os.path.join(self.script_dir, "playlists")
         # 使用自訂對話框輸入名稱
         import tkinter.simpledialog as simpledialog
         title = lang_map.get("儲存群組", "儲存群組")

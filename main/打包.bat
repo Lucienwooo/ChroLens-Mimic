@@ -68,7 +68,8 @@ REM ===================================================================
 REM Step 3: Clean old build files
 REM ===================================================================
 echo [3/6] Cleaning old build files...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-Item -Path 'build' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'dist' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path '*.spec' -Force -ErrorAction SilentlyContinue"
+REM 為了加快打包速度，保留 build 資料夾作為 PyInstaller 快取，只清除 dist 與 spec 檔案。
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-Item -Path 'dist' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path '*.spec' -Force -ErrorAction SilentlyContinue"
 echo OK: Cleanup finished.
 echo.
 
@@ -137,25 +138,25 @@ echo $ErrorActionPreference = 'Stop' > "%PS_TEMP%"
 echo $content = Get-Content '.\ChroLens_Mimic.py' -Raw >> "%PS_TEMP%"
 echo if ($content -match 'VERSION\s*=\s*"([^"]+)"') { $ver = $Matches[1] } else { $ver = 'Unknown' } >> "%PS_TEMP%"
 echo $zipName = 'ChroLens_Mimic_v' + $ver + '.zip' >> "%PS_TEMP%"
+echo $zipNameGeneric = 'ChroLens_Mimic.zip' >> "%PS_TEMP%"
 echo Write-Host ('打包版本: v' + $ver) -ForegroundColor Cyan >> "%PS_TEMP%"
 echo $currentDir = Get-Location >> "%PS_TEMP%"
 echo $src = Join-Path $currentDir 'dist\ChroLens_Mimic' >> "%PS_TEMP%"
 echo $dst = Join-Path $currentDir ('dist\' + $zipName) >> "%PS_TEMP%"
+echo $dstGeneric = Join-Path $currentDir ('dist\' + $zipNameGeneric) >> "%PS_TEMP%"
 echo if (Test-Path $dst) { Remove-Item $dst -Force } >> "%PS_TEMP%"
+echo if (Test-Path $dstGeneric) { Remove-Item $dstGeneric -Force } >> "%PS_TEMP%"
 echo Write-Host ('正在壓縮 ' + $src + ' 到 ' + $dst + ' ...') >> "%PS_TEMP%"
 echo Compress-Archive -Path ($src + '\*') -DestinationPath $dst -Force >> "%PS_TEMP%"
-echo if (Test-Path $dst) { Write-Host ('OK: ZIP created at dist\' + $zipName) -ForegroundColor Green } else { Write-Error 'ZIP creation failed' } >> "%PS_TEMP%"
+echo Copy-Item -Path $dst -Destination $dstGeneric -Force >> "%PS_TEMP%"
+echo if (Test-Path $dst) { Write-Host ('OK: ZIP created at dist\' + $zipName + ' and dist\' + $zipNameGeneric) -ForegroundColor Green } else { Write-Error 'ZIP creation failed' } >> "%PS_TEMP%"
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_TEMP%"
 del "%PS_TEMP%" 2>nul
 
-echo 2. 清除 build 資料夾與 spec 檔案...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-Item -Path 'build' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path '*.spec' -Force -ErrorAction SilentlyContinue"
-if exist "build" (
-    echo WARNING: build folder still exists after final cleanup!
-) else (
-    echo OK: No build artifacts remaining
-)
+echo 2. 清除 spec 檔案...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-Item -Path '*.spec' -Force -ErrorAction SilentlyContinue"
+REM (已移除清除 build 資料夾的步驟，讓下次打包可利用快取大幅加速)
 
 color 0A
 echo.

@@ -18,15 +18,13 @@ except ImportError:
     cv2 = None
 
 # 嘗試載入 ultralytics (YOLOv8)
-YOLO_AVAILABLE = False
-YOLO = None
+import importlib.util
 
-try:
-    from ultralytics import YOLO as UltralyticsYOLO
-    YOLO = UltralyticsYOLO
+# 延遲載入 (Lazy Loading) 機制：只檢查是否安裝，不直接載入
+YOLO_AVAILABLE = False
+if importlib.util.find_spec("ultralytics") is not None:
     YOLO_AVAILABLE = True
-except ImportError:
-    pass
+
 
 
 class YOLODetector:

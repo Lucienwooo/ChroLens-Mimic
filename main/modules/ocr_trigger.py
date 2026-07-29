@@ -10,20 +10,17 @@ import time
 import os
 
 # 嘗試匯入 OCR 庫
+import importlib.util
+
+# 延遲載入 (Lazy Loading) 機制：只檢查是否安裝，不直接載入
 OCR_ENGINE_TYPE = None
-try:
-    import cnocr
+if importlib.util.find_spec("cnocr") is not None:
     OCR_ENGINE_TYPE = 'cnocr'
-except ImportError:
-    try:
-        import ddddocr
-        OCR_ENGINE_TYPE = 'ddddocr'
-    except ImportError:
-        try:
-            import pytesseract
-            OCR_ENGINE_TYPE = 'pytesseract'
-        except ImportError:
-            pass
+elif importlib.util.find_spec("ddddocr") is not None:
+    OCR_ENGINE_TYPE = 'ddddocr'
+elif importlib.util.find_spec("pytesseract") is not None:
+    OCR_ENGINE_TYPE = 'pytesseract'
+
 
 class OCRTrigger:
     def __init__(self, ocr_engine="auto", logger=None):

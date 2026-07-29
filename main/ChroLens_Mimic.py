@@ -1574,15 +1574,19 @@ class RecorderApp(tb.Window):
         self.track_mode_var = tb.BooleanVar(value=False)
         def _on_track_mode_toggle():
             if self.track_mode_var.get():
+                track_btn.config(text="腳本動態")
                 try:
-                    script_file = self.script_var.get()
-                    if script_file and "請選擇" not in script_file:
-                        if not script_file.endswith('.json'):
-                            script_file += '.json'
-                        script_path = os.path.join(self.script_dir, script_file)
-                        
+                    target_script_path = getattr(self, "script_path", None)
+                    if not getattr(self, "playing", False):
+                        script_file = self.script_var.get()
+                        if script_file and "請選擇" not in script_file:
+                            if not script_file.endswith('.json'):
+                                script_file += '.json'
+                            target_script_path = os.path.join(self.script_dir, script_file)
+                    
+                    if target_script_path and os.path.exists(target_script_path):
                         import json
-                        with open(script_path, 'r', encoding='utf-8') as f:
+                        with open(target_script_path, 'r', encoding='utf-8') as f:
                             data = json.load(f)
                             
                         # 使用 Dummy 轉換 JSON 回純文字
@@ -1606,10 +1610,29 @@ class RecorderApp(tb.Window):
                         self.log_text.delete("1.0", "end")
                         self.log_text.insert("1.0", script_content + "\n")
                         self.log_text.config(state="disabled")
+                        
+                        # 嘗試高亮當前行（如果在播放中）
+                        if getattr(self, "playing", False):
+                            idx = getattr(self.core_recorder, "_current_play_index", 0)
+                            header_offset = 2 if script_content.startswith("# [提示]") else 0
+                            try:
+                                self.log_text.config(state="normal")
+                                self.log_text.tag_remove("highlight", "1.0", "end")
+                                ln = idx + header_offset + 1
+                                self.log_text.tag_add("highlight", f"{ln}.0", f"{ln}.end")
+                                self.log_text.see(f"{ln}.0")
+                                self.log_text.config(state="disabled")
+                            except:
+                                pass
                 except Exception as e:
                     print("Track mode error:", e)
+            else:
+                track_btn.config(text="日誌動態")
+                self.log_text.config(state="normal")
+                self.log_text.delete("1.0", "end")
+                self.log_text.config(state="disabled")
                     
-        track_btn = tb.Checkbutton(log_ctrl_frame, text="腳本追蹤模式", variable=self.track_mode_var, bootstyle="success-round-toggle", command=_on_track_mode_toggle)
+        track_btn = tb.Checkbutton(log_ctrl_frame, text="日誌動態", variable=self.track_mode_var, bootstyle="success-round-toggle", command=_on_track_mode_toggle)
         track_btn.pack(side="left", padx=5)
         
         def clear_log():
@@ -3541,14 +3564,14 @@ class RecorderApp(tb.Window):
                 pass
 
         def on_event(event):
-            if hasattr(self, 'track_mode_var') and self.track_mode_var.get():
-                if isinstance(event, dict) and '_line_number' in event:
-                    line_num = event['_line_number']
-                    self.after(0, lambda: _highlight_line(line_num))
-                    
             try:
                 idx = getattr(self.core_recorder, "_current_play_index", 0)
                 self._current_play_index = idx
+                
+                if hasattr(self, 'track_mode_var') and self.track_mode_var.get():
+                    log_content = self.log_text.get("1.0", "end-1c")
+                    header_offset = 2 if log_content.startswith("# [提示]") else 0
+                    self.after(0, lambda idx=idx: _highlight_line(idx + header_offset))
             except:
                 pass
 
@@ -4353,6 +4376,11 @@ class RecorderApp(tb.Window):
         self.user_config["hotkey_map"] = self.hotkey_map
         self.user_config["auto_mini_mode"] = self.auto_mini_var.get()  # 儲存自動切換設定
         self.user_config["mouse_mode"] = self.mouse_mode_var.get()  # 儲存滑鼠模式設定
+        
+        # 儲存主視窗位置
+        if self.state() == "normal":
+            self.user_config["main_geometry"] = self.geometry()
+            
         save_user_config(self.user_config)
         self.log("【整體設定已更新】")  # 新增：日誌顯示
 

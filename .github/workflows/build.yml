@@ -14,7 +14,7 @@ jobs:
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup Python
       uses: actions/setup-python@v4
@@ -45,7 +45,7 @@ jobs:
         powershell Compress-Archive -Path main/dist/ChroLens_Mimic -DestinationPath ChroLens_Mimic_v${{ steps.get_version.outputs.version }}.zip
 
     - name: Upload Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ChroLens_Mimic_Windows
         path: ChroLens_Mimic_v${{ steps.get_version.outputs.version }}.zip

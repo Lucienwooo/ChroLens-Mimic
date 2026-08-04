@@ -3023,7 +3023,21 @@ class RecorderApp(tb.Window):
                 break
         
         if found_idx == -1:
-            self.log(f"[{format_time(time.time())}] 群組播放佇列已全數執行完畢。")
+            # Check global repeat
+            if hasattr(self, '_global_pl_repeats') and (self._global_pl_repeats == -1 or self._global_pl_repeat_count < self._global_pl_repeats):
+                if self._global_pl_repeats != -1:
+                    self._global_pl_repeat_count += 1
+                self.log(f"[{format_time(time.time())}] 群組播放一輪完畢，準備進入下一主迴圈 (已執行 {self._global_pl_repeat_count} 輪)")
+                if hasattr(self, '_global_pl_interval') and self._global_pl_interval > 0:
+                    self.log(f"[{format_time(time.time())}] 等待主迴圈間隔 {self._global_pl_interval} 秒...")
+                    self._current_pl_index = -1
+                    self._playlist_delay_job = self.after(int(self._global_pl_interval * 1000), self._play_next_in_playlist)
+                else:
+                    self._current_pl_index = -1
+                    self._play_next_in_playlist()
+                return False
+                
+            self.log(f"[{format_time(time.time())}] 群組播放佇列所有主迴圈已全數執行完畢。")
             self._is_playlist_playing = False
             self.playing = False
             self._current_pl_index = -1
@@ -3087,7 +3101,21 @@ class RecorderApp(tb.Window):
             self.playing = True
             self._is_playlist_playing = True
             self._current_pl_index = -1
-            self.log(f"[{format_time(time.time())}] 開始執行群組播放佇列。")
+            try:
+                self._global_pl_repeats = int(self.repeat_var.get())
+                if self._global_pl_repeats == 0: self._global_pl_repeats = -1
+                if self._global_pl_repeats < 0: self._global_pl_repeats = -1 if self.repeat_var.get() == "0" else 1
+            except:
+                self._global_pl_repeats = 1
+            self._global_pl_repeat_count = 1
+            
+            try:
+                h, m, s = map(int, self.repeat_interval_var.get().split(':'))
+                self._global_pl_interval = h * 3600 + m * 60 + s
+            except:
+                self._global_pl_interval = 0
+                
+            self.log(f"[{format_time(time.time())}] 開始執行群組播放佇列 (主迴圈: {self._global_pl_repeats}次, 間隔: {self._global_pl_interval}s)")
             
             # 停用開始錄製按鈕，避免誤觸
             try:
@@ -3437,8 +3465,13 @@ class RecorderApp(tb.Window):
         if hasattr(self, 'track_mode_var') and self.track_mode_var.get():
             try:
                 import json
-                with open(self.script_path, 'r', encoding='utf-8') as f:
+                actual_path = self.script_path
+                if getattr(self, '_is_playlist_playing', False) and self._current_pl_index >= 0:
+                    actual_path = self.playlist_data[self._current_pl_index]['path']
+                
+                with open(actual_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
+                self.update_idletasks() # Force UI refresh
                 from modules.text_script_editor import TextCommandEditor
                 class DummyContext:
                     def _format_time(self, t_seconds: float) -> str:
@@ -6479,6 +6512,19 @@ class RecorderApp(tb.Window):
             else:
                 print("ℹ️ [排程系統] 未發現任何設定排程的腳本")
         except Exception as e:
+            # 儲存到設定記憶體
+            self._last_sync_repeats = str(repeats) if var_sync_repeats.get() else getattr(self, '_last_sync_repeats', "1")
+            self._last_sync_interval = str(interval) if var_sync_interval.get() else getattr(self, '_last_sync_interval', "0")
+            self._last_sync_delay = str(delay_after) if var_sync_delay.get() else getattr(self, '_last_sync_delay', "0")
+
+            for item in self.playlist_data:
+                if var_sync_repeats.get():
+                    item['repeats'] = repeats
+                if var_sync_interval.get():
+                    item['repeat_interval'] = interval
+                if var_sync_delay.get():
+                    item['delay_after'] = delay_after
+                    item['delay'] = delay_after
             self.log(f"載入排程失敗: {e}")
     
     def _execute_scheduled_script(self, script_file):
@@ -6939,26 +6985,23 @@ class RecorderApp(tb.Window):
         for iid in selections:
             self.playlist_tree.selection_add(iid)
     def pl_save(self):
-        if not self.playlist_data:
+        if not getattr(self, 'playlist_data', []):
             self.log("[群組] 佇列為空，無須儲存")
             return
         
         default_name = getattr(self, '_current_loaded_playlist_name', "")
-        name = simpledialog.askstring("儲存組合", "請輸入組合名稱：", initialvalue=default_name)
-        if not name:
-            return
         
-        self._current_loaded_playlist_name = name
-        
-        pl_dir = os.path.join(self.script_dir, "playlists")
-        # 使用自訂對話框輸入名稱
         import tkinter.simpledialog as simpledialog
-        title = lang_map.get("儲存群組", "儲存群組")
-        prompt = lang_map.get("請輸入群組名稱（將自動加上 '群組-' 前綴）：", "請輸入群組名稱（將自動加上 '群組-' 前綴）：")
-        name = simpledialog.askstring(title, prompt, parent=self)
+        lang_dict = getattr(self, 'lang_map', {})
+        title = lang_dict.get("儲存組合", "儲存組合")
+        prompt = lang_dict.get("請輸入組合名稱（將自動加上 '群組-' 前綴）：", "請輸入組合名稱（將自動加上 '群組-' 前綴）：")
+        name = simpledialog.askstring(title, prompt, initialvalue=default_name, parent=self)
+        
         if not name or not name.strip():
             return
             
+        name = name.strip()
+        self._current_loaded_playlist_name = name
         if not name.startswith("群組-"):
             name = f"群組-{name}"
         if not name.endswith(".json"):
@@ -6976,11 +7019,16 @@ class RecorderApp(tb.Window):
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(group_data, f, ensure_ascii=False, indent=2)
             
-            save_success_fmt = lang_map.get("群組播放佇列已儲存: {}", "群組播放佇列已儲存: {}")
+            save_success_fmt = lang_dict.get("群組播放佇列已儲存: {}", "群組播放佇列已儲存: {}")
             self.log(save_success_fmt.format(name))
-            self.refresh_script_list()
+            
+            # 強制更新下拉選單
+            if hasattr(self, 'refresh_script_list'):
+                self.refresh_script_list()
+            if hasattr(self, 'refresh_script_listbox'):
+                self.refresh_script_listbox()
         except Exception as e:
-            fail_fmt = lang_map.get("儲存失敗", "儲存失敗")
+            fail_fmt = lang_dict.get("儲存失敗", "儲存失敗")
             self.log(f"{fail_fmt}: {e}")
 
     def pl_move_up(self):
@@ -7151,7 +7199,7 @@ class RecorderApp(tb.Window):
         var_sync_repeats = tk.BooleanVar(value=True)
         tb.Checkbutton(frame_repeats, variable=var_sync_repeats, bootstyle="round-toggle").pack(side="left", padx=(0, 10))
         tb.Label(frame_repeats, text="重複執行次數:", width=15).pack(side="left")
-        var_repeats = tk.StringVar(value="1")
+        var_repeats = tk.StringVar(value=getattr(self, '_last_sync_repeats', "1"))
         tb.Entry(frame_repeats, textvariable=var_repeats, width=10).pack(side="left")
         
         # 每次重複間隔
@@ -7160,7 +7208,7 @@ class RecorderApp(tb.Window):
         var_sync_interval = tk.BooleanVar(value=True)
         tb.Checkbutton(frame_interval, variable=var_sync_interval, bootstyle="round-toggle").pack(side="left", padx=(0, 10))
         tb.Label(frame_interval, text="每次重複間隔 (秒):", width=15).pack(side="left")
-        var_interval = tk.StringVar(value="0")
+        var_interval = tk.StringVar(value=getattr(self, '_last_sync_interval', "0"))
         tb.Entry(frame_interval, textvariable=var_interval, width=10).pack(side="left")
         
         # 執行完畢後延遲
@@ -7169,7 +7217,7 @@ class RecorderApp(tb.Window):
         var_sync_delay = tk.BooleanVar(value=True)
         tb.Checkbutton(frame_delay, variable=var_sync_delay, bootstyle="round-toggle").pack(side="left", padx=(0, 10))
         tb.Label(frame_delay, text="執行完畢後延遲 (秒):", width=15).pack(side="left")
-        var_delay = tk.StringVar(value="0")
+        var_delay = tk.StringVar(value=getattr(self, '_last_sync_delay', "0"))
         tb.Entry(frame_delay, textvariable=var_delay, width=10).pack(side="left")
         
         def save_config():

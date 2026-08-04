@@ -3306,6 +3306,14 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
             # 載入 JSON
             with open(self.script_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
+                
+            # === 檢查是否為群組播放組合 ===
+            if data.get("is_group", False):
+                self.text_editor.delete("1.0", "end")
+                self._show_message("無法編輯", "群組播放組合無法直接在編輯器中修改！\n\n請單獨開啟左側列表中的個別腳本進行編輯，群組播放佇列請在主介面中操作。", "warning")
+                self.text_editor.insert("end", "# [系統提示] 您正在嘗試開啟群組播放佇列\n# 此檔案格式為虛擬組合，無法直接編輯\n# 若要修改動作，請單獨開啟組合內的各別腳本")
+                self._apply_syntax_highlighting()
+                return
             
             # === 應用軌跡過濾 ===
             if should_filter and isinstance(data, dict) and 'events' in data:

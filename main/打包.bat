@@ -1,6 +1,6 @@
-@echo off
+﻿@echo off
 REM ===================================================================
-REM ChroLens_Mimic Auto Package Tool
+REM ChroLens_Mimic Auto Package Tool (極速版)
 REM ===================================================================
 chcp 65001 >nul
 title ChroLens_Mimic Package Tool
@@ -8,166 +8,74 @@ color 0A
 
 echo.
 echo ===================================================================
-echo    ChroLens_Mimic Auto Package Tool
+echo    ChroLens_Mimic Auto Package Tool (極速直通版)
 echo ===================================================================
 echo.
 
-REM ===================================================================
-REM Step 1: Check Python and PyInstaller
-REM ===================================================================
-echo [1/6] Checking Python and PyInstaller...
+REM [Step 1] 快速檢查環境
+echo [1/4] Checking Python Environment...
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
     color 0C
-    echo ERROR: Python not found. Please install Python 3.8+
+    echo ERROR: Python not found!
     pause
     exit /b 1
 )
 
-python -c "import PyInstaller" >nul 2>&1
-if %errorlevel% neq 0 (
-    color 0C
-    echo ERROR: PyInstaller not installed. Please run: pip install pyinstaller
-    pause
-    exit /b 1
-)
-echo OK: Python and PyInstaller are ready.
-echo.
-
-REM ===================================================================
-REM Step 2: Check Required Files
-REM ===================================================================
-echo [2/6] Checking required files...
-set FILE_MISSING=0
-for %%f in (ChroLens_Mimic.py modules\recorder.py modules\text_script_editor.py modules\lang.py) do (
-    if not exist "%%f" (
-        echo MISSING: %%f
-        set FILE_MISSING=1
-    ) else (
-        echo OK: %%f
-    )
-)
-
-if not exist "..\umi_奶茶色.ico" (
-    echo WARNING: Icon file not found at ..\umi_奶茶色.ico
-    set ICON_PARAM=
-) else (
-    echo OK: Icon file found
+REM 判斷 Icon
+set ICON_PARAM=
+if exist "..\umi_奶茶色.ico" (
     set ICON_PARAM=--icon "..\umi_奶茶色.ico" --add-data "..\umi_奶茶色.ico;."
 )
 
-if "%FILE_MISSING%"=="1" (
-    color 0C
-    echo ERROR: Missing required files
-    pause
-    exit /b 1
-)
-echo.
-
-REM ===================================================================
-REM Step 3: Clean old build files
-REM ===================================================================
-echo [3/6] Cleaning old build files...
-REM 為了加快打包速度，保留 build 資料夾作為 PyInstaller 快取，只清除 dist 與 spec 檔案。
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-Item -Path 'dist' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path '*.spec' -Force -ErrorAction SilentlyContinue"
+REM [Step 2] 快速清理舊檔
+echo [2/4] Cleaning old build files...
+if exist "dist" rd /s /q "dist"
+if exist "*.spec" del /q "*.spec"
 echo OK: Cleanup finished.
 echo.
 
-REM ===================================================================
-REM Step 4: Run PyInstaller
-REM ===================================================================
-echo [4/6] Running PyInstaller...
+REM [Step 3] 執行 PyInstaller 打包
+echo [3/4] Running PyInstaller...
 echo -------------------------------------------------------------------
 
 set PYST_OPTS=--onedir --windowed --name "ChroLens_Mimic"
 set DATA_OPTS=--add-data "images;images" --add-data "TTF;TTF" --add-data "models;models" --add-data "data;data"
 set PATH_OPTS=--paths "." --paths "modules"
 
-set HIDDEN_MODULES=--hidden-import "ttkbootstrap" --hidden-import "ttkbootstrap.constants" --hidden-import "ttkbootstrap.themes"
-set HIDDEN_LIBS=--hidden-import "keyboard" --hidden-import "mouse" --hidden-import "mss" --hidden-import "PIL" --hidden-import "cv2" --hidden-import "numpy" --hidden-import "pystray" --hidden-import "pynput" --hidden-import "pynput.keyboard._win32" --hidden-import "pynput.mouse._win32"
-set HIDDEN_APP=--hidden-import "bezier_mouse" --hidden-import "yolo_detector" --hidden-import "recorder" --hidden-import "text_script_editor" --hidden-import "lang" --hidden-import "script_io" --hidden-import "about" --hidden-import "mini" --hidden-import "pynput_hotkey" --hidden-import "window_selector" --hidden-import "version_manager" --hidden-import "version_info_dialog" --hidden-import "image_matcher" --hidden-import "ocr_trigger" --hidden-import "utils" --hidden-import "ddddocr" --hidden-import "cnocr" --hidden-import "pytesseract" --hidden-import "ultralytics" --hidden-import "onnxruntime"
-
+REM 只保留真正必要的隱藏模組 (外部動態加載的函式庫)
+set HIDDEN_LIBS=--hidden-import "ttkbootstrap" --hidden-import "keyboard" --hidden-import "mouse" --hidden-import "mss" --hidden-import "PIL" --hidden-import "cv2" --hidden-import "numpy" --hidden-import "pystray" --hidden-import "pynput" --hidden-import "pynput.keyboard._win32" --hidden-import "pynput.mouse._win32"
+REM 保留巨大 AI 模組的 collect-all 以保證運作正常
 set COLLECT_OPTS=--collect-all "ttkbootstrap" --collect-all "ultralytics" --collect-all "ddddocr" --collect-all "cnocr" --collect-all "onnxruntime" --collect-submodules "pynput"
 
-set PYINSTALLER_CMD=pyinstaller %PYST_OPTS% %DATA_OPTS% %PATH_OPTS% %HIDDEN_MODULES% %HIDDEN_LIBS% %HIDDEN_APP% %COLLECT_OPTS% --noconfirm %ICON_PARAM% --version-file "version_info.txt" "ChroLens_Mimic.py"
-
-call %PYINSTALLER_CMD%
+pyinstaller %PYST_OPTS% %DATA_OPTS% %PATH_OPTS% %HIDDEN_LIBS% %COLLECT_OPTS% --noconfirm %ICON_PARAM% --version-file "version_info.txt" "ChroLens_Mimic.py"
 
 if %errorlevel% neq 0 (
     color 0C
-    echo.
-    echo ERROR: Package failed (code: %errorlevel%)
+    echo ERROR: Package failed!
     pause
     exit /b %errorlevel%
 )
 echo -------------------------------------------------------------------
+echo OK: PyInstaller build completed.
 echo.
 
-REM ===================================================================
-REM Step 5: Smoke Test
-REM ===================================================================
-echo [5/6] Running Smoke Test...
+REM [Step 4] 極速 ZIP 壓縮
+echo [4/4] Creating ZIP Archive...
 echo -------------------------------------------------------------------
-echo 正在啟動程式進行測試...
-start "" "dist\ChroLens_Mimic\ChroLens_Mimic.exe"
-echo.
-echo 請檢查程式是否正常啟動，並測試基本功能。
-echo 確認沒問題後，請【關閉程式】。
-echo.
-set /p CONFIRM="所有功能運作正常嗎？ (Y/N): "
-if /i "%CONFIRM%" neq "Y" (
-    color 0E
-    echo.
-    echo 測試未通過或已取消。保留 build 資料夾以便除錯。
-    pause
-    exit /b 1
-)
 
-REM ===================================================================
-REM Step 6: Finalizing Package (Zip and Cleanup)
-REM ===================================================================
-echo.
-echo.
-echo [6/6] Finalizing Package (Zip and Cleanup)...
-echo -------------------------------------------------------------------
-echo 1. 建立 ZIP 壓縮檔...
+REM 透過 PowerShell 的 .NET 原生函式庫 (System.IO.Compression) 進行極速壓縮
+set ZIP_NAME=ChroLens_Mimic.zip
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; $src = Join-Path (Get-Location).Path 'dist\ChroLens_Mimic'; $dst = Join-Path (Get-Location).Path 'dist\%ZIP_NAME%'; if (Test-Path $dst) { Remove-Item $dst -Force }; [System.IO.Compression.ZipFile]::CreateFromDirectory($src, $dst, [System.IO.Compression.CompressionLevel]::Fastest, $false); Write-Host 'ZIP created successfully at dist\%ZIP_NAME%' -ForegroundColor Green"
 
-REM 使用獨立 PowerShell 腳本避免 CMD 變數衝突
-set PS_TEMP=%TEMP%\pack_zip_%RANDOM%.ps1
-echo $ErrorActionPreference = 'Stop' > "%PS_TEMP%"
-echo $content = Get-Content '.\ChroLens_Mimic.py' -Raw >> "%PS_TEMP%"
-echo if ($content -match 'VERSION\s*=\s*"([^"]+)"') { $ver = $Matches[1] } else { $ver = 'Unknown' } >> "%PS_TEMP%"
-echo $zipName = 'ChroLens_Mimic_v' + $ver + '.zip' >> "%PS_TEMP%"
-echo $zipNameGeneric = 'ChroLens_Mimic.zip' >> "%PS_TEMP%"
-echo Write-Host ('打包版本: v' + $ver) -ForegroundColor Cyan >> "%PS_TEMP%"
-echo $currentDir = Get-Location >> "%PS_TEMP%"
-echo $src = Join-Path $currentDir 'dist\ChroLens_Mimic' >> "%PS_TEMP%"
-echo $dst = Join-Path $currentDir ('dist\' + $zipName) >> "%PS_TEMP%"
-echo $dstGeneric = Join-Path $currentDir ('dist\' + $zipNameGeneric) >> "%PS_TEMP%"
-echo if (Test-Path $dst) { Remove-Item $dst -Force } >> "%PS_TEMP%"
-echo if (Test-Path $dstGeneric) { Remove-Item $dstGeneric -Force } >> "%PS_TEMP%"
-echo Write-Host ('正在壓縮 ' + $src + ' 到 ' + $dst + ' ...') >> "%PS_TEMP%"
-echo Compress-Archive -Path ($src + '\*') -DestinationPath $dst -Force >> "%PS_TEMP%"
-echo Copy-Item -Path $dst -Destination $dstGeneric -Force >> "%PS_TEMP%"
-echo if (Test-Path $dst) { Write-Host ('OK: ZIP created at dist\' + $zipName + ' and dist\' + $zipNameGeneric) -ForegroundColor Green } else { Write-Error 'ZIP creation failed' } >> "%PS_TEMP%"
-
-powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_TEMP%"
-del "%PS_TEMP%" 2>nul
-
-echo 2. 清除 spec 檔案...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Remove-Item -Path '*.spec' -Force -ErrorAction SilentlyContinue"
-REM (已移除清除 build 資料夾的步驟，讓下次打包可利用快取大幅加速)
+REM 順手清一下多餘的 spec
+if exist "*.spec" del /q "*.spec"
 
 color 0A
 echo.
 echo ===================================================================
 echo    Package Complete! 🚀
 echo ===================================================================
-echo.
 echo Output Directory: dist\
-echo [Files in dist]
-dir /b "dist"
-echo.
-echo ===================================================================
 echo.
 pause

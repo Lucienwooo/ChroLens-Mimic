@@ -302,7 +302,7 @@ def create_rounded_rect(canvas, x1, y1, x2, y2, radius=12, **kwargs):
 
 
 class GlobalRouter:
-    """全域碰撞偵測布線器 - PCB 風格 (v2.8.2: 支援視覺縮放)"""
+    """全域碰撞偵測布線器 - PCB 風格 (v2.8.3: 支援視覺縮放)"""
     
     def __init__(self, nodes, scale=1.0):
         self.nodes = nodes
@@ -692,14 +692,19 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         
         self.parent = parent
         self.script_path = script_path
-        self.title("文字指令編輯器")
+        self.title("指令編輯器")
+        set_window_icon(self)
         if self.parent and hasattr(self.parent, "user_config") and "editor_geometry" in self.parent.user_config:
             try:
-                self.geometry(self.parent.user_config["editor_geometry"])
+                saved_geom = self.parent.user_config["editor_geometry"]
+                if '+' in saved_geom:
+                    pos = saved_geom[saved_geom.find('+'):]
+                    self.geometry(pos)
+                self.minsize(1405, 1095)
             except:
-                self.geometry("1405x1095")
+                self.minsize(1405, 1095)
         else:
-            self.geometry("1405x1095")  # 寬度+50，高度+100
+            self.minsize(1405, 1095)  # 寬度+50，高度+100
         
         self.protocol("WM_DELETE_WINDOW", self.on_close_editor)
         
@@ -851,7 +856,8 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         # 操作按鈕（移除圖片辨識，移到底部指令區）
         buttons = [
             ("重新載入", self._load_script, "#2196F3"),
-            ("儲存", self._save_script, "#4CAF50")
+            ("儲存", self._save_script, "#4CAF50"),
+            ("查看圖庫", self._open_image_gallery, "#9C27B0")
         ]
         for text, cmd, color in buttons:
             tk.Button(toolbar, text=text, command=cmd, bg=color, fg="white", font=font_tuple(9), padx=15, pady=5).pack(side="left", padx=5)
@@ -1156,7 +1162,8 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         self.text_editor.tag_config("syntax_delay", foreground="#dcdcaa")       # 淺黃色 - 延遲控制
         self.text_editor.tag_config("syntax_flow", foreground="#c586c0")        # 紫色 - 流程控制
         self.text_editor.tag_config("syntax_picname", foreground="#ce9178")     # 橘色 - 圖片名稱
-        self.text_editor.tag_config("syntax_comment", foreground="#6a9955")     # 綠色 - 註解
+        self.text_editor.tag_config("syntax_comment", foreground="#39FF14")
+        self.text_editor.tag_config("syntax_comment_inline", foreground="#39FF14")     # 綠色 - 註解
         self.text_editor.tag_config("syntax_module_ref", foreground="#ffd700", font=font_tuple(10, "bold"))  # 金色 - 模組引用
         
         # 新增：軌跡摺疊相關標籤和配置
@@ -2836,7 +2843,7 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         dialog = tk.Toplevel(self)
         set_window_icon(dialog)
         dialog.title("選擇模組")
-        dialog.geometry("400x300")
+        dialog.minsize(400, 300)
         dialog.transient(self)
         dialog.grab_set()
         
@@ -2884,13 +2891,17 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         # 雙擊也可以插入
         listbox.bind("<Double-Button-1>", lambda e: insert())
     
+
+    def _open_image_gallery(self):
+        gallery = ImageGalleryViewer(self, self)
+
     def _show_command_reference(self):
         """顯示指令說明視窗（2.7.4 版本 - 使用 grid 佈局）"""
         # 創建獨立的說明視窗
         ref_window = tk.Toplevel(self)
         set_window_icon(ref_window)
         ref_window.title("ChroLens Mimic - 指令說明")
-        ref_window.geometry("1200x750")
+        ref_window.minsize(1200, 750)
         ref_window.configure(bg="#1e1e1e")
         
         # 創建帶滾動條的 Canvas 容器
@@ -3189,7 +3200,7 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         dialog = tk.Toplevel(self)
         set_window_icon(dialog)
         dialog.title("")
-        dialog.geometry("300x100")
+        dialog.minsize(300, 100)
         dialog.resizable(False, False)
         dialog.transient(self)
         dialog.grab_set()
@@ -4205,6 +4216,7 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
                 (r'>>#\S+', 'syntax_label'),
                 (r'>>>#\S+', 'syntax_label'),
                 (r'^# .*', 'syntax_comment'),
+                (r'//.*', 'syntax_comment_inline'),
                 (r'^>>>', 'syntax_symbol'),
                 (r'^>>', 'syntax_symbol'),
                 (r'^>', 'syntax_symbol'),
@@ -4588,7 +4600,7 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         help_win = tk.Toplevel(self)
         set_window_icon(help_win)
         help_win.title("圖片辨識使用說明")
-        help_win.geometry("600x550")
+        help_win.minsize(600, 550)
         help_win.resizable(False, False)
         
         # 文字區域
@@ -5516,7 +5528,7 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
             dialog = tk.Toplevel(self)
             set_window_icon(dialog)
             dialog.title("文字辨識結果 (OCR)")
-            dialog.geometry("600x700")
+            dialog.minsize(600, 700)
             dialog.resizable(True, True)
             dialog.attributes('-topmost', True)
             dialog.transient(self)
@@ -5824,7 +5836,7 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         """繪製 PCB 風格圖形"""
         self.workflow_canvas.configure(bg="#010409")
         
-        # 1. 創建路由器 (v2.8.2: 傳入縮放比例)
+        # 1. 創建路由器 (v2.8.3: 傳入縮放比例)
         self.pcb_router = GlobalRouter(self.pcb_nodes, scale=getattr(self, "workflow_scale", 1.0))
         
         # 2. 繪製連線
@@ -5977,7 +5989,7 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
     
     def _on_node_press(self, event, tag, node):
         """節點按下事件"""
-        #  v2.8.2: 使用畫布座標
+        #  v2.8.3: 使用畫布座標
         self._drag_data = {
             "tag": tag,
             "node": node,
@@ -5990,7 +6002,7 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         if not hasattr(self, '_drag_data') or self._drag_data is None:
             return
         
-        #  v2.8.2: 使用畫布座標而非視窗座標，修復縮放後拖曳錯位問題
+        #  v2.8.3: 使用畫布座標而非視窗座標，修復縮放後拖曳錯位問題
         canvas_x = self.workflow_canvas.canvasx(event.x)
         canvas_y = self.workflow_canvas.canvasy(event.y)
         
@@ -6006,7 +6018,7 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         self._drag_data["x"] = canvas_x
         self._drag_data["y"] = canvas_y
         
-        #  重新繪製所有連線 (v2.8.2: 傳入縮放比例)
+        #  重新繪製所有連線 (v2.8.3: 傳入縮放比例)
         self.workflow_canvas.delete("pcb_connection")
         self.pcb_router = GlobalRouter(self.pcb_nodes, scale=getattr(self, "workflow_scale", 1.0))
         self._draw_pcb_connections()
@@ -6016,7 +6028,7 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         self._drag_data = None
     
     def _draw_pcb_connections(self):
-        """繪製 PCB 風格連線 (v2.8.2: 支援視覺縮放)"""
+        """繪製 PCB 風格連線 (v2.8.3: 支援視覺縮放)"""
         scale = getattr(self, "workflow_scale", 1.0)
         
         for from_idx, to_idx, path_type in self.pcb_connections:
@@ -6563,7 +6575,7 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
     
     def _on_workflow_canvas_click(self, event):
         """處理畫布點擊（支援節點拖曳和畫布平移）"""
-        #  v2.8.2: 使用畫布座標而非視窗座標
+        #  v2.8.3: 使用畫布座標而非視窗座標
         canvas_x = self.workflow_canvas.canvasx(event.x)
         canvas_y = self.workflow_canvas.canvasy(event.y)
         
@@ -6589,7 +6601,7 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
     
     def _on_workflow_canvas_drag(self, event):
         """處理畫布拖移（同步更新節點座標資料）"""
-        #  v2.8.2: 如果正在拖曳節點（有 _drag_data），不執行畫布拖移
+        #  v2.8.3: 如果正在拖曳節點（有 _drag_data），不執行畫布拖移
         if hasattr(self, '_drag_data') and self._drag_data is not None:
             return
         
@@ -6746,7 +6758,7 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         
         self.workflow_scale *= scale
         
-        #  v2.8.2: 縮放時同步更新 pcb_nodes 座標
+        #  v2.8.3: 縮放時同步更新 pcb_nodes 座標
         # 計算縮放中心點（畫布座標）
         cx = self.workflow_canvas.canvasx(event.x)
         cy = self.workflow_canvas.canvasy(event.y)
@@ -6995,6 +7007,21 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         ms_label = tk.Label(row_frame, text="ms", bg=row_bg, fg="#d4d4d4", font=font_tuple(9))
         ms_label.pack(side="left", padx=2)
         
+                # 4.5 行內備註
+        remark_label = tk.Label(row_frame, text="備註", bg=row_bg, fg="#d4d4d4", font=("Microsoft JhengHei", 9))
+        remark_label.pack(side="left", padx=(10, 2))
+        
+        remark_var = tk.StringVar(value=data.get("inline_comment", ""))
+        remark_entry = tk.Entry(row_frame, textvariable=remark_var, width=15, font=("Microsoft JhengHei", 9),
+                               bg="#1e1e1e", fg="#39FF14", insertbackground="#ffffff", bd=1, relief="solid", highlightthickness=0)
+        remark_entry.pack(side="left", fill="x", expand=True, padx=2)
+        if is_add_row:
+            remark_entry.configure(state="disabled")
+        else:
+            remark_entry.bind("<FocusOut>", lambda e: self._sync_and_reload())
+            remark_entry.bind("<Return>", lambda e: self._sync_and_reload())
+            
+        # 5. 右側控制區
         # 5. 右側控制區 (原本動作的最右邊只保留"x"的關閉按鈕，特殊新增列只保留"+"按鈕)
         right_btn_frame = tk.Frame(row_frame, bg=row_bg)
         right_btn_frame.pack(side="right", padx=5)
@@ -7009,11 +7036,12 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
             "category_combo": cat_combo,
             "param_frame": param_frame,
             "delay_var": delay_var,
+            "remark_var": remark_var,
             "time_var": time_var,
             "time_label": time_label,
             "grip_label": grip_label,
             "is_add_row": is_add_row,
-            "widgets_to_bg": [row_frame, right_btn_frame, delay_label, ms_label, time_label, param_frame, grip_label]
+            "widgets_to_bg": [row_frame, right_btn_frame, delay_label, ms_label, remark_label, time_label, param_frame, grip_label]
         }
         
         if is_add_row:
@@ -7880,3 +7908,116 @@ if __name__ == "__main__":
     editor = TextCommandEditor(root, test_script)
     root.mainloop()
 
+
+
+class ImageGalleryViewer(tk.Toplevel):
+    def __init__(self, parent, editor):
+        super().__init__(parent)
+        self.editor = editor
+        self.title("圖庫查看器")
+        
+        # 設置視窗大小為編輯器的 2/3
+        w = int(parent.winfo_width() * 0.66)
+        h = int(parent.winfo_height() * 0.66)
+        x = parent.winfo_x() + (parent.winfo_width() - w) // 2
+        y = parent.winfo_y() + (parent.winfo_height() - h) // 2
+        self.geometry(f"+{x}+{y}")
+        self.minsize(w, h)
+        self.configure(bg="#1e1e1e")
+        self.transient(parent)
+        set_window_icon(self)
+        
+        # 主框架
+        main_frame = tk.Frame(self, bg="#1e1e1e")
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # 狀態列
+        self.status_var = tk.StringVar(value="點擊圖片即可複製對應指令")
+        status_label = tk.Label(main_frame, textvariable=self.status_var, bg="#1e1e1e", fg="#4CAF50", font=font_tuple(10))
+        status_label.pack(side="bottom", fill="x", pady=(5, 0))
+        
+        # 建立 Canvas 來實現隱藏卷軸的網格
+        self.canvas = tk.Canvas(main_frame, bg="#1e1e1e", highlightthickness=0)
+        self.canvas.pack(side="left", fill="both", expand=True)
+        
+        # 綁定滾輪
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.bind("<Destroy>", lambda e: self.canvas.unbind_all("<MouseWheel>"))
+        
+        self.grid_frame = tk.Frame(self.canvas, bg="#1e1e1e")
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.grid_frame, anchor="nw")
+        
+        self.grid_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.canvas.bind("<Configure>", self._on_canvas_configure)
+        
+        self._load_images()
+        
+    def _on_mousewheel(self, event):
+        if self.winfo_exists():
+            self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            
+    def _on_canvas_configure(self, event):
+        self.canvas.itemconfig(self.canvas_window, width=event.width)
+        
+    def _load_images(self):
+        # Use parent's script_dir for robust path resolution
+        try:
+            images_dir = os.path.join(self.editor.parent.script_dir, "images")
+        except:
+            images_dir = "images"
+            
+        if not os.path.exists(images_dir):
+            tk.Label(self.grid_frame, text="圖庫中沒有任何圖片", bg="#1e1e1e", fg="#ffffff", font=font_tuple(12)).pack(pady=20)
+            return
+            
+        files = [f for f in os.listdir(images_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        if not files:
+            tk.Label(self.grid_frame, text="圖庫中沒有任何圖片", bg="#1e1e1e", fg="#ffffff", font=font_tuple(12)).pack(pady=20)
+            return
+            
+        # 繪製網格
+        col = 0
+        row = 0
+        max_cols = 4 # 預設每行4張圖
+        
+        self.thumbnails = [] # 防止垃圾回收
+        for f in files:
+            try:
+                img_path = os.path.join(images_dir, f)
+                img = Image.open(img_path)
+                img.thumbnail((120, 120))
+                photo = ImageTk.PhotoImage(img)
+                self.thumbnails.append(photo)
+                
+                frame = tk.Frame(self.grid_frame, bg="#2d2d2d", padx=5, pady=5, bd=1, relief="solid")
+                frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+                
+                img_lbl = tk.Label(frame, image=photo, bg="#2d2d2d", cursor="hand2")
+                img_lbl.pack()
+                
+                name_lbl = tk.Label(frame, text=os.path.splitext(f)[0], bg="#2d2d2d", fg="#ffffff", font=font_tuple(9), cursor="hand2")
+                name_lbl.pack(pady=5)
+                
+                # 點擊事件
+                def on_click(event, fname=os.path.splitext(f)[0]):
+                    cmd = f">辨識>{fname}, T=0s000\n>左鍵點擊>{fname}, T=1s500"
+                    self.clipboard_clear()
+                    self.clipboard_append(cmd)
+                    self.status_var.set(f"成功複製：>辨識>{fname}... (共2行)")
+                    # 3秒後自動恢復提示文字
+                    self.after(3000, lambda: self.status_var.set("點擊圖片即可複製對應指令"))
+                
+                img_lbl.bind("<Button-1>", on_click)
+                name_lbl.bind("<Button-1>", on_click)
+                frame.bind("<Button-1>", on_click)
+                
+                col += 1
+                if col >= max_cols:
+                    col = 0
+                    row += 1
+            except Exception as e:
+                pass
+                
+        # 讓每行自動擴展
+        for i in range(max_cols):
+            self.grid_frame.grid_columnconfigure(i, weight=1)

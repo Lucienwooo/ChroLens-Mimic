@@ -45,7 +45,7 @@ class VersionInfoDialog(tb.Toplevel):
         self.on_update_callback = on_update_callback
         
         self.title("版本資訊 - ChroLens_Mimic")
-        self.geometry("600x680")
+        self.minsize(600, 680)
         self.resizable(True, True)
         self.minsize(550, 650)
         

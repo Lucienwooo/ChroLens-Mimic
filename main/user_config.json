@@ -1,7 +1,7 @@
 {
   "skin": "darkly",
-  "last_script": "任務濃湯-採馬鈴薯.json",
-  "repeat": "0",
+  "last_script": "2026_0812_1819_47.json",
+  "repeat": "1",
   "speed": "100",
   "script_dir": "scripts",
   "language": "繁體中文",
@@ -17,6 +17,10 @@
   },
   "auto_mini_mode": false,
   "mouse_mode": true,
-  "main_geometry": "1150x620+380+380",
-  "editor_geometry": "1405x1095+2422+687"
+  "main_geometry": "1150x620+304+304",
+  "editor_geometry": "1585x1096+334+489",
+  "visual_tracker_geometry": "934x813+515+862",
+  "bg_protect_strategy": "skip",
+  "bg_protect_delay": 2.0,
+  "bg_protect_force_wait": false
 }

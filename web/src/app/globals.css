@@ -13,18 +13,18 @@
 
 :root {
   /* --- Stitch Design Palette --- */
-  --primary:        #00F0FF;
-  --primary-glow:   rgba(0, 240, 255, 0.1);
-  --accent:         #8A2BE2;
-  --accent-glow:    rgba(138, 43, 226, 0.1);
+  --primary:        #7a5fcf;
+  --primary-glow:   rgba(122, 95, 207, 0.15);
+  --accent:         #a594e8;
+  --accent-glow:    rgba(165, 148, 232, 0.15);
   
-  --background-dark:#0A0A0A;
-  --surface:        #141414;
-  --surface-hover:  #1A1A1A;
-  --border-color:   #262626;
+  --background-dark:#201c2c;
+  --surface:        #2c2839;
+  --surface-hover:  #373345;
+  --border-color:   #403c52;
   
-  --text-main:      #EDEDED;
-  --text-muted:     #8A8A8A;
+  --text-main:      #eceaf2;
+  --text-muted:     #938e9c;
 
   /* --- Layout --- */
   --sidebar-width:      240px;

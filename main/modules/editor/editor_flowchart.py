@@ -27,7 +27,7 @@ class EditorFlowchartMixin:
         self.pcb_groups = []  # [{nodes: [...], color, name}]
         self.pcb_router = None
         
-        #  v2.8.2: 重設並行區塊追蹤
+        #  v2.8.3: 重設並行區塊追蹤
         self.parallel_threads = {}  # {parallel_label: [thread_labels]}
         
         # PCB 佈局參數
@@ -208,7 +208,7 @@ class EditorFlowchartMixin:
                 continue
             
             # 識別一般標籤（視為主執行緒）
-            #  v2.8.2: 跳過 "# " 開頭的註解（如 "# 並行區塊範例"）
+            #  v2.8.3: 跳過 "# " 開頭的註解（如 "# 並行區塊範例"）
             if line.startswith('#') and not line.startswith('##') and not line.startswith('# [') and not line.startswith('# '):
                 current_label = line
                 label_commands[current_label] = []
@@ -280,7 +280,7 @@ class EditorFlowchartMixin:
                     if target in label_order and target not in visited:
                         assign_position(target, row + 1, col)
             
-            #  v2.8.2: 處理自動順序流 - 如果下一個標籤在腳本中緊隨其後，則向右排列
+            #  v2.8.3: 處理自動順序流 - 如果下一個標籤在腳本中緊隨其後，則向右排列
             idx = label_order.index(label) if label in label_order else -1
             if idx != -1 and idx + 1 < len(label_order):
                 next_label = label_order[idx + 1]
@@ -307,7 +307,7 @@ class EditorFlowchartMixin:
             label_to_col[end_label] = final_col + 1
         
         
-        #  v2.8.2: 處理並行區塊的分叉佈局
+        #  v2.8.3: 處理並行區塊的分叉佈局
         # 讓並行區塊的執行緒垂直分叉顯示
         if hasattr(self, 'parallel_threads') and self.parallel_threads:
             for parallel_label, thread_labels in self.parallel_threads.items():
@@ -322,7 +322,7 @@ class EditorFlowchartMixin:
                     
                     for i, thread_label in enumerate(thread_labels):
                         if thread_label in label_to_row:
-                            #  v2.8.2: 增加垂直間距，讓分叉更清晰
+                            #  v2.8.3: 增加垂直間距，讓分叉更清晰
                             # 將執行緒均勻分布在並行區塊的上下
                             # 例如 2 個執行緒：row -1 和 +1（間距 2）
                             # 例如 3 個執行緒：row -1.5, 0, +1.5（間距 1.5）
@@ -379,7 +379,7 @@ class EditorFlowchartMixin:
                 if first_main_idx is not None:
                     self.pcb_connections.append((start_idx, first_main_idx, "main"))
         
-        #  v2.8.2: 並行區塊連接到其所屬執行緒（分叉連線）
+        #  v2.8.3: 並行區塊連接到其所屬執行緒（分叉連線）
         if hasattr(self, 'parallel_threads') and self.parallel_threads:
             for parallel_label, thread_labels in self.parallel_threads.items():
                 parallel_idx = label_to_idx.get(parallel_label)
@@ -409,7 +409,7 @@ class EditorFlowchartMixin:
                 next_label = label_order[label_idx_in_order + 1]
                 next_idx = label_to_idx.get(next_label)
                 
-                #  v2.8.2: 跳過並行區塊到執行緒的連線（已經用 fork 處理）
+                #  v2.8.3: 跳過並行區塊到執行緒的連線（已經用 fork 處理）
                 is_parallel_to_thread = False
                 if hasattr(self, 'parallel_threads') and self.parallel_threads:
                     for parallel_label, thread_labels in self.parallel_threads.items():

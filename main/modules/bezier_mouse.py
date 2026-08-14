@@ -269,7 +269,7 @@ if __name__ == "__main__":
     # 創建測試視窗
     root = tk.Tk()
     root.title("BezierMouse 測試")
-    root.geometry("800x600")
+    root.minsize(800, 600)
     
     # 創建畫布
     canvas = tk.Canvas(root, bg="white")

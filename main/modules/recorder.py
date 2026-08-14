@@ -31,7 +31,7 @@ except ImportError:
     BEZIER_AVAILABLE = False
     print("️ BezierMouseMover 未載入，將使用傳統直線移動")
 
-#  v2.8.2: 匯入 YOLO 物件偵測模組
+#  v2.8.3: 匯入 YOLO 物件偵測模組
 try:
     from yolo_detector import YOLODetector, get_detector, YOLO_AVAILABLE
 except ImportError:
@@ -674,7 +674,7 @@ class CoreRecorder:
         self._state_machine = StateMachine(self, logger)
         self._pending_jump = None  # 觸發器請求的跳轉目標
         
-        #  v2.8.2+ 新增：YOLO 物件偵測器
+        #  v2.8.3+ 新增：YOLO 物件偵測器
         self._yolo_detector = None
         self._yolo_enabled = False
         if YOLO_AVAILABLE:
@@ -1574,13 +1574,13 @@ class CoreRecorder:
                     # 根據後台模式選擇執行方法
                     result = self._execute_event_with_mode(event)
                     
-                    #  v2.8.2+: 處理主動延遲造成的偏移
+                    #  v2.8.3+: 處理主動延遲造成的偏移
                     # 如果是主動等待類指令，執行時間應計入暫停偏移，避免後續指令為了「趕進度」而跳過延遲
                     if event.get('type') in ['random_delay', 'delayed_start', 'delayed_end', 'delay']:
                         exec_duration = time.time() - exec_start
                         total_pause_time += exec_duration
                     
-                    #  v2.8.2+: 處理 try_action 成果監測 (保留前次修改)
+                    #  v2.8.3+: 處理 try_action 成果監測 (保留前次修改)
                     if self._current_try_action:
                         action_id = self._current_try_action
                         
@@ -2079,6 +2079,130 @@ class CoreRecorder:
             # 失敗時直接執行
             self._execute_event(event)
 
+
+    # ==================== 真背景執行模式 (Win32 API) ====================
+    def _bg_send_mouse(self, hwnd, event, x, y, button='left'):
+        import win32api
+        import win32con
+        import win32gui
+        import ctypes
+        
+        try:
+            # 取得視窗的 client 範圍，並將絕對座標轉換為相對座標
+            client_point = win32gui.ScreenToClient(hwnd, (int(x), int(y)))
+            cx, cy = client_point
+            
+            lparam = win32api.MAKELONG(cx, cy)
+            
+            if event == 'move':
+                win32gui.PostMessage(hwnd, win32con.WM_MOUSEMOVE, 0, lparam)
+            elif event == 'down':
+                msg = win32con.WM_LBUTTONDOWN if button == 'left' else win32con.WM_RBUTTONDOWN
+                wparam = win32con.MK_LBUTTON if button == 'left' else win32con.MK_RBUTTON
+                win32gui.PostMessage(hwnd, msg, wparam, lparam)
+            elif event == 'up':
+                msg = win32con.WM_LBUTTONUP if button == 'left' else win32con.WM_RBUTTONUP
+                win32gui.PostMessage(hwnd, msg, 0, lparam)
+            elif event == 'click':
+                msg_down = win32con.WM_LBUTTONDOWN if button == 'left' else win32con.WM_RBUTTONDOWN
+                wparam = win32con.MK_LBUTTON if button == 'left' else win32con.MK_RBUTTON
+                win32gui.PostMessage(hwnd, win32con.WM_MOUSEMOVE, 0, lparam)
+                win32gui.PostMessage(hwnd, msg_down, wparam, lparam)
+                msg_up = win32con.WM_LBUTTONUP if button == 'left' else win32con.WM_RBUTTONUP
+                win32gui.PostMessage(hwnd, msg_up, 0, lparam)
+        except Exception as e:
+            self.logger(f"[背景模式] 滑鼠事件發送失敗: {e}")
+
+    def _bg_send_keyboard(self, hwnd, event, key_name):
+        import win32api
+        import win32con
+        import win32gui
+        
+        # 簡易的按鍵名稱轉虛擬鍵碼 (VK)
+        vk_map = {
+            'enter': win32con.VK_RETURN,
+            'esc': win32con.VK_ESCAPE,
+            'space': win32con.VK_SPACE,
+            'backspace': win32con.VK_BACK,
+            'tab': win32con.VK_TAB,
+            'shift': win32con.VK_SHIFT,
+            'ctrl': win32con.VK_CONTROL,
+            'alt': win32con.VK_MENU,
+        }
+        
+        vk = None
+        if len(key_name) == 1:
+            vk = win32api.VkKeyScan(key_name) & 0xFF
+        else:
+            vk = vk_map.get(key_name.lower())
+            
+        if not vk:
+            self.logger(f"[背景模式] 尚未支援的按鍵: {key_name}")
+            return
+            
+        try:
+            if event == 'down':
+                win32gui.PostMessage(hwnd, win32con.WM_KEYDOWN, vk, 0)
+            elif event == 'up':
+                win32gui.PostMessage(hwnd, win32con.WM_KEYUP, vk, 0)
+            elif event == 'press':
+                win32gui.PostMessage(hwnd, win32con.WM_KEYDOWN, vk, 0)
+                win32gui.PostMessage(hwnd, win32con.WM_KEYUP, vk, 0)
+                # 若為可顯示字元，也發送 WM_CHAR
+                if len(key_name) == 1:
+                    win32gui.PostMessage(hwnd, win32con.WM_CHAR, ord(key_name), 0)
+        except Exception as e:
+            self.logger(f"[背景模式] 鍵盤事件發送失敗: {e}")
+
+    def _capture_bg_window(self, hwnd):
+        """真正的背景視窗截圖，忽略遮擋"""
+        import win32gui
+        import win32ui
+        import win32con
+        import ctypes
+        import ctypes.wintypes
+        import numpy as np
+        
+        try:
+            left, top, right, bottom = win32gui.GetWindowRect(hwnd)
+            width = right - left
+            height = bottom - top
+            
+            if width <= 0 or height <= 0:
+                return None
+                
+            hwndDC = win32gui.GetWindowDC(hwnd)
+            mfcDC = win32ui.CreateDCFromHandle(hwndDC)
+            saveDC = mfcDC.CreateCompatibleDC()
+            
+            saveBitMap = win32ui.CreateBitmap()
+            saveBitMap.CreateCompatibleBitmap(mfcDC, width, height)
+            saveDC.SelectObject(saveBitMap)
+            
+            # PrintWindow Flags: 3 (PW_RENDERFULLCONTENT | PW_CLIENTONLY) depending on OS, or just 2/0
+            # 2 (PW_CLIENTONLY) or 3 (Client + specific Windows 10 flag for DWM)
+            result = ctypes.windll.user32.PrintWindow(hwnd, saveDC.GetSafeHdc(), 3)
+            if result == 0:
+                ctypes.windll.user32.PrintWindow(hwnd, saveDC.GetSafeHdc(), 0)
+                
+            bmpinfo = saveBitMap.GetInfo()
+            bmpstr = saveBitMap.GetBitmapBits(True)
+            
+            import cv2
+            img = np.frombuffer(bmpstr, dtype='uint8')
+            img.shape = (bmpinfo['bmHeight'], bmpinfo['bmWidth'], 4)
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA, cv2.COLOR_BGR2RGB)
+            
+            win32gui.DeleteObject(saveBitMap.GetHandle())
+            saveDC.DeleteDC()
+            mfcDC.DeleteDC()
+            win32gui.ReleaseDC(hwnd, hwndDC)
+            
+            return img
+        except Exception as e:
+            self.logger(f"[背景模式] 截圖失敗: {e}")
+            return None
+
     def _execute_event(self, event):
         """執行單一事件（滑鼠模式 - 強化版，添加即時日誌）"""
         # 處理範圍結束指令
@@ -2088,6 +2212,51 @@ class CoreRecorder:
             return
         
         if event['type'] == 'keyboard':
+            # 背景模式攔截鍵盤
+            if getattr(self, "bg_exec_mode", False) and self._target_hwnd:
+                self._bg_send_keyboard(self._target_hwnd, event.get('event', 'press'), event['name'])
+                self.logger(f"[背景鍵盤] {event.get('event', 'press')} {event['name']}")
+                return
+                
+            # === [防護機制] 最上層視窗驗證 (三段開關) ===
+            if self._target_hwnd and event.get('event') == 'down':
+                try:
+                    current_fg = win32gui.GetForegroundWindow()
+                    if current_fg != self._target_hwnd and not getattr(self, "bg_exec_mode", False):
+                        strategy = getattr(self, 'bg_protect_strategy', '3. Force')
+                        delay = getattr(self, 'bg_protect_delay', 2.0)
+                        force_wait = getattr(self, 'bg_protect_force_wait', False)
+                        
+                        if strategy.startswith('1.') or strategy == 'skip':
+                            self.logger(f"[防護] 目標視窗未置頂，略過按下 {event.get('name')}")
+                            return
+                        elif strategy.startswith('2.') or strategy == 'pause':
+                            self.logger(f"[防護] 目標視窗未置頂，自動暫停...")
+                            while self.playing and not self.paused:
+                                if win32gui.GetForegroundWindow() == self._target_hwnd:
+                                    self.logger(f"[防護] 目標視窗已置頂，恢復。")
+                                    break
+                                time.sleep(0.5)
+                        elif strategy.startswith('3.') or strategy == 'force':
+                            self.logger(f"[防護] 目標視窗未置頂，強制切換並等待 {delay} 秒 (強迫:{force_wait})...")
+                            try:
+                                win32gui.SetForegroundWindow(self._target_hwnd)
+                            except Exception:
+                                pass
+                            
+                            if force_wait:
+                                time.sleep(delay)
+                            else:
+                                elapsed = 0.0
+                                while elapsed < delay and self.playing:
+                                    if win32gui.GetForegroundWindow() == self._target_hwnd:
+                                        time.sleep(0.2)
+                                        break
+                                    time.sleep(0.1)
+                                    elapsed += 0.1 # 給予切換緩衝時間
+                except Exception as e:
+                    pass
+            # ==================================================
             # 鍵盤事件執行
             try:
                 if event['event'] == 'down':
@@ -3913,14 +4082,14 @@ class CoreRecorder:
         
         Args:
             image_name_or_path: 圖片顯示名稱或完整路徑
-            threshold: 匹配閾值 (0-1)，預設0.8平衡速度與準確度 (v2.8.2 提高)
+            threshold: 匹配閾值 (0-1)，預設0.8平衡速度與準確度 (v2.8.3 提高)
             region: 搜尋區域 (x1, y1, x2, y2)，None表示全螢幕
             multi_scale: 是否啟用多尺度搜尋（提高容錯性）
             fast_mode: 快速模式（跳過驗證步驟，大幅提升速度）
             use_features_fallback: 模板匹配失敗時，是否嘗試特徵點匹配
             show_border: 是否顯示邊框
             enable_tracking: 啟用追蹤模式（預測式搜尋，適合移動目標）
-            strict_mode: 嚴格模式（v2.8.2 新增）- 使用更精確的比對避免相似圖片誤判
+            strict_mode: 嚴格模式（v2.8.3 新增）- 使用更精確的比對避免相似圖片誤判
             
         Returns:
             (center_x, center_y) 如果找到，否則 None
@@ -3972,7 +4141,7 @@ class CoreRecorder:
                 if max_val >= threshold:
                     h, w = template_gray.shape
                     
-                    #  v2.8.2 嚴格模式：驗證匹配區域是否真的與模板一致
+                    #  v2.8.3 嚴格模式：驗證匹配區域是否真的與模板一致
                     if strict_mode:
                         verified = self._verify_match_strict(
                             screen_cv, template_gray, max_loc, 
@@ -4259,7 +4428,7 @@ class CoreRecorder:
             return None, None
     
     def _verify_match_strict(self, screen_cv, template_gray, match_loc, threshold=0.85):
-        """ v2.8.2 嚴格驗證匹配區域
+        """ v2.8.3 嚴格驗證匹配區域
         
         用於區分相似但不同的按鈕（如 Accept vs Accept all）
         
@@ -4332,7 +4501,7 @@ class CoreRecorder:
             return True  # 錯誤時預設通過，避免中斷流程
     
     def _find_strict_match(self, screen_cv, template_gray, result_map, threshold, search_region):
-        """ v2.8.2 尋找通過嚴格驗證的匹配位置
+        """ v2.8.3 尋找通過嚴格驗證的匹配位置
         
         當第一個最佳匹配驗證失敗時，嘗試找其他候選位置
         
@@ -4389,7 +4558,7 @@ class CoreRecorder:
         self._image_cache.clear()
         self.logger("[圖片辨識] 已清除圖片快取")
     
-    # ==================== YOLO 物件偵測 (v2.8.2+) ====================
+    # ==================== YOLO 物件偵測 (v2.8.3+) ====================
     
     def load_yolo_model(self, model_path: str = None) -> bool:
         """載入 YOLO 模型

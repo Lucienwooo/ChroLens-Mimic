@@ -15,7 +15,7 @@ except ImportError:
 def show_about(parent):
     about_win = tb.Toplevel(parent)
     about_win.title("關於Mimic")
-    about_win.geometry("450x680")
+    about_win.minsize(450, 680)
     about_win.resizable(False, False)
     about_win.grab_set()
     parent.update_idletasks()
@@ -37,11 +37,11 @@ def show_about(parent):
     link.pack(anchor="w")
     link.bind("<Button-1>", lambda e: os.startfile("https://discord.gg/72Kbs4WPPn"))
 
-    shopee_label = tb.Label(frm, text="或是從我的蝦皮分潤連結進去，買任何東西都可以，不需要買清單中的商品", font=("Microsoft JhengHei", 10), wraplength=410, justify="left")
+    shopee_label = tb.Label(frm, text="歡迎從下方蝦皮分潤來購買商品，就能免費贊助到我了", font=("Microsoft JhengHei", 10), wraplength=410, justify="left")
     shopee_label.pack(anchor="w", pady=(8, 2))
     shopee_link = tk.Label(frm, text="點我前往蝦皮分潤連結", font=("Microsoft JhengHei", 10, "underline"), fg="#EE4D2D", cursor="hand2")
     shopee_link.pack(anchor="w", pady=(0, 6))
-    shopee_link.bind("<Button-1>", lambda e: os.startfile("https://collshp.com/lucienwooo781?view=storefront"))
+    shopee_link.bind("<Button-1>", lambda e: os.startfile("https://s.shopee.tw/3qLtXtL3XE"))
 
     tb.Label(frm, text="By Lucienwooo", font=("Microsoft JhengHei", 11)).pack(anchor="w", pady=(6, 0))
     tb.Label(frm, text="若不嫌棄請我喝飲料\n贊助QRcode(可使用line pay)", font=("Microsoft JhengHei", 11)).pack(anchor="w", pady=(6, 0))

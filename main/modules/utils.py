@@ -17,24 +17,30 @@ import sys
 # ─── 圖示路徑 ────────────────────────────────────────────
 ICON_NAME = "umi_奶茶色.ico"
 
-_CANDIDATE_PATHS = [
-    ICON_NAME,
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), ICON_NAME),
-    os.path.join("..", "pic", ICON_NAME),
-    os.path.join("..", ICON_NAME),
-]
-
-
 def get_icon_path() -> str:
     """取得圖示檔案路徑（打包後和開發環境通用）"""
     try:
+        # PyInstaller 打包後的環境
         if getattr(sys, "frozen", False):
-            # PyInstaller 打包後的環境
-            return os.path.join(sys._MEIPASS, ICON_NAME)
+            p = os.path.join(sys._MEIPASS, ICON_NAME)
+            if os.path.exists(p):
+                return p
+
         # 開發環境：依序嘗試常見位置
-        for path in _CANDIDATE_PATHS:
-            if os.path.exists(path):
-                return path
+        this_dir = os.path.dirname(os.path.abspath(__file__))  # modules/
+        main_dir = os.path.dirname(this_dir)                    # main/
+        project_dir = os.path.dirname(main_dir)                 # ChroLens-Mimic/
+
+        candidates = [
+            os.path.join(main_dir, ICON_NAME),          # main/umi_奶茶色.ico  ← 最常見
+            os.path.join(project_dir, ICON_NAME),        # ChroLens-Mimic/umi_奶茶色.ico
+            os.path.join(project_dir, "pic", ICON_NAME), # ChroLens-Mimic/pic/umi_奶茶色.ico
+            os.path.join(this_dir, ICON_NAME),           # modules/umi_奶茶色.ico
+            ICON_NAME,                                    # 當前工作目錄
+        ]
+        for p in candidates:
+            if os.path.exists(p):
+                return p
     except Exception:
         pass
     return ICON_NAME  # 最終回退

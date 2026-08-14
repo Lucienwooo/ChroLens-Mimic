@@ -9,7 +9,7 @@
 # 該檔案包含所有開發規範、流程說明、版本管理規則和重要備註
 # ═══════════════════════════════════════════════════════════════════════════
 
-VERSION = "2.8.2"
+VERSION = "2.8.3"
 
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
@@ -1446,7 +1446,7 @@ class RecorderApp(tb.Window):
         self.page_menu = tk.Listbox(self.left_column_frame, width=15, font=("Microsoft JhengHei", 11), height=10)
         self.page_menu.insert(0, lang_map["1.日誌顯示"])
         self.page_menu.insert(1, lang_map["2.腳本設定"])
-        self.page_menu.insert(2, lang_map["3.指令編輯器beta"])
+        self.page_menu.insert(2, lang_map["3.指令編輯器"])
         # self.page_menu.insert(3, "4.視覺偵測 Beta")  # 暫時隱藏此選項，功能仍預設啟用
         self.page_menu.grid(row=0, column=0, sticky="nsew")
         self.page_menu.bind("<<ListboxSelect>>", self.on_page_selected)
@@ -1476,6 +1476,7 @@ class RecorderApp(tb.Window):
         log_ctrl_frame.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 2))
         
         self.track_mode_var = tb.BooleanVar(value=False)
+        self._saved_log_text = ""
         def _on_track_mode_toggle():
             if self.track_mode_var.get():
                 track_btn.config(text="腳本動態")
@@ -2519,7 +2520,7 @@ class RecorderApp(tb.Window):
             self.page_menu.delete(0, tk.END)
             self.page_menu.insert(0, lang_map["1.日誌顯示"])
             self.page_menu.insert(1, lang_map["2.腳本設定"])
-            self.page_menu.insert(2, lang_map["3.指令編輯器beta"])
+            self.page_menu.insert(2, lang_map["3.指令編輯器"])
 
         # ====== 更新群組播放佇列 UI 多語系 ======
         if hasattr(self, 'playlist_frame'):

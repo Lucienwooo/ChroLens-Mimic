@@ -208,7 +208,6 @@ class VersionManager:
             
             # BAT 批次腳本內容 (簡單可靠,使用 robocopy)
             script_content = f'''@echo off
-chcp 65001 >nul
 title ChroLens_Mimic 更新程式
 
 set "LOG_FILE={log_path}"
@@ -332,12 +331,13 @@ echo ======================================== >> "%LOG_FILE%"
 
 timeout /t 2 /nobreak >nul
 
-REM 刪除自己
-del "%~f0"
+REM 非同步刪除自己並關閉視窗
+start /b "" cmd /c "timeout /t 1 /nobreak >nul & del "%~f0""
+exit
 '''
             
-            # 寫入批次腳本
-            with open(bat_script, 'w', encoding='utf-8') as f:
+            # 寫入批次腳本 (改用系統預設編碼，避免 cmd 解析 utf-8 換行錯誤)
+            with open(bat_script, 'w', encoding='mbcs', errors='ignore') as f:
                 f.write(script_content)
             
             self.log(f"更新腳本已創建: {bat_script}")

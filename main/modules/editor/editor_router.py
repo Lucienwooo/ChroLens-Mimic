@@ -1,7 +1,7 @@
 import math
 
 class GlobalRouter:
-    """全域碰撞偵測布線器 - PCB 風格 (v2.8.2: 支援視覺縮放)"""
+    """全域碰撞偵測布線器 - PCB 風格 (v2.8.3: 支援視覺縮放)"""
     
     def __init__(self, nodes, scale=1.0):
         self.nodes = nodes

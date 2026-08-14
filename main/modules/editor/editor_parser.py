@@ -1391,7 +1391,7 @@ class EditorParserMixin:
             # 強力清理：移除多餘空白
             pic_name = re.sub(r'\s+', '', pic_name).strip()
             
-            #  v2.8.2+: 支援 AI 標註 (AI:name)
+            #  v2.8.3+: 支援 AI 標註 (AI:name)
             is_ai = pic_name.startswith('AI:')
             if is_ai:
                 class_name = pic_name[3:]

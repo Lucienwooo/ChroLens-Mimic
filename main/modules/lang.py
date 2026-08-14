@@ -112,7 +112,8 @@ LANG_MAP = {
         # 選單標題
         "1.日誌顯示": "1.日誌顯示",
         "2.腳本設定": "2.腳本設定",
-        "3.指令編輯器beta": "3.指令編輯器beta",
+        "3.指令編輯器": "3.指令編輯器",
+        "4.智慧追蹤beta": "4.智慧追蹤beta",
         "4.整體設定": "4.整體設定",
         # 滑鼠模式警告
         "滑鼠模式警告": "注意！\n\n取消勾選滑鼠模式將使用後台操作。\n遊戲可能會偵測外掛，請謹慎使用，後果自負！",
@@ -313,7 +314,8 @@ LANG_MAP = {
         # 選單標題
         "1.日誌顯示": "1.ログ表示",
         "2.腳本設定": "2.スクリプト設定",
-        "3.指令編輯器beta": "3.スクリプトエディタ",
+        "3.指令編輯器": "3.スクリプトエディタ",
+        "4.智慧追蹤beta": "4.AIトラッキング(Beta)",
         "4.整體設定": "4.全体設定",
         # 滑鼠模式警告
         "滑鼠模式警告": "注意！\n\nマウスモードを無効にすると、バックグラウンドモードになります。\nゲームがチートを検出する可能性があります。自己責任でご使用ください！",
@@ -458,7 +460,8 @@ LANG_MAP = {
         # Menu Titles
         "1.日誌顯示": "1.Log Display",
         "2.腳本設定": "2.Script Settings",
-        "3.指令編輯器beta": "3.Script Editor(beta)",
+        "3.指令編輯器": "3.Script Editor",
+        "4.智慧追蹤beta": "4.Visual Tracker(beta)",
         "4.整體設定": "4.Settings",
         # Mouse mode warning
         "滑鼠模式警告": "Warning!\n\nDisabling mouse mode will use background operations.\nGames may detect automation. Use at your own risk!",

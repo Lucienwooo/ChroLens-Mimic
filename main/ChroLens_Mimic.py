@@ -4083,6 +4083,10 @@ class RecorderApp(tb.Window):
             time.sleep(0.5)
 
     def force_quit(self):
+        try:
+            self.save_window_position("main_geometry", self)
+        except:
+            pass
         """
         強制停止所有動作並關閉程式（v2.6.5+ 精確清理版）
         
@@ -4298,6 +4302,26 @@ class RecorderApp(tb.Window):
         except Exception as e:
             self.log(f"[{format_time(time.time())}] JSON 載入失敗: {e}")
 
+    
+    def restore_window_position(self, win_name, window, default_geometry=None):
+        if win_name in self.user_config:
+            try:
+                window.geometry(self.user_config[win_name])
+                return True
+            except:
+                pass
+        if default_geometry:
+            window.geometry(default_geometry)
+        return False
+
+    def save_window_position(self, win_name, window):
+        if window.state() == "normal":
+            self.user_config[win_name] = window.geometry()
+            try:
+                self.save_config()
+            except:
+                pass
+                
     def save_config(self):
         # theme_var 已被移除，使用當前 theme
         current_theme = self.style.theme_use()
@@ -4456,6 +4480,23 @@ class RecorderApp(tb.Window):
         return re.match(pattern, time_str) is not None
 
     # --- 讀取腳本設定 ---
+    
+    def reload_current_script(self):
+        """由外部編輯器觸發：重新載入目前腳本並刷新畫面"""
+        self.on_script_selected()
+        # 如果目前在腳本動態模式，強制刷新
+        if hasattr(self, 'track_mode_var') and self.track_mode_var.get():
+            # 關閉並重新開啟以觸發更新
+            self.track_mode_var.set(False)
+            if hasattr(self, '_on_track_mode_toggle_cb'):
+                self._on_track_mode_toggle_cb()
+            self.after(100, self._toggle_track_mode_on)
+
+    def _toggle_track_mode_on(self):
+        self.track_mode_var.set(True)
+        if hasattr(self, '_on_track_mode_toggle_cb'):
+            self._on_track_mode_toggle_cb()
+            
     def on_script_selected(self, event=None):
         """載入選中的腳本及其設定"""
         script = self.script_var.get()
@@ -6625,6 +6666,68 @@ class RecorderApp(tb.Window):
                     setattr(self.core_recorder, "target_hwnd", hwnd)
                 except Exception:
                     pass
+
+                def ask_strategy():
+                    popup = tb.Toplevel(self)
+                    popup.title("視窗保護策略確認")
+                    popup.geometry("520x280")
+                    popup.attributes('-topmost', True)
+                    # 讓視窗先繪製
+                    popup.update_idletasks()
+                    x = self.winfo_x() + (self.winfo_width() // 2) - (520 // 2)
+                    y = self.winfo_y() + (self.winfo_height() // 2) - (280 // 2)
+                    popup.geometry(f"+{x}+{y}")
+                    
+                    tb.Label(popup, text=f"已鎖定目標視窗:\n{short}", font=("", 10, "bold"), justify="center").pack(pady=10)
+                    tb.Label(popup, text="當背景執行時，若目標視窗失去焦點：").pack(pady=5)
+                    
+                    options = [
+                        "1. Skip-略過該動作",
+                        "2. Pause-暫停並等待焦點",
+                        "3. Force-強制切換並等待"
+                    ]
+                    
+                    # 讀取舊設定轉換
+                    old_val = self.user_config.get("bg_protect_strategy", "3.")
+                    if old_val == "skip" or old_val.startswith("1."): def_val = options[0]
+                    elif old_val == "pause" or old_val.startswith("2."): def_val = options[1]
+                    else: def_val = options[2]
+                    
+                    strategy_var = tb.StringVar(value=def_val)
+                    cb = tb.Combobox(popup, textvariable=strategy_var, values=options, state="readonly", width=35)
+                    cb.pack(pady=5)
+                    
+                    # 延遲輸入區間
+                    delay_frame = tb.Frame(popup)
+                    delay_frame.pack(pady=5)
+                    tb.Label(delay_frame, text="若選擇強制切換，最多等待").pack(side="left", padx=5)
+                    delay_var = tb.StringVar(value=str(self.user_config.get("bg_protect_delay", "2")))
+                    tb.Entry(delay_frame, textvariable=delay_var, width=5, justify="center").pack(side="left")
+                    tb.Label(delay_frame, text="秒後繼續腳本").pack(side="left", padx=5)
+                    
+                    def on_confirm():
+                        selected = strategy_var.get()
+                        try:
+                            delay_val = float(delay_var.get())
+                        except ValueError:
+                            delay_val = 2.0
+                            
+                        self.user_config["bg_protect_strategy"] = selected
+                        self.user_config["bg_protect_delay"] = delay_val
+                        self.save_config()
+                        
+                        if hasattr(self.core_recorder, 'bg_protect_strategy'):
+                            self.core_recorder.bg_protect_strategy = selected
+                        if hasattr(self.core_recorder, 'bg_protect_delay'):
+                            self.core_recorder.bg_protect_delay = delay_val
+                            
+                        self.log(f"已確認策略: {selected}, 等待: {delay_val}s")
+                        popup.destroy()
+                        
+                    tb.Button(popup, text="確認", bootstyle="primary", command=on_confirm).pack(pady=10)
+
+                # 延遲一點點呼叫避免跟對話框衝突
+                self.after(100, ask_strategy)
 
             WindowSelectorDialog(self, on_selected)
         except Exception as e:

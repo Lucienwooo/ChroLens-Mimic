@@ -9,7 +9,7 @@
 # 該檔案包含所有開發規範、流程說明、版本管理規則和重要備註
 # ═══════════════════════════════════════════════════════════════════════════
 
-VERSION = "2.8.3"
+VERSION = "2.8.4"
 
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
@@ -1511,6 +1511,7 @@ class RecorderApp(tb.Window):
                         except Exception as e:
                             script_content = f"# [無法還原文字腳本]\n# 錯誤: {e}"
 
+                        self._saved_log_text = self.log_text.get("1.0", "end")
                         self.log_text.config(state="normal")
                         self.log_text.delete("1.0", "end")
                         self.log_text.insert("1.0", script_content + "\n")
@@ -1533,13 +1534,17 @@ class RecorderApp(tb.Window):
                     print("Track mode error:", e)
             else:
                 track_btn.config(text="日誌動態")
-                # Do not clear the log when toggling off
-                # self.log_text.config(state="normal")
-                # self.log_text.delete("1.0", "end")
-                # self.log_text.config(state="disabled")
+                if hasattr(self, "_saved_log_text") and self._saved_log_text:
+                    self.log_text.config(state="normal")
+                    self.log_text.delete("1.0", "end")
+                    self.log_text.insert("1.0", self._saved_log_text)
+                    self.log_text.config(state="disabled")
+                    self.log_text.see("end")
+                    self._saved_log_text = ""
                     
         track_btn = tb.Checkbutton(log_ctrl_frame, text="日誌動態", variable=self.track_mode_var, bootstyle="success-round-toggle", command=_on_track_mode_toggle)
         track_btn.pack(side="left", padx=5)
+        self._on_track_mode_toggle_cb = _on_track_mode_toggle
         
         def clear_log():
             self.log_text.config(state="normal")
@@ -1918,6 +1923,39 @@ class RecorderApp(tb.Window):
         self.after(700, self.update_mouse_pos)
         self.after(800, self._init_background_mode)
         self.after(900, self._load_all_schedules)
+        self.after(2000, self._check_update_on_startup)
+
+    def _check_update_on_startup(self):
+        # 啟動時自動檢查更新 (在背景執行緒中)
+        if not self.user_config.get('auto_check_update', True):
+            return
+            
+        import threading
+        def check():
+            from modules.version_manager import VersionManager
+            from modules.version_info_dialog import VersionInfoDialog
+            
+            vm = VersionManager(VERSION, logger=self.log)
+            update_info = vm.check_for_updates()
+            
+            # 若有新版，則在主執行緒中彈出視窗
+            if update_info:
+                def show_dialog():
+                    # 避免重複開啟
+                    if hasattr(self, '_version_dialog') and getattr(self._version_dialog, 'winfo_exists', lambda: False)():
+                        self._version_dialog.lift()
+                        return
+                        
+                    def on_update_complete():
+                        self.log("更新完成，準備重啟...")
+                        self.on_closing(force=True)
+                        
+                    self._version_dialog = VersionInfoDialog(self, vm, VERSION, on_update_complete)
+                
+                self.after(0, show_dialog)
+                
+        threading.Thread(target=check, daemon=True).start()
+
 
     def _force_focus(self):
         """主動獲得焦點，確保鍵盤鉤子正常工作"""
@@ -4681,6 +4719,10 @@ class RecorderApp(tb.Window):
         
         # 儲存設定
         self.save_config()
+
+        if getattr(self, 'track_mode_var', None) and self.track_mode_var.get():
+            if hasattr(self, '_on_track_mode_toggle_cb'):
+                self._on_track_mode_toggle_cb()
 
     def load_last_script(self):
         if os.path.exists(LAST_SCRIPT_FILE):

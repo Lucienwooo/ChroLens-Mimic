@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![ChroLens_Mimic](./pic/clm2.8.3.png)
+![ChroLens_Mimic](./pic/clm2.8.4.png)
 ![ChroLens_Mimic](./pic/clm2.8.3_編輯器.png)
 
 **🎯 強大的 Windows 自動化工具 | Powerful Windows Automation Tool**
@@ -154,3 +154,8 @@ If you're familiar with TinyTask's one‑click simplicity or AHK's scripting fle
 Made with ❤️ by [LucienWooo](https://github.com/LucienWooo)
 
 </div>
+
+### v2.8.4 更新內容
+- **圖庫介面大幅強化**: 全新的 20/80 網格比例佈局，左側面板新增了資料夾切換、圖片搜尋、直接開啟資料夾按鈕。
+- **UI 防護與修復**: 擴大了視窗保護策略確認彈窗，解決內容擠壓問題。並修復視窗開啟記憶位置的系統衝突。
+- **程式碼瘦身**: 盤點並清理了廢棄的重構腳本（`modules/editor`）與舊版測試 UI（`visual_tracker_ui`）。

@@ -23,6 +23,7 @@ COMMAND_MAP_EN = {
     "變數加1": "IncVar",
     "變數減1": "DecVar",
     "重複": "Repeat",
+    "執行腳本": "RunScript",
     "重複結束": "EndRepeat",
     "定時觸發": "TimerTrigger",
     "定時結束": "EndTimer",

@@ -362,6 +362,8 @@ class MultiScaleMatcher:
                     result = cv2.matchTemplate(screen_gray, t_scaled, cv2.TM_CCOEFF_NORMED)
 
                 _, max_val, _, max_loc = cv2.minMaxLoc(result)
+            if m_scaled is not None:
+                max_val = _validate_masked_match(screen_gray, m_scaled, max_loc, max_val)
 
                 if max_val > best_val:
                     best_val = max_val
@@ -781,6 +783,8 @@ class HybridMatcher:
                     res_local = cv2.matchTemplate(scr_local_gray, tmpl_gray, cv2.TM_CCOEFF_NORMED)
                 
                 _, max_val, _, max_loc = cv2.minMaxLoc(res_local)
+            if tmpl_mask is not None:
+                max_val = _validate_masked_match(scr_local_gray, tmpl_mask, max_loc, max_val)
                 if max_val >= th:
                     cx = lx1 + max_loc[0] + tmpl_gray.shape[1] // 2 + offset[0]
                     cy = ly1 + max_loc[1] + tmpl_gray.shape[0] // 2 + offset[1]
@@ -818,6 +822,8 @@ class HybridMatcher:
                     res_pyr = cv2.matchTemplate(scr_pyr_gray, tmpl_pyr_gray, cv2.TM_CCOEFF_NORMED)
                 
                 _, pyr_max, _, pyr_loc = cv2.minMaxLoc(res_pyr)
+                if tmpl_pyr_mask is not None:
+                    pyr_max = _validate_masked_match(scr_pyr_gray, tmpl_pyr_mask, pyr_loc, pyr_max)
                 if pyr_max >= th:
                     # 還原粗略中心座標
                     cx_pyr = int((pyr_loc[0] + tmpl_pyr_gray.shape[1] // 2) / scale_pyr)
@@ -839,6 +845,8 @@ class HybridMatcher:
                             res_fine = cv2.matchTemplate(scr_fine_gray, tmpl_gray, cv2.TM_CCOEFF_NORMED)
                         
                         _, fine_max, _, fine_loc = cv2.minMaxLoc(res_fine)
+                        if tmpl_mask is not None:
+                            fine_max = _validate_masked_match(scr_fine_gray, tmpl_mask, fine_loc, fine_max)
                         if fine_max >= th:
                             cx = fx1 + fine_loc[0] + tw_t // 2 + offset[0]
                             cy = fy1 + fine_loc[1] + th_t // 2 + offset[1]

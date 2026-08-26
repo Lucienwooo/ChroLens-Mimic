@@ -135,6 +135,12 @@ class WindowSelectorDialog(tb.Toplevel):
         self.minsize(600, 350)
         set_window_icon(self)
 
+        try:
+            from modules.utils import make_window_remember_position
+            make_window_remember_position(self, 'window_selector_geometry', parent)
+        except Exception as e:
+            print('Window selector memory error:', e)
+
         frm = tb.Frame(self, padding=10)
         frm.pack(fill="both", expand=True)
 

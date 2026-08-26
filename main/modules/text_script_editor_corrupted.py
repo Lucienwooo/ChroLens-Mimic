@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 ChroLens 文字指令式腳本編輯器
 將JSON事件轉換為簡單的文字指令格式
@@ -1155,12 +1155,12 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         self.text_editor.tag_config("syntax_symbol", foreground="#d4d4d4")      # 淺灰色 - 符號（,、>等）
         self.text_editor.tag_config("syntax_time", foreground="#ce9178")        # 橘色 - 時間參數
         self.text_editor.tag_config("syntax_label", foreground="#4ec9b0")       # 青綠色 - 標籤
-        self.text_editor.tag_config("syntax_keyboard", foreground="#9cdcfe")    # 淺藍色 - 鍵盤操作
+        self.text_editor.tag_config("syntax_keyboard", foreground="#9cdcfe")
         self.text_editor.tag_config("syntax_key_ctrl", foreground="#569cd6")
         self.text_editor.tag_config("syntax_key_alt", foreground="#dcdcaa")
         self.text_editor.tag_config("syntax_key_shift", foreground="#4ec9b0")
         self.text_editor.tag_config("syntax_key_plus", foreground="#d4d4d4")
-        self.text_editor.tag_config("syntax_key_normal", foreground="#c586c0")
+        self.text_editor.tag_config("syntax_key_normal", foreground="#c586c0")    # 淺藍色 - 鍵盤操作
         self.text_editor.tag_config("syntax_mouse", foreground="#569cd6")       # 藍色 - 滑鼠座標
         self.text_editor.tag_config("syntax_image", foreground="#4ec9b0")       # 青綠色 - 圖片辨識
         self.text_editor.tag_config("syntax_condition", foreground="#c586c0")   # 紫色 - 條件判斷
@@ -2992,12 +2992,12 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         text_widget.tag_config("syntax_symbol", foreground="#d4d4d4")      # 淺灰色 - 符號
         text_widget.tag_config("syntax_time", foreground="#ce9178")        # 橘色 - 時間參數
         text_widget.tag_config("syntax_label", foreground="#4ec9b0")       # 青綠色 - 標籤
-        text_widget.tag_config("syntax_keyboard", foreground="#9cdcfe")    # 淺藍色 - 鍵盤操作
+        text_widget.tag_config("syntax_keyboard", foreground="#9cdcfe")
         text_widget.tag_config("syntax_key_ctrl", foreground="#569cd6")
         text_widget.tag_config("syntax_key_alt", foreground="#dcdcaa")
         text_widget.tag_config("syntax_key_shift", foreground="#4ec9b0")
         text_widget.tag_config("syntax_key_plus", foreground="#d4d4d4")
-        text_widget.tag_config("syntax_key_normal", foreground="#c586c0")
+        text_widget.tag_config("syntax_key_normal", foreground="#c586c0")    # 淺藍色 - 鍵盤操作
         text_widget.tag_config("syntax_mouse", foreground="#569cd6")       # 藍色 - 滑鼠座標
         text_widget.tag_config("syntax_image", foreground="#4ec9b0")       # 青綠色 - 圖片辨識
         text_widget.tag_config("syntax_condition", foreground="#c586c0")   # 紫色 - 條件判斷
@@ -4266,21 +4266,16 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
             lines = content.split('\n')
             for line_idx, line in enumerate(lines, 1):
                 # Search for any keyboard command format (>按下..., >放開...) and grab the key string before `, T=`
-                for match in re.finditer(r'(>(?:按下|放開|KeyDown|KeyUp|Press)?)([a-zA-Z0-9+]+)(?=, T=|$)', line):
+                for match in re.finditer(r'>([^\x00-]+)?([a-zA-Z0-9+]+)(?=, T=|$)', line):
                     if 'T=' in match.group(): continue
-                    prefix_str = match.group(1)
                     key_str = match.group(2)
-                    base_offset_prefix = match.start(1)
-                    base_offset_key = match.start(2)
-                    
-                    # 針對「>按下」賦予淺藍色
-                    text_widget.tag_add('syntax_keyboard', f"{line_idx}.{base_offset_prefix}", f"{line_idx}.{base_offset_prefix + len(prefix_str)}")
+                    base_offset = match.start(2)
                     
                     # Tokenize by finding alphanumeric tokens and literal '+'
                     for sub_match in re.finditer(r'[a-zA-Z0-9]+|\+', key_str):
                         token = sub_match.group()
-                        start_idx = f"{line_idx}.{base_offset_key + sub_match.start()}"
-                        end_idx = f"{line_idx}.{base_offset_key + sub_match.end()}"
+                        start_idx = f"{line_idx}.{base_offset + sub_match.start()}"
+                        end_idx = f"{line_idx}.{base_offset + sub_match.end()}"
                         
                         if token == 'ctrl': text_widget.tag_add('syntax_key_ctrl', start_idx, end_idx)
                         elif token == 'alt': text_widget.tag_add('syntax_key_alt', start_idx, end_idx)
@@ -4288,8 +4283,9 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
                         elif token == 'win': text_widget.tag_add('syntax_key_ctrl', start_idx, end_idx)
                         elif token == '+': text_widget.tag_add('syntax_key_plus', start_idx, end_idx)
                         else: text_widget.tag_add('syntax_key_normal', start_idx, end_idx)
-        except Exception as e:
+        except:
             pass
+
     
     def _validate_script(self, content=None):
         """腳本語法與邏輯檢查器 (Linter) - 僅作標示，不阻擋儲存"""

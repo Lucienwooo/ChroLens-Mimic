@@ -14,6 +14,11 @@ except ImportError:
 
 def show_about(parent):
     about_win = tb.Toplevel(parent)
+    try:
+        from modules.utils import make_window_remember_position
+        make_window_remember_position(about_win, 'toplevel_about_15')
+    except Exception as e:
+        print('Memory window error:', e)
     about_win.title("關於Mimic")
     about_win.minsize(450, 680)
     about_win.resizable(False, False)

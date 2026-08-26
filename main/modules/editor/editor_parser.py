@@ -23,7 +23,7 @@ class EditorParserMixin:
         # 第一遍: 掃描標籤
         for i, line in enumerate(lines):
             line = line.strip()
-            if line.startswith("#") and not line.startswith("# "):
+            if line.startswith("#") and not line.startswith("# ") and not line.startswith("#>"):
                 # 這是標籤定義
                 label_name = line[1:].strip()
                 labels[label_name] = i
@@ -38,9 +38,13 @@ class EditorParserMixin:
             line = lines[i].strip()
             line_number = i  # 記錄當前行號
             
-            # 處理備註（# 後有空格）
-            if line.startswith("# "):
-                comment_text = line[2:]  # 移除 "# " 前綴
+            # 處理備註（# 後有空格 或 #> 註解掉的指令）
+            if line.startswith("# ") or line.startswith("#>"):
+                if line.startswith("#>"):
+                    comment_text = line[1:]  # 保留 >, 變成 >辨識...
+                else:
+                    comment_text = line[2:]  # 移除 "# " 前綴
+                
                 events.append({
                     "type": "comment",
                     "text": comment_text,
@@ -173,6 +177,47 @@ class EditorParserMixin:
                     continue
                 
                 try:
+                    
+                    if any(keyword in line for keyword in ["執行腳本>"]):
+                        time_str = line.split(",")[-1].strip() if "," in line and "T=" in line else "T=0s000"
+                        parsed_delay = self._parse_time(time_str)
+                        target = line.split("執行腳本>")[1].split(",")[0].strip()
+                        
+                        event = {
+                            "type": "RunScript",
+                            "script_name": target,
+                            "time": running_time,
+                            "_line_number": line_number,
+                            "params_list": []
+                        }
+                        
+                        # Read ahead for >> parameters
+                        j = i + 1
+                        while j < len(lines):
+                            next_line = lines[j].strip()
+                            if next_line.startswith(">>") and not next_line.startswith(">>>") and not next_line.startswith(">>#"):
+                                param_str = next_line[2:].strip()
+                                if "," in param_str and "T=" in param_str:
+                                    p_parts = param_str.split(", T=")
+                                    param_str = p_parts[0].strip()
+                                event["params_list"].append(param_str)
+                                j += 1
+                            else:
+                                break
+                        
+                        i = j - 1
+                        if pending_label:
+                            events.append({
+                                "type": "label",
+                                "name": pending_label,
+                                "time": running_time,
+                                "_line_number": line_number - 1
+                            })
+                            pending_label = None
+                        events.append(event)
+                        running_time += parsed_delay
+                        i += 1
+                        continue
                     if any(keyword in line for keyword in ["啟動自動戰鬥", "尋找並攻擊", "迴圈攻擊", "智能戰鬥", "設定戰鬥區域", "暫停戰鬥", "恢復戰鬥", "停止戰鬥"]):
                         # 戰鬥指令
                         time_str = line.split(",")[-1].strip() if "," in line and "T=" in line else "T=0s000"
@@ -367,7 +412,11 @@ class EditorParserMixin:
                                 button = "left" if key in ["left", "左鍵"] else "right" if key in ["right", "右鍵"] else "middle"
                                 events.append({"type": "mouse", "event": "down", "button": button, "x": None, "y": None, "time": running_time, "in_target": True, "relative_to_window": True, "_line_number": line_number, "_delay_after": delay_ms})
                             else:
-                                events.append({"type": "keyboard", "event": "down", "name": key, "time": running_time, "_line_number": line_number, "_is_press": True, "_press_delay": delay_ms, "_delay_after": delay_ms})
+                                sub_keys = [k.strip() for k in key.split("+")] if "+" in key else [key]
+                                _mods = ['ctrl', 'alt', 'shift', 'win', 'cmd']
+                                sorted_keys = sorted(sub_keys, key=lambda x: not any(m in x.lower() for m in _mods))
+                                for idx, sub_key in enumerate(sorted_keys):
+                                    events.append({"type": "keyboard", "event": "down", "name": sub_key, "time": running_time, "_line_number": line_number, "_is_press": True, "_press_delay": delay_ms if idx==0 else 0, "_delay_after": delay_ms if idx==len(sorted_keys)-1 else 0, "_original_group": key if sub_key == sub_keys[0] else ""})
                             running_time += delay_s + parsed_delay
                         
                         elif "放開" in action:
@@ -376,13 +425,23 @@ class EditorParserMixin:
                                 button = "left" if key in ["left", "左鍵"] else "right" if key in ["right", "右鍵"] else "middle"
                                 events.append({"type": "mouse", "event": "up", "button": button, "x": None, "y": None, "time": running_time, "in_target": True, "relative_to_window": True, "_line_number": line_number, "_delay_after": delay_ms})
                             else:
-                                events.append({"type": "keyboard", "event": "up", "name": key, "time": running_time, "_line_number": line_number, "_is_release": True, "_delay_after": delay_ms})
+                                sub_keys = [k.strip() for k in key.split("+")] if "+" in key else [key]
+                                _mods = ['ctrl', 'alt', 'shift', 'win', 'cmd']
+                                sorted_keys = sorted(sub_keys, key=lambda x: any(m in x.lower() for m in _mods))
+                                for idx, sub_key in enumerate(sorted_keys):
+                                    events.append({"type": "keyboard", "event": "up", "name": sub_key, "time": running_time, "_line_number": line_number, "_is_release": True, "_delay_after": delay_ms if idx==len(sorted_keys)-1 else 0, "_original_group": key if sub_key == sub_keys[0] else ""})
                             running_time += delay_s + parsed_delay
                         
                         elif action.startswith("按") and "按下" not in action and "按鍵" not in action:
                             key = action.replace("按", "").strip()
-                            events.append({"type": "keyboard", "event": "down", "name": key, "time": running_time, "_line_number": line_number, "_auto_pair": True})
-                            events.append({"type": "keyboard", "event": "up", "name": key, "time": running_time + delay_s, "_line_number": line_number, "_auto_pair": True})
+                            sub_keys = [k.strip() for k in key.split("+")] if "+" in key else [key]
+                            _mods = ['ctrl', 'alt', 'shift', 'win', 'cmd']
+                            down_keys = sorted(sub_keys, key=lambda x: not any(m in x.lower() for m in _mods))
+                            up_keys = sorted(sub_keys, key=lambda x: any(m in x.lower() for m in _mods))
+                            for idx, sub_key in enumerate(down_keys):
+                                events.append({"type": "keyboard", "event": "down", "name": sub_key, "time": running_time, "_line_number": line_number, "_auto_pair": True, "_original_group": key if sub_key == sub_keys[0] else ""})
+                            for idx, sub_key in enumerate(up_keys):
+                                events.append({"type": "keyboard", "event": "up", "name": sub_key, "time": running_time + delay_s, "_line_number": line_number, "_auto_pair": True, "_original_group": key if sub_key == sub_keys[0] else ""})
                             running_time += delay_s + parsed_delay
                             
                         elif action.startswith("鍵入"):
@@ -1321,16 +1380,18 @@ class EditorParserMixin:
         # 格式: >OCR辨識輸入範圍(x,y,w,h), T=0s000
         # OCR 辨識輸入指令 (v2.8.5+)
         # 格式: >OCR辨識輸入範圍(x,y,w,h), T=0s000
-        ocr_input_pattern = r'>OCR辨識輸入範圍\((\d+),(\d+),(\d+),(\d+)\)(?:,\s*T=([\w\d]+))?$$'
+        ocr_input_pattern = r'>OCR辨識輸入範圍\((\d+),(\d+),(\d+),(\d+)\)(?:,\s*(\d+)秒後輸入)?(?:,\s*T=([\w\d]+))?$$'
         match = re.match(ocr_input_pattern, command_line)
         if match:
             x, y, w, h = int(match.group(1)), int(match.group(2)), int(match.group(3)), int(match.group(4))
-            time_str = match.group(5) if match.group(5) else "0s000"
+            input_delay = int(match.group(5)) if match.group(5) else 0
+            time_str = match.group(6) if match.group(6) else "0s000"
             abs_time = start_time + self._parse_time(time_str)
-            
+
             return {
                 "type": "ocr_input",
                 "region": (x, y, x + w, y + h),
+                "input_delay": input_delay,
                 "time": abs_time
             }
 
@@ -1613,9 +1674,17 @@ class EditorParserMixin:
             # 解析逾時和步長
             timeout = 10.0 # 預設10秒
             step = 0.5 # 預設0.5秒
-            timeout_match = re.search(r'逾時\((\d+(?:\.\d+)?)[sS]\)', content)
-            if timeout_match:
-                timeout = float(timeout_match.group(1))
+            wait_t_match = re.search(r'等待T=(\d+)s(\d+)', content)
+            if wait_t_match:
+                sec = int(wait_t_match.group(1))
+                ms = int(wait_t_match.group(2))
+                timeout = 999999.0 if (sec == 0 and ms == 0) else float(sec) + float(ms) / 1000.0
+            elif '直到出現' in content or '無限等待' in content:
+                timeout = 999999.0
+            else:
+                timeout_match = re.search(r'逾時\((\d+(?:\.\d+)?)[sS]\)', content) or re.search(r'最長(\d+(?:\.\d+)?)[sS]', content)
+                if timeout_match:
+                    timeout = float(timeout_match.group(1))
             step_match = re.search(r'步長\((\d+)ms\)', content)
             if step_match:
                 step = int(step_match.group(1)) / 1000.0
@@ -1636,7 +1705,7 @@ class EditorParserMixin:
             return result
 
         # 新格式條件判斷：>if>pic01, 邊框, 範圍(x1,y1,x2,y2), T=0s100
-        if_simple_pattern = r'>if>(.+?)(?:,\s*T=(\d+)s(\d+))?$' # Made T optional
+        if_simple_pattern = r'>if>(?:辨識>)?(.+?)(?:,\s*T=(\d+)s(\d+))?$' # Made T optional
         match = re.match(if_simple_pattern, command_line)
         if match:
             content = match.group(1).strip()
@@ -1887,8 +1956,14 @@ class EditorParserMixin:
             
         # 輔助函式：尋找下一個非跳過事件的時間戳記，用於計算相對延遲
         def get_next_active_time(start_idx):
+            start_event = events[start_idx]
             for j in range(start_idx + 1, len(events)):
                 if not events[j].get("_skip_next"):
+                    # 避免同一個組合鍵的子按鍵互相計算時間導致 T=0
+                    if (events[j].get("type") == "keyboard" and 
+                        start_event.get("type") == "keyboard" and 
+                        events[j].get("time") == start_event.get("time")):
+                        continue
                     return events[j].get("time", 0.0)
             return None
 
@@ -1937,6 +2012,17 @@ class EditorParserMixin:
                     is_press = event.get("_is_press", False)
                     is_release = event.get("_is_release", False)
                     auto_pair = event.get("_auto_pair", False)
+                    
+                    orig_group = event.get("_original_group")
+                    if orig_group is not None:
+                        if orig_group == "":
+                            if auto_pair and event_name == "down":
+                                pressed_keys[key_name] = (event_time, rel_delay)
+                            elif auto_pair and event_name == "up" and key_name in pressed_keys:
+                                del pressed_keys[key_name]
+                            continue
+                        else:
+                            key_name = orig_group
                     
                     if event_name == "down":
                         if is_press:
@@ -2042,7 +2128,7 @@ class EditorParserMixin:
                     elif event_type == "wait_image":
                         pic_name = event.get("image", "")
                         timeout = event.get("timeout", 10.0)
-                        timeout_str = f", 最長{timeout}s" if timeout != 10.0 else ""
+                        timeout_str = ", 等待T=0s000" if timeout >= 999999.0 else (f", 等待T={int(timeout)}s{int((timeout-int(timeout))*1000):03d}" if timeout != 10.0 else "")
                         lines.append(f">等待圖片>{pic_name}{border_str}{region_str}{timeout_str}{time_suffix}\n")
                     elif event_type == "move_to_image":
                         pic_name = event.get("image", "")
@@ -2050,7 +2136,7 @@ class EditorParserMixin:
                     elif event_type == "recognize_image":
                         lines.append(f">辨識>{event.get('image', '')}{border_str}{region_str}{time_suffix}\n")
                     elif event_type == "if_image_exists":
-                        lines.append(f">if>{event.get('image', '')}{border_str}{region_str}{time_suffix}\n")
+                        lines.append(f">if>辨識>{event.get('image', '')}{border_str}{region_str}{time_suffix}\n")
                         if event.get("on_success"): lines.append(f">>{self._format_branch_action(event['on_success'])}\n")
                         if event.get("on_failure"): lines.append(f">>>{self._format_branch_action(event['on_failure'])}\n")
                     elif event_type == "yolo_detect":
@@ -2114,7 +2200,11 @@ class EditorParserMixin:
                 if event_type == "ocr_input":
                     r = event.get("region", (0, 0, 0, 0))
                     x, y, w, h = r[0], r[1], r[2]-r[0], r[3]-r[1]
-                    lines.append(f">OCR辨識輸入範圍({x},{y},{w},{h}), T={time_suffix_val}\n")
+                    input_delay = event.get("input_delay", 0)
+                    delay_str = f", {input_delay}秒後輸入" if input_delay > 0 else ""
+                    lines.append(f">OCR辨識輸入範圍({x},{y},{w},{h}){delay_str}, T={time_suffix_val}\n")
+                    continue
+                    lines.append(f">OCR辨識輸入範圍({x},{y},{w},{h}){delay_str}, T={time_suffix_val}\n")
                     continue
 
                 if event_type == "ocr_relative_input":

@@ -76,3 +76,189 @@ def center_window(window, width: int, height: int, parent=None) -> None:
         window.geometry(f"{width}x{height}+{px}+{py}")
     except Exception:
         pass
+
+
+import tkinter as tk
+import ttkbootstrap as tb
+
+class CustomAskStringDialog(tk.Toplevel):
+    def __init__(self, parent, title, prompt, initialvalue="", win_name=None):
+        super().__init__(parent)
+        self.title(title)
+        self.result = None
+        self.win_name = win_name
+        
+        # Try to find the root app that holds user_config
+        self.root_app = parent
+        while self.root_app and not hasattr(self.root_app, 'user_config') and getattr(self.root_app, 'master', None):
+            self.root_app = self.root_app.master
+        if not self.root_app or not hasattr(self.root_app, 'user_config'):
+            # Also check if parent has a 'parent' attribute (like GalleryBrowser)
+            if hasattr(parent, 'parent') and hasattr(parent.parent, 'user_config'):
+                self.root_app = parent.parent
+            elif hasattr(parent, 'editor') and hasattr(parent.editor, 'parent') and hasattr(parent.editor.parent, 'user_config'):
+                self.root_app = parent.editor.parent
+        
+        # Try to set icon
+        try:
+            set_window_icon(self)
+        except Exception:
+            pass
+            
+        # UI
+        main_frame = tb.Frame(self, padding=20)
+        main_frame.pack(fill="both", expand=True)
+        
+        lbl = tb.Label(main_frame, text=prompt)
+        lbl.pack(anchor="w", pady=(0, 10))
+        
+        self.entry_var = tk.StringVar(value=initialvalue)
+        self.entry = tb.Entry(main_frame, textvariable=self.entry_var, width=40)
+        self.entry.pack(fill="x", pady=(0, 20))
+        self.entry.select_range(0, tk.END)
+        self.entry.focus_set()
+        
+        btn_frame = tb.Frame(main_frame)
+        btn_frame.pack(fill="x")
+        
+        ok_btn = tb.Button(btn_frame, text="OK", command=self.on_ok, bootstyle="primary")
+        ok_btn.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        
+        cancel_btn = tb.Button(btn_frame, text="Cancel", command=self.on_cancel, bootstyle="secondary")
+        cancel_btn.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        
+        self.bind("<Return>", lambda e: self.on_ok())
+        self.bind("<Escape>", lambda e: self.on_cancel())
+        self.protocol("WM_DELETE_WINDOW", self.on_cancel)
+        
+        # Restore position
+        self.update_idletasks()
+        self.minsize(self.winfo_reqwidth(), self.winfo_reqheight())
+        self.update_idletasks()
+        
+        if self.win_name and self.root_app and hasattr(self.root_app, "user_config") and self.win_name in self.root_app.user_config:
+            try:
+                geom = self.root_app.user_config[self.win_name]
+                if '+' in geom:
+                    pos = geom[geom.find('+'):]
+                    self.after(50, lambda p=pos: self.geometry(p))
+                else:
+                    self.after(50, lambda: self._center_window(parent))
+            except:
+                self.after(50, lambda: self._center_window(parent))
+        else:
+            self.after(50, lambda: self._center_window(parent))
+            
+        self.transient(parent)
+        self.grab_set()
+        self.wait_window(self)
+        
+    def _center_window(self, parent):
+        try:
+            self.update_idletasks()
+            w = self.winfo_reqwidth()
+            h = self.winfo_reqheight()
+            if parent and parent.winfo_viewable():
+                px = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
+                py = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
+            else:
+                px = (self.winfo_screenwidth() - w) // 2
+                py = (self.winfo_screenheight() - h) // 2
+            self.geometry(f"+{px}+{py}")
+        except:
+            pass
+            
+    def on_ok(self):
+        self.result = self.entry_var.get()
+        self.save_geometry()
+        self.destroy()
+        
+    def on_cancel(self):
+        self.result = None
+        self.save_geometry()
+        self.destroy()
+        
+    def save_geometry(self):
+        if self.win_name and self.root_app and hasattr(self.root_app, "user_config"):
+            self.root_app.user_config[self.win_name] = self.geometry()
+            try:
+                if hasattr(self.root_app, "save_config"):
+                    self.root_app.save_config()
+            except:
+                pass
+
+def custom_askstring(title, prompt, initialvalue="", parent=None, win_name=None):
+    if parent is None:
+        import tkinter as tk
+        try:
+            parent = tk._default_root
+        except:
+            parent = None
+    dlg = CustomAskStringDialog(parent, title, prompt, initialvalue, win_name)
+    return dlg.result
+
+def make_window_remember_position(window, win_name: str, parent=None):
+    """
+    讓指定的視窗具備：
+    1. 貓貓圖示 (set_window_icon)
+    2. 自動還原上次關閉的位置
+    3. 自動在關閉時儲存位置 (透過覆寫 destroy)
+    """
+    try:
+        set_window_icon(window)
+    except Exception:
+        pass
+
+    # Find root app
+    root_app = parent if parent else getattr(window, 'master', None)
+    while root_app and not hasattr(root_app, 'user_config') and getattr(root_app, 'master', None):
+        root_app = root_app.master
+    if not root_app or not hasattr(root_app, 'user_config'):
+        if hasattr(parent, 'parent') and hasattr(parent.parent, 'user_config'):
+            root_app = parent.parent
+        elif hasattr(parent, 'editor') and hasattr(parent.editor, 'parent') and hasattr(parent.editor.parent, 'user_config'):
+            root_app = parent.editor.parent
+        elif hasattr(window, 'parent') and hasattr(window.parent, 'user_config'):
+            root_app = window.parent
+        elif hasattr(window, 'master') and hasattr(window.master, 'user_config'):
+            root_app = window.master
+
+    # Restore position
+    if root_app and hasattr(root_app, "user_config") and win_name in root_app.user_config:
+        try:
+            geom = root_app.user_config[win_name]
+            if '+' in geom:
+                pos = geom[geom.find('+'):]
+                window.after(50, lambda p=pos: window.geometry(p))
+        except:
+            pass
+
+    # Override destroy to save position
+    orig_destroy = window.destroy
+    def custom_destroy(*args, **kwargs):
+        if root_app and hasattr(root_app, "user_config"):
+            try:
+                state = window.state()
+                if state == 'normal' or state == 'withdrawn':
+                    root_app.user_config[win_name] = window.geometry()
+                    if hasattr(root_app, "save_config"):
+                        root_app.save_config()
+            except Exception:
+                pass
+        try:
+            orig_destroy(*args, **kwargs)
+        except:
+            pass
+        
+    window.destroy = custom_destroy
+
+    # Ensure clicking the X button triggers our custom destroy
+    orig_protocol = window.protocol("WM_DELETE_WINDOW")
+    def on_wm_delete():
+        custom_destroy()
+        if isinstance(orig_protocol, str) and orig_protocol:
+            try:
+                window.eval(orig_protocol)
+            except:
+                pass
+    window.protocol("WM_DELETE_WINDOW", on_wm_delete)

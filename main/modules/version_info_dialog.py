@@ -221,6 +221,15 @@ class VersionInfoDialog(tb.Toplevel):
         )
         self.update_btn.pack(side=LEFT, padx=5)
         
+        # GitHub 查看按鈕
+        github_btn = tb.Button(
+            button_frame,
+            text="在 GitHub 查看圖文更新",
+            bootstyle="info-outline",
+            command=self._open_github_release
+        )
+        github_btn.pack(side=LEFT, padx=10)
+        
         # 關閉按鈕
         close_btn = tb.Button(
             button_frame,
@@ -230,6 +239,21 @@ class VersionInfoDialog(tb.Toplevel):
             command=self.destroy
         )
         close_btn.pack(side=RIGHT, padx=5)
+        
+        # 自動檢查開關
+        auto_check_val = True
+        if hasattr(self.parent, 'user_config'):
+            auto_check_val = self.parent.user_config.get('auto_check_update', True)
+            
+        self.auto_check_var = tk.BooleanVar(value=auto_check_val)
+        self.auto_check_cb = tb.Checkbutton(
+            button_frame,
+            text="偵測到更新資訊時，彈出提示視窗",
+            variable=self.auto_check_var,
+            bootstyle="round-toggle",
+            command=self._on_auto_check_toggle
+        )
+        self.auto_check_cb.pack(side=RIGHT, padx=10)
     
     def _load_content(self):
         """載入內容（在背景執行緒中）"""
@@ -305,30 +329,13 @@ class VersionInfoDialog(tb.Toplevel):
         # 確保進度條顯示 100%
         self.progress_bar.config(value=100)
         self.progress_label.config(text="✓ 更新完成!")
-        self.progress_detail_label.config(text="所有檔案已準備就緒")
+        self.progress_detail_label.config(text="所有檔案已準備就緒，正在重啟...")
         
-        # 詢問是否立即重啟
-        result = messagebox.askyesno(
-            "更新完成",
-            "更新已成功下載並準備完成！\n\n是否立即重新啟動程式以應用更新？\n\n" +
-            "(選擇'否'將在下次啟動時自動更新)",
-            parent=self
-        )
-        
-        if result:
-            # 立即重啟
-            if self.on_update_callback:
-                self.on_update_callback()
-            # 關閉視窗
-            self.destroy()
-        else:
-            # 稍後重啟
-            messagebox.showinfo(
-                "提示",
-                "更新將在下次啟動程式時自動應用。",
-                parent=self
-            )
-            self.destroy()
+        # 由於_start_update中已經確認過會自動重啟，這裡直接執行重啟回調即可
+        if self.on_update_callback:
+            self.on_update_callback()
+            
+        self.destroy()
     
     def _show_error(self, error_msg: str):
         """顯示更新失敗"""
@@ -388,6 +395,25 @@ class VersionInfoDialog(tb.Toplevel):
             self.update_notes_text.insert("1.0", "您目前使用的是最新版本，無需更新。")
             self.update_notes_text.config(state=tk.DISABLED)
     
+    def _open_github_release(self):
+        import webbrowser
+        try:
+            if hasattr(self, 'update_info') and self.update_info:
+                version_tag = self.update_info['version']
+                url = f"https://github.com/Lucienwooo/ChroLens-Mimic/releases/tag/v{version_tag}"
+            else:
+                url = "https://github.com/Lucienwooo/ChroLens-Mimic/releases/latest"
+            webbrowser.open(url)
+        except Exception as e:
+            if hasattr(self.parent, 'log'):
+                self.parent.log(f"開啟瀏覽器失敗: {e}")
+
+    def _on_auto_check_toggle(self):
+        if hasattr(self.parent, "user_config"):
+            self.parent.user_config["auto_check_update"] = self.auto_check_var.get()
+            if hasattr(self.parent, "save_config"):
+                self.parent.save_config()
+
     def _start_update(self):
         """開始更新流程（直接在此視窗執行）"""
         if not hasattr(self, 'update_info') or not self.update_info:

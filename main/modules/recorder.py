@@ -1262,6 +1262,15 @@ class CoreRecorder:
         #  修復：清空所有可能殘留的按鍵狀態
         self._pressed_keys.clear()
         
+        # 修復：清空所有執行狀態殘留（避免腳本重複執行或切換腳本時發生座標偏移或區域錯誤）
+        self._current_region = None
+        if hasattr(self, '_motion_history'):
+            self._motion_history.clear()
+        if hasattr(self, '_last_found_positions'):
+            self._last_found_positions.clear()
+        if hasattr(self, '_tracking_mode'):
+            self._tracking_mode.clear()
+        
         self.playing = True
         self.paused = False
         self._play_thread = threading.Thread(
@@ -2212,6 +2221,22 @@ class CoreRecorder:
             return
         
         if event['type'] == 'keyboard':
+            # 攔截 >輸入文字> 指令，改為複製貼上
+            if event.get('name', '').startswith('輸入文字>'):
+                if event.get('event') == 'down':
+                    text_to_type = event['name'][5:] # 移除 "輸入文字>"
+                    try:
+                        import pyperclip
+                        import keyboard as kb
+                        import time as _time
+                        pyperclip.copy(text_to_type)
+                        _time.sleep(0.05)
+                        kb.send('ctrl+v')
+                        self.logger(f"[文字輸入] 已貼上內容: {text_to_type}")
+                    except Exception as e:
+                        self.logger(f"[文字輸入錯誤] {e}")
+                return
+                
             # 背景模式攔截鍵盤
             if getattr(self, "bg_exec_mode", False) and self._target_hwnd:
                 self._bg_send_keyboard(self._target_hwnd, event.get('event', 'press'), event['name'])
@@ -3004,7 +3029,14 @@ class CoreRecorder:
                     if hasattr(self, 'variables') and isinstance(self.variables, dict):
                         self.variables['_ocr_result'] = captcha_text
 
-                    # 5. 輸入文字：優先用剪貼簿貼上（支援中英數所有字元，避免 keyboard.write 的 IME 問題）
+                    # 5. 處理自訂延遲 (v2.8.6+)
+                    input_delay = event.get('input_delay', 0)
+                    if input_delay > 0:
+                        import time as _time
+                        self.logger(f"[OCR] ⏳ 等待 {input_delay} 秒後自動輸入...")
+                        _time.sleep(input_delay)
+
+                    # 6. 輸入文字：優先用剪貼簿貼上（支援中英數所有字元，避免 keyboard.write 的 IME 問題）
                     try:
                         import pyperclip
                         pyperclip.copy(captcha_text)

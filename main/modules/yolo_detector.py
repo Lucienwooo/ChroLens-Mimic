@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 YOLOv8s 物件偵測模組
-ChroLens-Mimic v2.8.4
+ChroLens-Mimic v2.8.5
 
 提供基於 YOLOv8s 的物件偵測功能，用於自動化腳本中的物件識別。
 """

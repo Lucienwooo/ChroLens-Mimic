@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 ChroLens 文字指令式腳本編輯器
 將JSON事件轉換為簡單的文字指令格式
@@ -3015,42 +3015,40 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         """使用 grid 佈局插入指令表格（2.7.4 完整版本）"""
         # 定義所有指令的說明資料
         commands = [
-            ("圖片辨識", ">辨識>pic01, T=0s000", "截圖並儲存為pic01，用於圖片辨識"),
-            ("範圍辨識", ">辨識>pic01, 範圍(100,100,500,500), T=0s000", "在指定螢幕範圍內辨識圖片"),
-            ("移動至圖片", ">移動至>pic01, T=0s000", "移動滑鼠到圖片中心位置"),
-            ("點擊圖片", ">左鍵點擊>pic01, T=0s000", "左鍵點擊圖片中心位置"),
-            ("等待圖片", ">等待圖片>pic01, T=0s000", "等待指定圖片出現"),
-            ("條件判斷", ">if>pic01, T=0s000 | >>#標籤 | >>>#標籤", "判斷圖片是否存在，執行對應分支"),
-            ("左鍵點擊", ">左鍵點擊(100,200), T=0s000", "在指定座標點擊左鍵"),
-            ("右鍵點擊", ">右鍵點擊(100,200), T=0s000", "在指定座標點擊右鍵"),
-            ("左鍵點擊(無座標)", ">左鍵點擊, T=0s000", "在當前滑鼠位置點擊左鍵"),
-            ("右鍵點擊(無座標)", ">右鍵點擊, T=0s000", "在當前滑鼠位置點擊右鍵"),
-            ("滑鼠移動", ">移動至(100,200), T=0s000", "移動滑鼠到指定座標"),
-            ("滑鼠滾輪", ">滾輪(1), T=0s000", "滾動滑鼠滾輪（正數向上，負數向下）"),
-            ("按下按鍵", ">按下a, T=0s000", "按下指定按鍵"),
-            ("按下組合鍵", ">按下Ctrl,Shift,A, T=0s000", "同時按下多個按鍵（組合鍵）"),
-            ("放開按鍵", ">放開a, T=0s000", "放開指定按鍵"),
-            ("新增標籤", "#標籤名稱", "定義一個跳轉標籤"),
-            ("跳轉標籤", ">>#標籤名稱", "跳轉到指定標籤（成功分支）"),
-            ("條件失敗跳轉", ">>>#標籤名稱", "條件失敗時跳轉到指定標籤"),
-            ("OCR文字判斷", ">if文字>登入, T=0s000 | >>#找到 | >>>#沒找到", "判斷螢幕上是否有指定文字"),
-            ("OCR等待文字", ">等待文字>完成, 最長10s, T=0s000", "等待指定文字出現（最長等待時間）"),
-            ("OCR點擊文字", ">點擊文字>確認, T=0s000", "自動定位並點擊螢幕上的文字"),
-            ("延遲等待", ">延遲1000ms, T=0s000", "等待指定時間（毫秒）"),
-            ("設定變數", ">設定變數>count, 0, T=0s000", "設定變數count的值為0"),
-            ("變數加1", ">變數加1>count, T=0s000", "將變數count的值加1"),
-            ("變數減1", ">變數減1>count, T=0s000", "將變數count的值減1"),
-            ("變數條件", ">if變數>count, >=, 10, T=0s000 | >>#成功 | >>>#失敗", "判斷變數值，執行對應分支"),
-            ("重複N次", ">重複>10次, T=0s000 | >重複結束, T=0s000", "重複執行指定次數"),
-            ("條件迴圈", ">當圖片存在>loading, T=0s000 | >迴圈結束, T=0s000", "當條件滿足時持續迴圈"),
-            ("全部圖片存在", ">if全部存在>pic01,pic02,pic03, T=0s000 | >>#全部找到 | >>>#缺少某個", "判斷所有圖片都存在"),
-            ("任一圖片存在", ">if任一存在>pic01,pic02,pic03, T=0s000 | >>#找到其中一個 | >>>#全部都沒有", "判斷任一圖片存在"),
-            ("隨機延遲", ">隨機延遲>100ms,500ms, T=0s000", "在指定範圍內隨機延遲"),
-            ("隨機執行", ">隨機執行>30%, T=0s000 | >>#執行A | >>>#執行B", "按機率執行不同分支"),
-            ("計數器觸發", ">計數器>找圖失敗, 3次後, T=0s000 | >>#下一步", "計數達到指定次數後觸發"),
-            ("計時器觸發", ">計時器>等待載入, 60秒後, T=0s000 | >>#超時處理", "時間達到後觸發"),
-            ("重置計數器", ">重置計數器>找圖失敗, T=0s000", "重置指定計數器"),
-            ("重置計時器", ">重置計時器>等待載入, T=0s000", "重置指定計時器"),
+            ("圖片辨識", ">按下>pic01, T=1s500", "捕捉目標圖片並自動產生點擊指令"),
+            ("範圍辨識", ">範圍>pic01, 範圍(100,100,500,500), T=1s500", "設定搜尋區域以加速圖片辨識"),
+            ("移動至圖片", ">移動至>pic01, T=1s500", "尋找圖片並將滑鼠移動至該處不點擊"),
+            ("點擊圖片", ">左鍵點擊>pic01, T=1s500", "尋找圖片並點擊該處"),
+            ("條件判斷", ">if>pic01, T=1s500 | >>#標籤 | >>>#標籤", "判斷圖片是否存在，存在跳轉分支A，否則跳轉分支B"),
+            ("等待圖片", ">等待圖片>pic01, T=1s500", "暫停執行直到指定圖片出現"),
+            ("驗證碼辨識beta", ">OCR點擊>請輸入, T=1s500", "框選特定區域進行 OCR 並點擊輸入"),
+            ("座標左鍵點擊", ">左鍵點擊(100,200), T=0s500", "捕捉絕對座標並點擊左鍵"),
+            ("座標右鍵點擊", ">右鍵點擊(100,200), T=0s500", "捕捉絕對座標並點擊右鍵"),
+            ("左鍵點擊", ">左鍵點擊, T=0s500", "在當前滑鼠位置點擊左鍵"),
+            ("右鍵點擊", ">右鍵點擊, T=0s500", "在當前滑鼠位置點擊右鍵"),
+            ("滑鼠移動", ">移動至(0,0), T=0s500", "將滑鼠移動至指定座標"),
+            ("相對移動", ">相對移動(50,50), T=0s500", "從當前滑鼠位置進行相對偏移"),
+            ("滑鼠滾輪", ">滾輪(1), T=0s500", "滾動滑鼠滾輪，正數向上負數向下"),
+            ("按下按鍵", ">按下a, T=0s500", "捕捉並按下指定的鍵盤按鍵"),
+            ("放開按鍵", ">放開a, T=0s500", "放開指定的鍵盤按鍵"),
+            ("輸入文字", ">輸入文字>請輸入內容, T=0s500", "自動輸入指定的文字內容"),
+            ("拖曳 (捕捉起點與終點)", ">拖曳(100,100,500,500), T=0s500", "捕捉兩點座標並執行拖曳動作"),
+            ("新增標籤", "#標籤名稱", "定義一個可跳轉的執行點"),
+            ("跳轉標籤", ">>#標籤名稱", "無條件跳轉到指定標籤"),
+            ("條件失敗跳轉", ">>>#標籤名稱", "當上一行條件不成立時跳轉"),
+            ("延遲等待", ">延遲1000ms, T=0s500", "暫停腳本執行指定毫秒"),
+            ("重複N次", ">重複>10次, T=0s500", "開啟固定次數的迴圈執行"),
+            ("條件迴圈", ">當圖片存在>loading, T=0s500", "當條件成立時持續迴圈執行"),
+            ("全部圖片存在", ">if全部存在>pic01,pic02, T=0s500", "判斷多張圖片是否同時存在"),
+            ("任一圖片存在", ">if任一存在>pic01,pic02, T=0s500", "判斷列表中是否有任意一張圖片存在"),
+            ("隨機延遲", ">隨機延遲>100ms,500ms, T=0s500", "在指定的時間範圍內隨機等待"),
+            ("隨機分支", ">隨機執行>30%, T=0s500", "以指定的機率隨機執行第一分支"),
+            ("計數器觸發", ">計數器>找圖失敗, 3次後, T=0s500", "當同一計數器達到指定次數時觸發"),
+            ("計時器觸發", ">計時器>等待載入, 60秒後, T=0s500", "當同一計時器經過指定秒數時觸發"),
+            ("重置計數器", ">重置計數器>找圖失敗, T=0s500", "將指定的計數器歸零"),
+            ("重置計時器", ">重置計時器>等待載入, T=0s500", "重新開始計算指定的計時器"),
+            ("開始", ">開始>10秒後, T=0s500", "啟動一個背景任務（視具體功能而定）"),
+            ("結束", ">結束>60秒後, T=0s500", "結束一個背景任務（視具體功能而定）")
         ]
         
         # 表頭
@@ -4200,45 +4198,74 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
         # 延遲執行語法高亮以提高效能（延長至150ms避免卡頓）
         self._highlight_after_id = self.after(150, self._apply_syntax_highlighting)
     
+    def _apply_syntax_highlighting(self):
+        self._apply_syntax_highlighting_to_widget(self.text_editor)
+
     def _apply_syntax_highlighting_to_widget(self, text_widget):
         """為指定的Text小工具套用語法高亮"""
         try:
             content = text_widget.get("1.0", "end-1c")
             
-            # 定義需要高亮的模式 (VS Code Dark+ 配色方案)
+            # 清除所有舊標籤
+            for tag in text_widget.tag_names():
+                if tag.startswith("syntax_"):
+                    text_widget.tag_remove(tag, "1.0", "end")
+            
+            # 定義需要高亮的模式
             patterns = [
-                (r'跳到#\S+', 'syntax_flow'),
-                (r'停止', 'syntax_flow'),
-                (r'if>', 'syntax_condition'),
-                (r'如果存在>', 'syntax_condition'),
-                (r'延遲\d+ms', 'syntax_delay'),
-                (r'if文字>', 'syntax_ocr'),
-                (r'等待文字>', 'syntax_ocr'),
-                (r'點擊文字>', 'syntax_ocr'),
-                (r'按下\w+', 'syntax_keyboard'),
-                (r'放開\w+', 'syntax_keyboard'),
-                (r'按(?![下放])\S+', 'syntax_keyboard'),
-                (r'輸入文字>', 'syntax_keyboard'),
-                (r'移動至\(', 'syntax_mouse'),
-                (r'左鍵點擊\(', 'syntax_mouse'),
-                (r'右鍵點擊\(', 'syntax_mouse'),
-                (r'滾輪\(', 'syntax_mouse'),
-                (r'辨識>', 'syntax_image'),
-                (r'移動至>', 'syntax_image'),
-                (r'左鍵點擊>', 'syntax_image'),
-                (r'右鍵點擊>', 'syntax_image'),
-                (r'pic\w+', 'syntax_picname'),
-                (r'T=\d+[smh]\d*', 'syntax_time'),
+                # 符號與結構
+                (r'^>+?', 'syntax_symbol'),
+                (r',', 'syntax_symbol'),
+                
+                # 標籤
                 (r'^#\S+', 'syntax_label'),
                 (r'>>#\S+', 'syntax_label'),
                 (r'>>>#\S+', 'syntax_label'),
-                (r'^# .*', 'syntax_comment'),
+                
+                # 延遲
+                (r'>延遲\d+ms', 'syntax_delay'),
+                (r'>隨機延遲>[^,]+', 'syntax_delay'),
+                
+                # 條件與判斷
+                (r'>if>[^,]+', 'syntax_condition'),
+                (r'>if全部存在>[^,]+', 'syntax_condition'),
+                (r'>if任一存在>[^,]+', 'syntax_condition'),
+                
+                # 迴圈與流程控制
+                (r'>重複>[^,]+', 'syntax_flow'),
+                (r'>當圖片存在>[^,]+', 'syntax_flow'),
+                (r'>隨機執行>[^,]+', 'syntax_flow'),
+                
+                # OCR
+                (r'>OCR點擊>[^,]+', 'syntax_ocr'),
+                
+                # 圖片操作
+                (r'>(?:按下|範圍|移動至|左鍵點擊|等待圖片)>pic\w*', 'syntax_image'),
+                (r'>辨識>pic\w*', 'syntax_image'),
+                
+                # 滑鼠操作
+                (r'>(?:左鍵點擊|右鍵點擊)\(\d+,\d+\)', 'syntax_mouse'),
+                (r'>(?:左鍵點擊|右鍵點擊)(?!>)', 'syntax_mouse'),
+                (r'>移動至\(\d+,\d+\)', 'syntax_mouse'),
+                (r'>相對移動\(-?\d+,-?\d+\)', 'syntax_mouse'),
+                (r'>滾輪\(-?\d+\)', 'syntax_mouse'),
+                (r'>拖曳\(\d+,\d+,\d+,\d+\)', 'syntax_mouse'),
+                
+                # 鍵盤輸入 (簡單標示，稍後還有詳細處理)
+                (r'>輸入文字>[^,]+', 'syntax_keyboard'),
+                
+                # 計時與計數系統
+                (r'>(?:計數器|計時器|重置計數器|重置計時器|開始|結束)>[^,]+', 'syntax_time'),
+                
+                # 參數 (例如 T=1s500)
+                (r'T=\d+[smh]\d*', 'syntax_time'),
+                
+                # 註解
+                (r'# .*', 'syntax_comment'),
                 (r'//.*', 'syntax_comment_inline'),
-                (r'^>>>', 'syntax_symbol'),
-                (r'^>>', 'syntax_symbol'),
-                (r'^>', 'syntax_symbol'),
-                (r',', 'syntax_symbol'),
             ]
+            
+            # 加入英文翻譯對應的 Patterns
             try:
                 from modules.command_lang import COMMAND_MAP_EN
                 eng_patterns = []
@@ -4249,47 +4276,56 @@ class TextCommandEditor(EditorParserMixin, EditorFlowchartMixin, tk.Toplevel):
                 patterns.extend(eng_patterns)
             except: pass
 
-            
-            # 逐行處理
+            # 逐行正則匹配
             lines = content.split('\n')
             for line_num, line in enumerate(lines, 1):
+                # 尋找並標記
                 for pattern, tag in patterns:
                     for match in re.finditer(pattern, line):
                         start_idx = f"{line_num}.{match.start()}"
                         end_idx = f"{line_num}.{match.end()}"
                         text_widget.tag_add(tag, start_idx, end_idx)
-        except:
-            pass
-
-        try:
-            import re
-            lines = content.split('\n')
-            for line_idx, line in enumerate(lines, 1):
-                # Search for any keyboard command format (>按下..., >放開...) and grab the key string before `, T=`
-                for match in re.finditer(r'(>(?:按下|放開|KeyDown|KeyUp|Press)?)([a-zA-Z0-9+]+)(?=, T=|$)', line):
+                        
+                # 獨立處理按鍵高亮 (>按下alt+tab, 等等)
+                for match in re.finditer(r'(>(?:按下|放開|KeyDown|KeyUp|Press)?)([a-zA-Z0-9+]+)(?=,|$)', line):
+                    # 防止匹配到 T=...
                     if 'T=' in match.group(): continue
+                    
                     prefix_str = match.group(1)
                     key_str = match.group(2)
                     base_offset_prefix = match.start(1)
                     base_offset_key = match.start(2)
                     
-                    # 針對「>按下」賦予淺藍色
-                    text_widget.tag_add('syntax_keyboard', f"{line_idx}.{base_offset_prefix}", f"{line_idx}.{base_offset_prefix + len(prefix_str)}")
+                    # 給予 >按下 淺藍色
+                    text_widget.tag_add('syntax_keyboard', f"{line_num}.{base_offset_prefix}", f"{line_num}.{base_offset_prefix + len(prefix_str)}")
                     
-                    # Tokenize by finding alphanumeric tokens and literal '+'
+                    # Tokenize key string (+, ctrl, alt, etc.)
                     for sub_match in re.finditer(r'[a-zA-Z0-9]+|\+', key_str):
                         token = sub_match.group()
-                        start_idx = f"{line_idx}.{base_offset_key + sub_match.start()}"
-                        end_idx = f"{line_idx}.{base_offset_key + sub_match.end()}"
+                        start_idx = f"{line_num}.{base_offset_key + sub_match.start()}"
+                        end_idx = f"{line_num}.{base_offset_key + sub_match.end()}"
                         
-                        if token == 'ctrl': text_widget.tag_add('syntax_key_ctrl', start_idx, end_idx)
-                        elif token == 'alt': text_widget.tag_add('syntax_key_alt', start_idx, end_idx)
-                        elif token == 'shift': text_widget.tag_add('syntax_key_shift', start_idx, end_idx)
-                        elif token == 'win': text_widget.tag_add('syntax_key_ctrl', start_idx, end_idx)
-                        elif token == '+': text_widget.tag_add('syntax_key_plus', start_idx, end_idx)
-                        else: text_widget.tag_add('syntax_key_normal', start_idx, end_idx)
+                        if token.lower() in ('ctrl', 'win'):
+                            text_widget.tag_add('syntax_key_ctrl', start_idx, end_idx)
+                        elif token.lower() == 'alt':
+                            text_widget.tag_add('syntax_key_alt', start_idx, end_idx)
+                        elif token.lower() == 'shift':
+                            text_widget.tag_add('syntax_key_shift', start_idx, end_idx)
+                        elif token == '+':
+                            text_widget.tag_add('syntax_key_plus', start_idx, end_idx)
+                        else:
+                            text_widget.tag_add('syntax_key_normal', start_idx, end_idx)
+                            
+                # 特別標記 pic名稱 (橘色)
+                for match in re.finditer(r'pic[a-zA-Z0-9_\u4e00-\u9fa5]+', line):
+                    start_idx = f"{line_num}.{match.start()}"
+                    end_idx = f"{line_num}.{match.end()}"
+                    text_widget.tag_add('syntax_picname', start_idx, end_idx)
+                    
         except Exception as e:
-            pass
+            import traceback
+            with open("smart_parser_error.log", "w") as f:
+                f.write(traceback.format_exc())
     
     def _validate_script(self, content=None):
         """腳本語法與邏輯檢查器 (Linter) - 僅作標示，不阻擋儲存"""
@@ -8099,6 +8135,60 @@ class ImageGalleryViewer(tk.Toplevel):
                 os.makedirs(new_path)
                 self._load_directories()
                 
+    def _toggle_batch_mode(self):
+        self.is_batch_mode = not getattr(self, "is_batch_mode", False)
+        if self.is_batch_mode:
+            self.batch_move_btn.configure(bootstyle="warning", text="取消批次")
+            self.confirm_move_btn.configure(state="normal")
+            self.selected_batch_images = set()
+            self.target_move_folder = None
+            self.status_var.set("進入批次模式，請點擊右側圖片選取，並點選左側目標資料夾。")
+        else:
+            self.batch_move_btn.configure(bootstyle="primary", text="批次移動")
+            self.confirm_move_btn.configure(state="disabled")
+            self.selected_batch_images = set()
+            self.target_move_folder = None
+            self.status_var.set("已取消批次模式。")
+        self._load_images()
+
+    def _confirm_batch_move(self):
+        if not self.selected_batch_images:
+            from tkinter import messagebox
+            messagebox.showwarning("警告", "尚未選取任何圖片！")
+            return
+        if self.target_move_folder is None:
+            from tkinter import messagebox
+            messagebox.showwarning("警告", "請先在左側列表中點選目標分類資料夾！")
+            return
+            
+        import shutil
+        target_dir = self.images_root if not self.target_move_folder else os.path.join(self.images_root, self.target_move_folder)
+        os.makedirs(target_dir, exist_ok=True)
+        
+        success_cnt = 0
+        for src_path in list(self.selected_batch_images):
+            if os.path.exists(src_path):
+                fname = os.path.basename(src_path)
+                dst_path = os.path.join(target_dir, fname)
+                try:
+                    shutil.move(src_path, dst_path)
+                    success_cnt += 1
+                except Exception as e:
+                    print(f"Failed to move {src_path}: {e}")
+                    
+        self.status_var.set(f"成功移動了 {success_cnt} 張圖片到 [{self.target_move_folder or '全部圖片'}]。")
+        
+        # 退出批次模式
+        self.batch_move_btn.configure(bootstyle="primary", text="批次移動")
+        self.confirm_move_btn.configure(state="disabled")
+        self.is_batch_mode = False
+        self.selected_batch_images = set()
+        self.target_move_folder = None
+        self.folder_listbox.selection_clear(0, 'end')
+        
+        self._load_directories()
+        self._load_images()
+
     def _on_folder_select(self, event):
         selection = self.folder_listbox.curselection()
         if selection:

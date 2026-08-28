@@ -1102,6 +1102,14 @@ class RecorderApp(tb.Window):
         lang = self.user_config.get("language", "繁體中文")
         super().__init__(themename=skin)
         
+        # 設定應用程式圖示 (這會讓 messagebox 也繼承圖示)
+        try:
+            icon_path = os.path.join(_dir, "umi_奶茶色.ico")
+            if os.path.exists(icon_path):
+                self.iconbitmap(icon_path)
+        except Exception as e:
+            print(f"Failed to set icon: {e}")
+        
         # 初始化非同步日誌隊列 (必須在 super().__init__ 後，否則 self.after 會遞迴崩潰)
         import queue
         self.log_queue = queue.Queue()

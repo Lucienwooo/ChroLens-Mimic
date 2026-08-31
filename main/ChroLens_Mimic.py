@@ -1647,7 +1647,7 @@ class RecorderApp(tb.Window):
         self.playlist_tree.bind("<B1-Motion>", self.pl_drag_motion)
         self.playlist_tree.bind("<ButtonRelease-1>", self.pl_drag_end)
         self.playlist_tree.bind("<Button-3>", self.pl_on_right_click)
-        self.playlist_tree.bind("<Double-1>", self.pl_on_right_click)
+        self.playlist_tree.bind("<Double-1>", self.pl_on_double_click)
 
         # 腳本設定區（彈性調整）
         self.script_setting_frame = tb.Frame(self.page_content_frame)
@@ -4499,6 +4499,11 @@ class RecorderApp(tb.Window):
             except:
                 settings["random_interval"] = False
             
+            # 目標視窗
+            target_win = self.window_select.get()
+            if target_win and target_win != "請選擇目標視窗...":
+                settings["target_window"] = target_win
+            
             # 使用 script_io 儲存
             sio_save_script_settings(path, settings)
             
@@ -4645,6 +4650,16 @@ class RecorderApp(tb.Window):
                 self.random_interval_var.set(settings.get("random_interval", False))
             except:
                 self.random_interval_var.set(False)
+            
+            # 自動選取記憶的目標視窗
+            target_win = settings.get("target_window")
+            if target_win:
+                for win_info in self.windows_list:
+                    if target_win == win_info['text']:
+                        self.window_select.set(target_win)
+                        self.on_window_selected(None)
+                        self.log(f"已自動綁定記憶的目標視窗: {target_win}")
+                        break
             
             #  讀取視窗資訊 (新格式優先,兼容舊格式)
             if "window_info" in settings and isinstance(settings["window_info"], dict):
@@ -7240,6 +7255,18 @@ class RecorderApp(tb.Window):
         if iid:
             idx = int(iid)
             if 0 <= idx < len(self.playlist_data):
+                item_name = self.playlist_data[idx].get('name', '此腳本')
+                if messagebox.askyesno("移除腳本", f"確定要從播放佇列中移除 {item_name} 嗎？", parent=self):
+                    del self.playlist_data[idx]
+                    self._update_playlist_ui()
+                    # 儲存最新的佇列
+                    self._autosave_playlist()
+
+    def pl_on_double_click(self, event):
+        iid = self.playlist_tree.identify_row(event.y)
+        if iid:
+            idx = int(iid)
+            if 0 <= idx < len(self.playlist_data):
                 item = self.playlist_data[idx]
                 self._show_playlist_config_window(idx, item)
 
@@ -7254,10 +7281,26 @@ class RecorderApp(tb.Window):
         except:
             pass
             
-        dialog.update_idletasks()
-        x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
-        y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
-        dialog.geometry(f"+{x}+{y}")
+        def on_dialog_close():
+            pos = dialog.geometry().split('+')
+            if len(pos) == 3:
+                # 儲存 geometry
+                self.user_config["group_script_setting_pos"] = f"+{pos[1]}+{pos[2]}"
+                self.save_config()
+            dialog.destroy()
+            
+        dialog.protocol("WM_DELETE_WINDOW", on_dialog_close)
+        
+        pos = self.user_config.get("group_script_setting_pos")
+        if pos and "+" in pos:
+            coords = pos.split("+", 1)
+            if len(coords) == 2:
+                dialog.geometry(f"450x300+{coords[1]}")
+        else:
+            dialog.update_idletasks()
+            x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
+            y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
+            dialog.geometry(f"+{x}+{y}")
         
         main_frame = tb.Frame(dialog, padding=20)
         main_frame.pack(fill="both", expand=True)

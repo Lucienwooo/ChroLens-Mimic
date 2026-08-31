@@ -1036,38 +1036,48 @@ class CoreRecorder:
 
             # v2.9.0: 同時啟動 pynput 鍵盤監聽（更穩定）
             self._keyboard_events = []
+            def _get_key_name(k):
+                n = ""
+                if hasattr(k, 'char') and k.char:
+                    n = k.char
+                else:
+                    n = str(k).replace('Key.', '')
+                    
+                if len(n) == 1 and 1 <= ord(n) <= 26:
+                    return chr(ord(n) - 1 + ord('a'))
+                    
+                if not n or (len(n) == 1 and ord(n) < 32):
+                    if hasattr(k, 'vk') and k.vk is not None:
+                        if 65 <= k.vk <= 90: return chr(k.vk).lower()
+                        elif 48 <= k.vk <= 57: return chr(k.vk)
+                    return ""
+                    
+                return n.lower()
+
             def on_press(key):
                 if self.recording and not self.paused:
                     try:
-                        name = ""
-                        if hasattr(key, 'char') and key.char:
-                            name = key.char
-                        else:
-                            name = str(key).replace('Key.', '')
-                        
-                        self._keyboard_events.append({
-                            'type': 'keyboard',
-                            'event': 'down',
-                            'name': name.lower(),
-                            'time': time.time()
-                        })
+                        name = _get_key_name(key)
+                        if name:
+                            self._keyboard_events.append({
+                                'type': 'keyboard',
+                                'event': 'down',
+                                'name': name,
+                                'time': time.time()
+                            })
                     except: pass
 
             def on_release(key):
                 if self.recording and not self.paused:
                     try:
-                        name = ""
-                        if hasattr(key, 'char') and key.char:
-                            name = key.char
-                        else:
-                            name = str(key).replace('Key.', '')
-                        
-                        self._keyboard_events.append({
-                            'type': 'keyboard',
-                            'event': 'up',
-                            'name': name.lower(),
-                            'time': time.time()
-                        })
+                        name = _get_key_name(key)
+                        if name:
+                            self._keyboard_events.append({
+                                'type': 'keyboard',
+                                'event': 'up',
+                                'name': name,
+                                'time': time.time()
+                            })
                     except: pass
 
             try:
@@ -3273,6 +3283,14 @@ class CoreRecorder:
                     self._loop_stack.pop()
         
         # 隨機延遲
+        elif event['type'] == 'delay':
+            duration = event.get('duration', 0)
+            if duration > 0:
+                self.logger(f"[延遲] {duration:.3f}s")
+                start_t = time.time()
+                while time.time() - start_t < duration and self.playing:
+                    time.sleep(0.1)
+
         elif event['type'] == 'random_delay':
             import random
             min_ms = event.get('min_ms', 100)

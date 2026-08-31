@@ -1968,6 +1968,7 @@ class EditorParserMixin:
             return None
 
         pressed_keys = {}
+        active_modifiers = set()
         
         for idx, event in enumerate(events):
             if event.get("_skip_next"): continue
@@ -2009,6 +2010,11 @@ class EditorParserMixin:
 
                 if event_type == "keyboard":
                     key_name = event.get("name", "")
+                    
+                    # 1. 名稱正規化
+                    if key_name.endswith("_l") or key_name.endswith("_r"):
+                        key_name = key_name[:-2]
+                        
                     is_press = event.get("_is_press", False)
                     is_release = event.get("_is_release", False)
                     auto_pair = event.get("_auto_pair", False)
@@ -2023,38 +2029,88 @@ class EditorParserMixin:
                             continue
                         else:
                             key_name = orig_group
+                            if key_name.endswith("_l") or key_name.endswith("_r"):
+                                key_name = key_name[:-2]
+                                
+                    is_modifier = key_name in ["ctrl", "shift", "alt", "win"]
                     
                     if event_name == "down":
+                        if is_modifier:
+                            active_modifiers.add(key_name)
+                            
+                        # 檢查是否為單純單擊 (Down -> Up 且中間沒有其他按下)
+                        is_click = False
+                        is_pure_modifier_combo = False
+                        next_up_event = None
+                        
                         if is_press:
-                            press_delay_ms = event.get("_press_delay", 0)
-                            if press_delay_ms > 0:
-                                lines.append(f">按下{key_name}, 延遲{press_delay_ms}ms, T={time_suffix_val}\n")
-                            else:
-                                lines.append(f">按下{key_name}, T={time_suffix_val}\n")
-                        elif auto_pair:
-                            pressed_keys[key_name] = (event_time, rel_delay)
+                            is_click = False # Explicit press shouldn't be folded into a click
                         else:
-                            pressed_keys[key_name] = (event_time, rel_delay)
-                            lines.append(f">按下{key_name}, T={time_suffix_val}\n")
+                            for j in range(idx + 1, len(events)):
+                                e = events[j]
+                                if e.get("type") == "keyboard":
+                                    k_name = e.get("name", "").replace("_l", "").replace("_r", "")
+                                    if e.get("event") == "down":
+                                        if is_modifier and k_name not in ["ctrl", "shift", "alt", "win"]:
+                                            is_pure_modifier_combo = True
+                                        break
+                                    if e.get("event") == "up" and k_name == key_name:
+                                        is_click = True
+                                        next_up_event = e
+                                        break
+                                    
+                        # 若有 active modifiers 且當前不是 modifier，則合併為組合鍵
+                        if not is_modifier and active_modifiers and not is_press:
+                            combo_list = []
+                            for mod in ["ctrl", "shift", "alt", "win"]:
+                                if mod in active_modifiers: combo_list.append(mod)
+                            combo_list.append(key_name)
+                            combo_name = "+".join(combo_list)
+                            
+                            lines.append(f">按下{combo_name}, T={time_suffix_val}\n")
+                            pressed_keys[key_name] = "combo"
+                        else:
+                            if is_pure_modifier_combo and not is_press:
+                                pressed_keys[key_name] = "modifier_combo"
+                            elif not is_click:
+                                pressed_keys[key_name] = (event_time, rel_delay)
+                                lines.append(f">按下{key_name}, T={time_suffix_val}\n")
+                            else:
+                                pressed_keys[key_name] = (event_time, rel_delay)
+                                
                     elif event_name == "up":
+                        if is_modifier and key_name in active_modifiers:
+                            active_modifiers.remove(key_name)
+                            
+                        press_data = pressed_keys.get(key_name)
+                        
+                        if press_data == "combo":
+                            del pressed_keys[key_name]
+                            continue
+                        if press_data == "modifier_combo":
+                            del pressed_keys[key_name]
+                            continue
+                            
                         if is_release:
+                            if key_name in pressed_keys: del pressed_keys[key_name]
                             lines.append(f">放開{key_name}, T={time_suffix_val}\n")
                         elif key_name in pressed_keys:
-                            press_time, p_delay = pressed_keys[key_name]
-                            key_duration = max(0.0, event_time - press_time)
-                            key_duration_ms = round(key_duration * 1000)
-                            
-                            if next_active_time is not None:
-                                key_click_rel_delay = max(0.0, next_active_time - press_time - key_duration)
-                            else:
-                                key_click_rel_delay = 0.0
+                            if isinstance(press_data, tuple):
+                                press_time, p_delay = press_data
+                                key_duration = max(0.0, event_time - press_time)
+                                key_duration_ms = round(key_duration * 1000)
                                 
-                            if key_duration_ms != 50:
-                                delay_part = f", 延遲{key_duration_ms}ms"
-                            else:
-                                delay_part = ""
-                                
-                            lines.append(f">按{key_name}{delay_part}, T={self._format_time(key_click_rel_delay)}\n")
+                                if next_active_time is not None:
+                                    key_click_rel_delay = max(0.0, next_active_time - press_time - key_duration)
+                                else:
+                                    key_click_rel_delay = 0.0
+                                    
+                                if key_duration_ms > 200:
+                                    delay_part = f", 延遲{key_duration_ms}ms"
+                                else:
+                                    delay_part = ""
+                                    
+                                lines.append(f">按{key_name}{delay_part}, T={self._format_time(key_click_rel_delay)}\n")
                             del pressed_keys[key_name]
                         else:
                             lines.append(f">放開{key_name}, T={time_suffix_val}\n")

@@ -8092,6 +8092,25 @@ class ImageGalleryViewer(tk.Toplevel):
         right_panel = tk.Frame(main_frame, bg="#1e1e1e")
         right_panel.grid(row=0, column=1, sticky="nsew")
         
+        # 排序控制區
+        sort_frame = tk.Frame(right_panel, bg="#1e1e1e")
+        sort_frame.pack(side="top", fill="x", pady=(0, 5))
+        
+        self.sort_by = "time"
+        self.sort_asc = False
+        try:
+            if hasattr(self.editor, 'parent') and hasattr(self.editor.parent, 'user_config'):
+                sort_cfg = self.editor.parent.user_config.get('gallery_sort', {'by': 'time', 'asc': False})
+                self.sort_by = sort_cfg.get('by', 'time')
+                self.sort_asc = sort_cfg.get('asc', False)
+        except: pass
+        
+        tk.Label(sort_frame, text="檢視方式:", bg="#1e1e1e", fg="#ffffff", font=font_tuple(10)).pack(side="left", padx=(5, 5))
+        self.btn_sort_time = tb.Button(sort_frame, text="時間順序 ↑" if self.sort_asc else "時間順序 ↓", bootstyle="primary" if self.sort_by=="time" else "secondary", command=lambda: self._toggle_sort("time"))
+        self.btn_sort_time.pack(side="left", padx=5)
+        self.btn_sort_name = tb.Button(sort_frame, text="命名 ↑" if self.sort_asc else "命名 ↓", bootstyle="primary" if self.sort_by=="name" else "secondary", command=lambda: self._toggle_sort("name"))
+        self.btn_sort_name.pack(side="left", padx=5)
+        
         self.status_var = tk.StringVar(value="等待指示 | 左鍵點擊複製指令")
         status_label = tk.Label(right_panel, textvariable=self.status_var, bg="#1e1e1e", fg="#4CAF50", font=font_tuple(10))
         status_label.pack(side="bottom", fill="x", pady=(5, 0))
@@ -8099,16 +8118,38 @@ class ImageGalleryViewer(tk.Toplevel):
         self.canvas = tk.Canvas(right_panel, bg="#1e1e1e", highlightthickness=0)
         self.canvas.pack(side="left", fill="both", expand=True)
         
-        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
-        self.bind("<Destroy>", lambda e: self.canvas.unbind_all("<MouseWheel>"))
-        
         self.grid_frame = tk.Frame(self.canvas, bg="#1e1e1e")
         self.canvas_window = self.canvas.create_window((0, 0), window=self.grid_frame, anchor="nw")
         
-        self.grid_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.canvas.bind("<Configure>", self._on_canvas_configure)
         
         self._load_directories()
+        self._load_images()
+        
+    def _bind_mousewheel_recursive(self, widget):
+        widget.bind("<MouseWheel>", self._on_mousewheel)
+        for child in widget.winfo_children():
+            self._bind_mousewheel_recursive(child)
+            
+    def _toggle_sort(self, sort_type):
+        if self.sort_by == sort_type:
+            self.sort_asc = not self.sort_asc
+        else:
+            self.sort_by = sort_type
+            self.sort_asc = True
+            
+        time_text = "時間順序 ↑" if (self.sort_by=="time" and self.sort_asc) else "時間順序 ↓"
+        name_text = "命名 ↑" if (self.sort_by=="name" and self.sort_asc) else "命名 ↓"
+        
+        self.btn_sort_time.configure(text=time_text, bootstyle="primary" if self.sort_by=="time" else "secondary")
+        self.btn_sort_name.configure(text=name_text, bootstyle="primary" if self.sort_by=="name" else "secondary")
+        
+        try:
+            if hasattr(self.editor, 'parent') and hasattr(self.editor.parent, 'user_config'):
+                self.editor.parent.user_config['gallery_sort'] = {'by': self.sort_by, 'asc': self.sort_asc}
+                if hasattr(self.editor.parent, 'save_config'):
+                    self.editor.parent.save_config()
+        except: pass
         self._load_images()
         
     def _on_gallery_closing(self):
@@ -8135,6 +8176,19 @@ class ImageGalleryViewer(tk.Toplevel):
                 os.makedirs(new_path)
                 self._load_directories()
                 
+    def _update_batch_ui(self):
+        is_batch = getattr(self, "is_batch_mode", False)
+        batch_set = getattr(self, "selected_batch_images", set())
+        import tkinter as tk
+        for frame in self.grid_frame.winfo_children():
+            if not isinstance(frame, tk.Frame): continue
+            fpath = getattr(frame, "img_path", None)
+            if not fpath: continue
+            if is_batch and fpath in batch_set:
+                frame.configure(bg="#007acc", bd=3)
+            else:
+                frame.configure(bg="#2d2d2d", bd=1)
+
     def _toggle_batch_mode(self):
         self.is_batch_mode = not getattr(self, "is_batch_mode", False)
         if self.is_batch_mode:
@@ -8149,7 +8203,7 @@ class ImageGalleryViewer(tk.Toplevel):
             self.selected_batch_images = set()
             self.target_move_folder = None
             self.status_var.set("已取消批次模式。")
-        self._load_images()
+        self._update_batch_ui()
 
     def _confirm_batch_move(self):
         if not self.selected_batch_images:
@@ -8255,6 +8309,19 @@ class ImageGalleryViewer(tk.Toplevel):
         if search_query:
             files = [f for f in files if search_query in os.path.basename(f).lower()]
             
+        def sort_key(f):
+            full_p = os.path.join(self.images_root, f)
+            if getattr(self, "sort_by", "time") == "time":
+                try:
+                    return os.path.getmtime(full_p)
+                except:
+                    return 0
+            else:
+                return os.path.basename(f).lower()
+                
+        is_asc = getattr(self, "sort_asc", False)
+        files.sort(key=sort_key, reverse=not is_asc)
+            
         if not files:
             tk.Label(self.grid_frame, text="圖庫無圖片", bg="#1e1e1e", fg="#ffffff", font=font_tuple(12)).pack(pady=20)
             return
@@ -8273,6 +8340,7 @@ class ImageGalleryViewer(tk.Toplevel):
                 self.thumbnails.append(photo)
                 
                 frame = tk.Frame(self.grid_frame, bg="#2d2d2d", padx=5, pady=5, bd=1, relief="solid")
+                frame.img_path = img_path
                 frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
                 
                 img_lbl = tk.Label(frame, image=photo, bg="#2d2d2d", cursor="hand2")
@@ -8306,6 +8374,10 @@ class ImageGalleryViewer(tk.Toplevel):
                 
         for i in range(max_cols):
             self.grid_frame.grid_columnconfigure(i, weight=1)
+            
+        self._bind_mousewheel_recursive(self.canvas)
+        self.grid_frame.update_idletasks()
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
 
 class KeyCaptureDialog(tk.Toplevel):

@@ -1,0 +1,78 @@
+﻿import ttkbootstrap as tb
+from ttkbootstrap.constants import *
+import tkinter as tk
+import os
+
+try:
+    from utils.utils import get_icon_path, set_window_icon
+except ImportError:
+    # fallback（極端情況：utils.py 遺失）
+    def get_icon_path(): return "umi_奶茶色.ico"
+    def set_window_icon(w):
+        try: w.iconbitmap(get_icon_path())
+        except: pass
+
+def show_about(parent):
+    about_win = tb.Toplevel(parent)
+    try:
+        from utils.utils import make_window_remember_position
+        make_window_remember_position(about_win, 'toplevel_about_15')
+    except Exception as e:
+        print('Memory window error:', e)
+    about_win.title("關於Mimic")
+    about_win.minsize(450, 680)
+    about_win.resizable(False, False)
+    about_win.grab_set()
+    parent.update_idletasks()
+    x = parent.winfo_x() + (parent.winfo_width() // 2) - 175
+    y = parent.winfo_y() + 80
+    about_win.geometry(f"+{x}+{y}")
+    # 設定視窗圖示
+    set_window_icon(about_win)
+
+    frm = tb.Frame(about_win, padding=20)
+    frm.pack(fill="both", expand=True)
+
+    # 文字使用簡單設定（視主程式字型設定而定）
+    import webbrowser
+    baha_link = tk.Label(frm, text="請點擊此處開啟簡易教學網頁(巴哈)", font=("Microsoft JhengHei", 11, "underline"), fg="#1E90FF", cursor="hand2")
+    baha_link.pack(anchor="w", pady=(0, 6))
+    baha_link.bind("<Button-1>", lambda e: webbrowser.open_new("https://home.gamer.com.tw/artwork.php?sn=6329425"))
+    link = tk.Label(frm, text="任何問題歡迎加入DC伺服器詢問(點我)", font=("Microsoft JhengHei", 10, "underline"), fg="#5865F2", cursor="hand2")
+    link.pack(anchor="w")
+    link.bind("<Button-1>", lambda e: os.startfile("https://discord.gg/72Kbs4WPPn"))
+
+    shopee_label = tb.Label(frm, text="歡迎從下方蝦皮分潤來購買商品，就能免費贊助到我了", font=("Microsoft JhengHei", 10), wraplength=410, justify="left")
+    shopee_label.pack(anchor="w", pady=(8, 2))
+    shopee_link = tk.Label(frm, text="點我前往蝦皮分潤連結", font=("Microsoft JhengHei", 10, "underline"), fg="#EE4D2D", cursor="hand2")
+    shopee_link.pack(anchor="w", pady=(0, 6))
+    shopee_link.bind("<Button-1>", lambda e: os.startfile("https://s.shopee.tw/3qLtXtL3XE"))
+
+    tb.Label(frm, text="By Lucienwooo", font=("Microsoft JhengHei", 11)).pack(anchor="w", pady=(6, 0))
+    tb.Label(frm, text="若不嫌棄請我喝飲料\n贊助QRcode(可使用line pay)", font=("Microsoft JhengHei", 11)).pack(anchor="w", pady=(6, 0))
+
+    # 新增贊助 QR Code
+    qr_frame = tb.Frame(frm)
+    qr_frame.pack(fill="x", pady=(10, 0))
+    
+    import sys
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    qr_path = os.path.join(base_path, "images", "qr_code.png")
+    if os.path.exists(qr_path):
+        try:
+            # 儲存參考避免被 GC
+            about_win.qr_img = tk.PhotoImage(file=qr_path)
+            # 調整圖片大小（512x512 縮小為 256x256）
+            about_win.qr_img = about_win.qr_img.subsample(2, 2) 
+            
+            qr_label = tk.Label(qr_frame, image=about_win.qr_img, bg="#ffffff")
+            qr_label.pack(pady=5)
+        except Exception as e:
+            tb.Label(qr_frame, text=f"(圖片載入失敗: {e})", font=("Microsoft JhengHei", 9)).pack()
+    else:
+        tb.Label(qr_frame, text="(尚未放置贊助圖片 images/qr_code.png)", font=("Microsoft JhengHei", 9)).pack()
+
+    tb.Button(frm, text="關閉", command=about_win.destroy, width=8, bootstyle=SECONDARY).pack(side="bottom", anchor="e", pady=(20, 0))

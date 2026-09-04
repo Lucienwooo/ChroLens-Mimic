@@ -54,11 +54,11 @@ if os.path.exists(_modules_dir) and _modules_dir not in sys.path:
     sys.path.insert(0, _modules_dir)
 # ----------------------------------------
 
-from utils import set_window_icon, get_icon_path
+from utils.utils import set_window_icon, get_icon_path
 
 # 🔧 快捷鍵修復：使用 pynput 替代 keyboard 模組（解決需要長按才能觸發的問題）
 try:
-    import pynput_hotkey
+    from utils import pynput_hotkey
     # 替換 keyboard.add_hotkey 和 keyboard.remove_hotkey
     _original_keyboard = keyboard
     keyboard.add_hotkey = pynput_hotkey.add_hotkey
@@ -96,7 +96,7 @@ CNOCR_AVAILABLE = False
 DDDDOCR_AVAILABLE = False
 TESSERACT_AVAILABLE = False
 
-def _bg_load_libraries():
+def _bg_load_libraries(callback=None):
     global cv2, np, CV2_AVAILABLE, _mss_module, MSS_AVAILABLE, _YOLOModel, YOLO_AVAILABLE
     global OCR_AVAILABLE, OCR_ENGINE_TYPE, CNOCR_AVAILABLE, DDDDOCR_AVAILABLE, TESSERACT_AVAILABLE
     
@@ -163,7 +163,8 @@ def _bg_load_libraries():
     if not OCR_AVAILABLE:
         print("[提示] OCR 套件未安裝 (cnocr, ddddocr 或 pytesseract)，文字辨識功能將無法使用")
 
-threading.Thread(target=_bg_load_libraries, daemon=True).start()
+    if callback:
+        callback()
 
 # ==================== OCR 診斷懸浮窗 (v2.8.8) ====================
 class OCRFloatWindow:
@@ -297,13 +298,13 @@ def is_admin():
 
 # 新增：匯入 Recorder / 語言 / script IO 函式（使用健壯的 fallback）
 try:
-    from recorder import CoreRecorder
+    from core.recorder import CoreRecorder
 except Exception as e:
     print(f"無法匯入 CoreRecorder: {e}")
 
 #  使用文字指令式腳本編輯器（已移除舊版圖形化編輯器）
 try:
-    from text_script_editor import TextCommandEditor as VisualScriptEditor
+    from ui.text_script_editor import TextCommandEditor as VisualScriptEditor
     print("[OK] 已載入文字指令編輯器")
 except Exception as e:
     print(f"[ERROR] 無法匯入編輯器: {e}")
@@ -311,17 +312,17 @@ except Exception as e:
     traceback.print_exc()
     VisualScriptEditor = None
 try:
-    from lang import LANG_MAP
+    from utils.lang import LANG_MAP
 except Exception as e:
     print(f"無法匯入 LANG_MAP: {e}")
 
 # 先嘗試以常用命名匯入，若失敗則 import module 並檢查函式名稱，最後提供 fallback 實作
 try:
     # 優先嘗試原先預期的命名匯入
-    from script_io import sio_auto_save_script, sio_load_script, sio_save_script_settings
+    from utils.script_io import sio_auto_save_script, sio_load_script, sio_save_script_settings
 except Exception as _e:
     try:
-        import script_io as _sio_mod
+        from utils import script_io as _sio_mod
         sio_auto_save_script = getattr(_sio_mod, "sio_auto_save_script", getattr(_sio_mod, "auto_save_script", None))
         sio_load_script = getattr(_sio_mod, "sio_load_script", getattr(_sio_mod, "load_script", None))
         sio_save_script_settings = getattr(_sio_mod, "sio_save_script_settings", getattr(_sio_mod, "save_script_settings", None))
@@ -366,7 +367,7 @@ except Exception as _e:
 
 # 新增：匯入 about 模組
 try:
-    import about
+    from ui import about
 except Exception as e:
     print(f"無法匯入 about 模組: {e}")
 
@@ -374,7 +375,7 @@ except Exception as e:
 
 # 新增：匯入 window_selector 模組
 try:
-    from window_selector import WindowSelectorDialog
+    from ui.window_selector import WindowSelectorDialog
 except Exception as e:
     print(f"無法匯入 window_selector 模組: {e}")
     WindowSelectorDialog = None
@@ -1089,6 +1090,9 @@ class RecorderApp(tb.Window):
         self.playing = False
         self.paused = False
         self.events = []
+        self.models_loaded = False
+        self.core_recorder = None
+        self.vde = None
         
         # 群組播放佇列狀態
         self.playlist_data = []
@@ -1117,7 +1121,7 @@ class RecorderApp(tb.Window):
         
         # 如果不是管理員，顯示警告對話視窗
         if not is_admin():
-            self.after(1000, self._show_admin_warning)
+            self.after(10, self._show_admin_warning)
         
         self.language_var = tk.StringVar(self, value=lang)
         self._hotkey_handlers = {}
@@ -1503,7 +1507,7 @@ class RecorderApp(tb.Window):
                             data = json.load(f)
                             
                         # 使用 Dummy 轉換 JSON 回純文字
-                        from modules.text_script_editor import TextCommandEditor
+                        from ui.text_script_editor import TextCommandEditor
                         class DummyContext:
                             def _format_time(self, t_seconds: float) -> str:
                                 s = int(t_seconds)
@@ -1830,6 +1834,8 @@ class RecorderApp(tb.Window):
         if self.script_var.get():
             self.on_script_selected()
         # self._init_language(saved_lang)  # 此方法不存在，已移除
+        
+        self.after(500, self._start_bg_load_libraries)
         self.after(1500, self._delayed_init)
 
     def show_ocr_diagnostic(self, image_np, text):
@@ -1858,13 +1864,50 @@ class RecorderApp(tb.Window):
     def _show_admin_warning(self):
         """顯示管理員權限警告"""
         try:
-            result = messagebox.askquestion(
-                "權限通知",
-                "確保所有功能正常運作,是否以管理者權限再次開啟?",
-                icon='warning'
-            )
+            # 建立自訂對話方塊以確保顯示正確的視窗圖示
+            dialog = tk.Toplevel(self)
+            dialog.title("權限通知")
+            dialog.resizable(False, False)
+            set_window_icon(dialog)
             
-            if result == 'yes':
+            # 先佈局元件，讓系統自動計算所需大小
+            lbl = tb.Label(dialog, text="確保所有功能正常運作,是否以管理者權限再次開啟?", wraplength=350, justify="center", font=("", 11))
+            lbl.pack(pady=30, padx=30)
+            
+            btn_frame = tb.Frame(dialog)
+            btn_frame.pack(fill="x", pady=(0, 20), padx=30)
+            
+            result = [False]
+            def on_yes():
+                result[0] = True
+                dialog.destroy()
+            def on_no():
+                dialog.destroy()
+                
+            btn_yes = tb.Button(btn_frame, text="是", command=on_yes, bootstyle="primary", width=10)
+            btn_yes.pack(side="left", padx=10)
+            btn_no = tb.Button(btn_frame, text="否", command=on_no, bootstyle="secondary", width=10)
+            btn_no.pack(side="right", padx=10)
+            
+            # 強制更新 UI 以取得實際需要的大小
+            dialog.update_idletasks()
+            w = dialog.winfo_reqwidth()
+            h = dialog.winfo_reqheight()
+            
+            # 計算置中於主視窗的座標
+            x = self.winfo_x() + (self.winfo_width() - w) // 2
+            y = self.winfo_y() + (self.winfo_height() - h) // 2
+            if x < 0: x = 0
+            if y < 0: y = 0
+            dialog.geometry(f"{w}x{h}+{x}+{y}")
+            
+            dialog.transient(self)
+            dialog.grab_set()
+            
+            # 等待使用者回應
+            self.wait_window(dialog)
+            
+            if result[0]:
                 # 重新以管理員身份啟動
                 self._restart_as_admin()
         except Exception as e:
@@ -1898,11 +1941,45 @@ class RecorderApp(tb.Window):
         except Exception as e:
             self.log(f"重新啟動為管理員時發生錯誤: {e}")
 
+    def _start_bg_load_libraries(self):
+        self.log("正在載入 AI 模型 (YOLO, OCR, OpenCV)，介面可能暫時無回應，請稍候...")
+        self.update()  # 強制更新 UI
+        
+        # 避免在背景執行緒載入複雜模型 (如 PyTorch/YOLO) 導致 Tkinter mainloop 卡死 (KeyboardInterrupt)
+        _bg_load_libraries()
+        self._bg_models_loaded_flag = True
+        
+        # 載入完成後直接初始化
+        self._init_vde_and_models()
+
+    def _poll_bg_load_libraries(self):
+        # 已改為同步載入，此方法保留但不再需要輪詢
+        pass
+        
+    def _on_libraries_loaded(self):
+        # 確保回到主執行緒執行
+        self._init_vde_and_models()
+        
+    def _init_vde_and_models(self):
+        self.models_loaded = True
+        self.log("AI 模型已全數載入完成，所有功能已就緒！")
+        
+        from core.recorder import CoreRecorder
+        if not hasattr(self, 'core_recorder') or self.core_recorder is None:
+            self.core_recorder = CoreRecorder(logger=self.log, app=self)
+            
+        if not hasattr(self, 'vde') or self.vde is None:
+            try:
+                self.vde = VisualDetectionEngine(logger=self.log)
+                self.ui_state_machine = UIStateMachine(self.vde, logger=self.log)
+                self.log("[Beta] 視覺偵測引擎已初始化")
+            except Exception as _vde_err:
+                self.vde = None
+                self.log(f"[Beta] 視覺偵測引擎初始化失敗: {_vde_err}")
+
     def _delayed_init(self):
         """延遲初始化核心引擎，確保日誌視窗已就緒"""
-        # 1. 初始化 core_recorder
-        from recorder import CoreRecorder
-        self.core_recorder = CoreRecorder(logger=self.log, app=self)
+        # 1. 核心變數初始化預留
         self.ocr_float_win = None
         
         # 2. 初始化視覺高亮器 (v2.8.9)
@@ -1910,15 +1987,6 @@ class RecorderApp(tb.Window):
             self.highlighter = ScreenHighlighter(self)
         except:
             self.highlighter = None
-
-        # 3. 初始化視覺偵測引擎 (VDE)
-        try:
-            self.vde = VisualDetectionEngine(logger=self.log)
-            self.ui_state_machine = UIStateMachine(self.vde, logger=self.log)
-            self.log("[Beta] 視覺偵測引擎已初始化")
-        except Exception as _vde_err:
-            self.vde = None
-            self.log(f"[Beta] 視覺偵測引擎初始化失敗: {_vde_err}")
 
         # 4. 強化焦點獲取和快捷鍵註冊時序
         self.after(50, self._force_focus)
@@ -1940,29 +2008,40 @@ class RecorderApp(tb.Window):
             
         import threading
         def check():
-            from modules.version_manager import VersionManager
-            from modules.version_info_dialog import VersionInfoDialog
+            from utils.version_manager import VersionManager
+            from ui.version_info_dialog import VersionInfoDialog
             
             vm = VersionManager(VERSION, logger=self.log)
             update_info = vm.check_for_updates()
             
-            # 若有新版，則在主執行緒中彈出視窗
-            if update_info:
-                def show_dialog():
-                    # 避免重複開啟
-                    if hasattr(self, '_version_dialog') and getattr(self._version_dialog, 'winfo_exists', lambda: False)():
-                        self._version_dialog.lift()
-                        return
-                        
-                    def on_update_complete():
-                        self.log("更新完成，準備重啟...")
-                        self.on_closing(force=True)
-                        
-                    self._version_dialog = VersionInfoDialog(self, vm, VERSION, on_update_complete)
+            
+            # 將結果放入變數，讓主執行緒來處理
+            self._update_check_result = update_info
                 
-                self.after(0, show_dialog)
-                
+        self._update_check_result = None
         threading.Thread(target=check, daemon=True).start()
+        self._poll_update_check()
+
+    def _poll_update_check(self):
+        if hasattr(self, '_update_check_result') and self._update_check_result is not None:
+            update_info = self._update_check_result
+            if update_info and isinstance(update_info, dict):
+                from ui.version_info_dialog import VersionInfoDialog
+                from utils.version_manager import VersionManager
+                vm = VersionManager(VERSION, logger=self.log)
+                
+                # 避免重複開啟
+                if hasattr(self, '_version_dialog') and getattr(self._version_dialog, 'winfo_exists', lambda: False)():
+                    self._version_dialog.lift()
+                    return
+                    
+                def on_update_complete():
+                    self.log("更新完成，準備重啟...")
+                    self.on_closing(force=True)
+                    
+                self._version_dialog = VersionInfoDialog(self, vm, VERSION, on_update_complete)
+        elif hasattr(self, '_update_check_result'):
+            self.after(500, self._poll_update_check)
 
 
     def _force_focus(self):
@@ -2482,7 +2561,7 @@ class RecorderApp(tb.Window):
     def show_version_info(self):
         """顯示版本資訊對話視窗"""
         try:
-            from version_manager import VersionManager
+            from utils.version_manager import VersionManager
             from version_info_dialog import VersionInfoDialog
             
             # 創建版本管理器
@@ -2715,6 +2794,9 @@ class RecorderApp(tb.Window):
             return
         if getattr(self, 'paused', False):
             # 暫停時不扣時間，繼續輪詢
+            self.countdown_label_h.config(text="PA", foreground="orange")
+            self.countdown_label_m.config(text="US", foreground="orange")
+            self.countdown_label_s.config(text="ED", foreground="orange")
             self._playlist_delay_job = self.after(100, self._pl_poll_delay)
             return
             
@@ -3038,6 +3120,12 @@ class RecorderApp(tb.Window):
             state = "暫停" if self.paused else "繼續"
             mode = "錄製" if self.recording else "執行"
             self.log(f"[{format_time(time.time())}] {mode}{state}。")
+            
+            # 更新暫停按鈕的視覺狀態
+            if self.paused:
+                self.btn_pause.config(text=f"▶ 繼續 ({self.hotkey_map['pause']})", bootstyle=WARNING)
+            else:
+                self.btn_pause.config(text=f"⏸ 暫停 ({self.hotkey_map['pause']})", bootstyle=INFO)
             
             #  2.5 風格：暫停時停止 keyboard 錄製，暫存事件
             if self.paused and self.recording:
@@ -3519,7 +3607,7 @@ class RecorderApp(tb.Window):
                 with open(actual_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 self.update_idletasks() # Force UI refresh
-                from modules.text_script_editor import TextCommandEditor
+                from ui.text_script_editor import TextCommandEditor
                 class DummyContext:
                     def _format_time(self, t_seconds: float) -> str:
                         s = int(t_seconds)
@@ -3587,6 +3675,7 @@ class RecorderApp(tb.Window):
             self.recording = False
             stopped = True
             self.log(f"[{format_time(time.time())}] 停止錄製。")
+            self.btn_pause.config(text=f"暫停/繼續 ({self.hotkey_map['pause']})", bootstyle=INFO)
             
             # 停止 core_recorder
             if hasattr(self, 'core_recorder'):
@@ -3613,6 +3702,7 @@ class RecorderApp(tb.Window):
         
         if self.playing:
             self.playing = False
+            self.btn_pause.config(text=f"暫停/繼續 ({self.hotkey_map['pause']})", bootstyle=INFO)
             # 取消可能的延遲任務
             if getattr(self, '_playlist_delay_job', None):
                 self.after_cancel(self._playlist_delay_job)
@@ -6617,21 +6707,8 @@ class RecorderApp(tb.Window):
             if loaded_count > 0:
                 self.log(f" [排程系統] 已成功載入 {loaded_count} 個腳本排程")
             else:
-                print("ℹ️ [排程系統] 未發現任何設定排程的腳本")
+                self.log(" [排程系統] 未發現任何設定排程的腳本")
         except Exception as e:
-            # 儲存到設定記憶體
-            self._last_sync_repeats = str(repeats) if var_sync_repeats.get() else getattr(self, '_last_sync_repeats', "1")
-            self._last_sync_interval = str(interval) if var_sync_interval.get() else getattr(self, '_last_sync_interval', "0")
-            self._last_sync_delay = str(delay_after) if var_sync_delay.get() else getattr(self, '_last_sync_delay', "0")
-
-            for item in self.playlist_data:
-                if var_sync_repeats.get():
-                    item['repeats'] = repeats
-                if var_sync_interval.get():
-                    item['repeat_interval'] = interval
-                if var_sync_delay.get():
-                    item['delay_after'] = delay_after
-                    item['delay'] = delay_after
             self.log(f"載入排程失敗: {e}")
     
     def _execute_scheduled_script(self, script_file):
